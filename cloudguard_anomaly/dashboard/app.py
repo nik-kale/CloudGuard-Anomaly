@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, render_template, jsonify, request, send_from_directory, session, redirect, url_for
 from flask_socketio import SocketIO, emit
 
 try:
@@ -34,6 +34,9 @@ except ImportError:
 from cloudguard_anomaly.storage.database import DatabaseStorage
 from cloudguard_anomaly.core.models import Severity
 from cloudguard_anomaly.config import get_config
+from cloudguard_anomaly.auth import get_auth_manager
+from cloudguard_anomaly.auth.decorators import login_required, permission_required, admin_required, optional_auth
+from cloudguard_anomaly.auth.models import Permission
 
 logger = logging.getLogger(__name__)
 
@@ -165,13 +168,136 @@ def metrics():
 
 
 # =============================================================================
+# AUTHENTICATION ENDPOINTS
+# =============================================================================
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """
+    User login endpoint.
+
+    GET: Show login page
+    POST: Authenticate user
+    """
+    if request.method == 'GET':
+        return render_template('login.html')
+
+    # POST - authenticate
+    data = request.get_json() or request.form
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        if request.is_json:
+            return jsonify({'error': 'Username and password required'}), 400
+        return render_template('login.html', error='Username and password required')
+
+    auth_manager = get_auth_manager(db)
+    user = auth_manager.authenticate(username, password)
+
+    if not user:
+        if request.is_json:
+            return jsonify({'error': 'Invalid credentials'}), 401
+        return render_template('login.html', error='Invalid username or password')
+
+    # Create session
+    user_session = auth_manager.create_session(user.id)
+    session['token'] = user_session.token
+    session['user_id'] = user.id
+    session['username'] = user.username
+
+    logger.info(f"User logged in: {user.username}")
+
+    if request.is_json:
+        return jsonify({
+            'success': True,
+            'token': user_session.token,
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'is_admin': user.is_admin
+            }
+        })
+
+    return redirect(url_for('index'))
+
+
+@app.route('/logout', methods=['POST', 'GET'])
+def logout():
+    """User logout endpoint."""
+    token = session.get('token')
+
+    if token:
+        auth_manager = get_auth_manager(db)
+        auth_manager.logout(token)
+
+    session.clear()
+
+    if request.is_json:
+        return jsonify({'success': True})
+
+    return redirect(url_for('login'))
+
+
+@app.route('/api/auth/me')
+@login_required
+def get_current_user():
+    """Get current authenticated user info."""
+    user = getattr(request, 'current_user', None)
+
+    if not user:
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    return jsonify({
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'is_admin': user.is_admin,
+        'roles': [role.name for role in user.roles],
+        'api_key': user.api_key if user.api_key else None
+    })
+
+
+@app.route('/api/auth/generate-api-key', methods=['POST'])
+@login_required
+def generate_api_key():
+    """Generate new API key for current user."""
+    user = getattr(request, 'current_user', None)
+
+    if not user:
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    api_key = user.generate_api_key()
+
+    # Save to database
+    session_obj = db.get_session()
+    try:
+        session_obj.merge(user)
+        session_obj.commit()
+    finally:
+        session_obj.close()
+
+    return jsonify({
+        'success': True,
+        'api_key': api_key
+    })
+
+
+# =============================================================================
 # MAIN ROUTES
 # =============================================================================
 
 @app.route('/')
+@optional_auth
 def index():
     """Dashboard home page."""
-    return render_template('dashboard.html')
+    user = getattr(request, 'current_user', None)
+
+    if config.enable_auth and not user:
+        return redirect(url_for('login'))
+
+    return render_template('dashboard.html', user=user)
 
 
 @app.route('/api/overview')
