@@ -74,6 +74,14 @@ class Config:
         default_factory=lambda: int(os.getenv("SESSION_TIMEOUT", "3600"))  # 1 hour
     )
 
+    # Logging configuration
+    log_level: str = field(
+        default_factory=lambda: os.getenv("LOG_LEVEL", "INFO")
+    )
+    log_format: str = field(
+        default_factory=lambda: os.getenv("LOG_FORMAT", "json")
+    )
+
     # Notifications
     slack_webhook_url: Optional[str] = field(
         default_factory=lambda: os.getenv("SLACK_WEBHOOK_URL")

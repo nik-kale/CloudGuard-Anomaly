@@ -1,0 +1,36 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cloudguard-anomaly
+  namespace: cloudguard
+  labels:
+    app: cloudguard-anomaly
+rules:
+# Allow reading ConfigMaps (for dynamic configuration)
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+# Allow reading Secrets (for credential rotation)
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch"]
+# Allow reading pods (for health checks)
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cloudguard-anomaly
+  namespace: cloudguard
+  labels:
+    app: cloudguard-anomaly
+subjects:
+- kind: ServiceAccount
+  name: cloudguard-anomaly
+  namespace: cloudguard
+roleRef:
+  kind: Role
+  name: cloudguard-anomaly
+  apiGroup: rbac.authorization.k8s.io

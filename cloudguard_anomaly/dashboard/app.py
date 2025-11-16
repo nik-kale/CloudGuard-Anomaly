@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-from flask import Flask, render_template, jsonify, request, send_from_directory, session, redirect, url_for
+from flask import Flask, render_template, jsonify, request, send_from_directory, session, redirect, url_for, Response
 from flask_socketio import SocketIO, emit
 
 try:
@@ -54,6 +54,9 @@ from cloudguard_anomaly.api.validation import (
     safe_error_message,
     get_pagination_params,
 )
+from cloudguard_anomaly.middleware import setup_middleware
+from cloudguard_anomaly.observability.logging import setup_logging
+from cloudguard_anomaly.observability.metrics import get_metrics, get_metrics_content_type
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +66,10 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 # Load configuration
 config = get_config()
 app.config['SECRET_KEY'] = config.dashboard_secret_key or 'dev-key-change-in-production'
+
+# Initialize observability
+setup_logging(log_level=config.log_level, log_format=getattr(config, 'log_format', 'json'))
+setup_middleware(app)
 
 # Initialize extensions
 # WebSocket CORS - use configured origins or disable in production
@@ -129,16 +136,57 @@ def init_dashboard(database_url: str):
 @app.route('/health')
 def health():
     """
-    Health check endpoint.
+    Health check endpoint for Kubernetes probes.
 
-    Returns 200 if service is running.
+    Returns:
+        JSON response with health status
     """
-    return jsonify({
-        'status': 'healthy',
-        'service': 'cloudguard-anomaly-dashboard',
-        'timestamp': datetime.utcnow().isoformat(),
-        'version': '3.0.0'
-    })
+    try:
+        # Check database connection
+        if db:
+            session_obj = db.get_session()
+            try:
+                from sqlalchemy import text
+                session_obj.execute(text('SELECT 1'))
+                db_status = 'healthy'
+            except Exception as e:
+                db_status = f'unhealthy: {str(e)}'
+            finally:
+                session_obj.close()
+        else:
+            db_status = 'not initialized'
+
+        # Overall health
+        is_healthy = db_status == 'healthy'
+
+        return jsonify({
+            'status': 'healthy' if is_healthy else 'unhealthy',
+            'components': {
+                'database': db_status,
+                'application': 'healthy'
+            },
+            'version': '3.0',
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200 if is_healthy else 503
+
+    except Exception as e:
+        logger.error(f"Health check failed: {e}", exc_info=True)
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 503
+
+
+@app.route('/metrics')
+def metrics_endpoint():
+    """
+    Prometheus metrics endpoint.
+
+    Returns:
+        Metrics in Prometheus exposition format
+    """
+    return Response(get_metrics(), mimetype=get_metrics_content_type())
 
 
 @app.route('/ready')
