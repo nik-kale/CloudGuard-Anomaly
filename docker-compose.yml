@@ -1,0 +1,188 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    container_name: cloudguard-postgres
+    environment:
+      POSTGRES_DB: cloudguard
+      POSTGRES_USER: cloudguard
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudguard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cloudguard-network
+
+  # Redis for caching and rate limiting
+  redis:
+    image: redis:7-alpine
+    container_name: cloudguard-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - cloudguard-network
+
+  # CloudGuard-Anomaly application
+  cloudguard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cloudguard-app
+    ports:
+      - "5000:5000"
+    environment:
+      # Database
+      DATABASE_URL: postgresql://cloudguard:${DB_PASSWORD:-changeme123}@postgres:5432/cloudguard
+      DATABASE_POOL_SIZE: 20
+      DATABASE_MAX_OVERFLOW: 40
+
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
+      CACHE_BACKEND: redis
+      RATE_LIMIT_ENABLED: "true"
+
+      # Authentication
+      ENABLE_AUTH: "true"
+      DASHBOARD_SECRET_KEY: ${DASHBOARD_SECRET_KEY:-dev-secret-change-in-production}
+      SESSION_TIMEOUT: 86400  # 24 hours
+
+      # Cloud Provider Credentials
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
+      AZURE_SUBSCRIPTION_ID: ${AZURE_SUBSCRIPTION_ID}
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+
+      # LLM API Keys
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LLM_PROVIDER: ${LLM_PROVIDER:-auto}
+
+      # Scanning
+      SCAN_PARALLEL_WORKERS: 10
+      ENABLE_INCREMENTAL_SCAN: "true"
+
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: json
+
+      # Monitoring
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+
+      # Dashboard
+      DASHBOARD_HOST: 0.0.0.0
+      DASHBOARD_PORT: 5000
+      DASHBOARD_DEBUG: "false"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    volumes:
+      - ./reports:/app/reports
+      - ./policies:/app/policies
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    networks:
+      - cloudguard-network
+
+  # Monitoring daemon (optional)
+  cloudguard-daemon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cloudguard-daemon
+    command: ["daemon"]
+    environment:
+      DATABASE_URL: postgresql://cloudguard:${DB_PASSWORD:-changeme123}@postgres:5432/cloudguard
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      MONITORING_INTERVAL: 3600  # 1 hour
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+    depends_on:
+      - postgres
+      - redis
+      - cloudguard
+
+    restart: unless-stopped
+    networks:
+      - cloudguard-network
+    profiles:
+      - monitoring  # Only start with: docker-compose --profile monitoring up
+
+  # Prometheus (optional - for metrics)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: cloudguard-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    networks:
+      - cloudguard-network
+    profiles:
+      - monitoring
+
+  # Grafana (optional - for dashboards)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: cloudguard-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - cloudguard-network
+    profiles:
+      - monitoring
+
+networks:
+  cloudguard-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
