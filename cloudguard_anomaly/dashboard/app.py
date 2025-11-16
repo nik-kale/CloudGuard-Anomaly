@@ -31,6 +31,12 @@ try:
 except ImportError:
     CORS_AVAILABLE = False
 
+try:
+    from flask_wtf.csrf import CSRFProtect
+    CSRF_AVAILABLE = True
+except ImportError:
+    CSRF_AVAILABLE = False
+
 from cloudguard_anomaly.storage.database import DatabaseStorage
 from cloudguard_anomaly.core.models import Severity
 from cloudguard_anomaly.config import get_config
@@ -67,6 +73,15 @@ socketio = SocketIO(app, cors_allowed_origins=allowed_origins or ["http://localh
 if CORS_AVAILABLE:
     cors_origins_list = config.cors_origins.split(',') if config.cors_origins else ["http://localhost:5000"]
     CORS(app, resources={r"/api/*": {"origins": cors_origins_list}})
+
+# CSRF protection
+csrf: Optional[CSRFProtect] = None
+if CSRF_AVAILABLE:
+    csrf = CSRFProtect(app)
+    logger.info("CSRF protection enabled")
+
+    # Exempt API endpoints from CSRF (they use token-based auth)
+    csrf.exempt('/api/*')
 
 # Rate limiting
 limiter: Optional[Limiter] = None

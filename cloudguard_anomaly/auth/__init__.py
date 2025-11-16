@@ -10,6 +10,7 @@ from typing import Optional, List
 from sqlalchemy.orm import Session as DBSession
 
 from cloudguard_anomaly.auth.models import User, Role, Session, Permission, DEFAULT_ROLES
+from cloudguard_anomaly.auth.password import validate_password_strength, PasswordValidationError
 from cloudguard_anomaly.storage.database import DatabaseStorage
 
 logger = logging.getLogger(__name__)
@@ -55,10 +56,17 @@ class AuthenticationManager:
 
         Raises:
             ValueError: If user already exists
+            PasswordValidationError: If password doesn't meet complexity requirements
         """
         session = self.database.get_session()
 
         try:
+            # Validate password strength
+            try:
+                validate_password_strength(password, username=username)
+            except PasswordValidationError as e:
+                raise ValueError(f"Password validation failed: {e}")
+
             # Check if user exists
             existing = session.query(User).filter(
                 (User.username == username) | (User.email == email)

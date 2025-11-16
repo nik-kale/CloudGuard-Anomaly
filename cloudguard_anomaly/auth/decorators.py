@@ -34,11 +34,13 @@ def login_required(f: Callable) -> Callable:
         # Check API key in Authorization header
         auth_header = request.headers.get('Authorization')
         if auth_header and auth_header.startswith('Bearer '):
-            api_key = auth_header.split(' ')[1]
-            user = auth_manager.authenticate_api_key(api_key)
-            if user:
-                request.current_user = user
-                return f(*args, **kwargs)
+            parts = auth_header.split(' ', 1)  # Split only on first space
+            if len(parts) == 2 and parts[1].strip():  # Validate token exists and not empty
+                api_key = parts[1].strip()
+                user = auth_manager.authenticate_api_key(api_key)
+                if user:
+                    request.current_user = user
+                    return f(*args, **kwargs)
 
         # Check API key in X-API-Key header
         api_key = request.headers.get('X-API-Key')
@@ -175,11 +177,13 @@ def optional_auth(f: Callable) -> Callable:
         # Try API key
         auth_header = request.headers.get('Authorization')
         if auth_header and auth_header.startswith('Bearer '):
-            api_key = auth_header.split(' ')[1]
-            user = auth_manager.authenticate_api_key(api_key)
-            if user:
-                request.current_user = user
-                return f(*args, **kwargs)
+            parts = auth_header.split(' ', 1)  # Split only on first space
+            if len(parts) == 2 and parts[1].strip():  # Validate token exists and not empty
+                api_key = parts[1].strip()
+                user = auth_manager.authenticate_api_key(api_key)
+                if user:
+                    request.current_user = user
+                    return f(*args, **kwargs)
 
         # No authentication - continue anyway
         request.current_user = None
