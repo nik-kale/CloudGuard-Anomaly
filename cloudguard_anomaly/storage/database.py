@@ -134,6 +134,30 @@ class PolicyRecord(Base):
     )
 
 
+class AuditLog(Base):
+    """Database model for audit logging."""
+
+    __tablename__ = "audit_logs"
+
+    id = Column(String, primary_key=True)
+    timestamp = Column(DateTime, index=True, nullable=False, default=datetime.utcnow)
+    user_id = Column(String, index=True)  # User who performed the action
+    username = Column(String)  # Username for quick reference
+    action = Column(String, index=True, nullable=False)  # create, update, delete, login, logout, etc.
+    resource_type = Column(String, index=True)  # user, role, policy, scan, finding, etc.
+    resource_id = Column(String, index=True)  # ID of affected resource
+    status = Column(String, index=True)  # success, failure, error
+    ip_address = Column(String)  # Client IP address
+    user_agent = Column(String)  # Client user agent
+    details = Column(JSON)  # Additional context (changes made, error details, etc.)
+
+    __table_args__ = (
+        Index("idx_user_timestamp", "user_id", "timestamp"),
+        Index("idx_action_status", "action", "status"),
+        Index("idx_resource", "resource_type", "resource_id"),
+    )
+
+
 class DatabaseStorage:
     """Persistent storage for CloudGuard-Anomaly data."""
 
@@ -753,6 +777,169 @@ class DatabaseStorage:
         except Exception as e:
             session.rollback()
             logger.error(f"Failed to delete policy: {e}")
+            raise
+        finally:
+            session.close()
+
+    # Audit logging operations
+
+    def log_audit_event(
+        self,
+        action: str,
+        resource_type: str,
+        user_id: Optional[str] = None,
+        username: Optional[str] = None,
+        resource_id: Optional[str] = None,
+        status: str = "success",
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None
+    ) -> AuditLog:
+        """
+        Log an audit event.
+
+        Args:
+            action: Action performed (create, update, delete, login, logout, etc.)
+            resource_type: Type of resource (user, role, policy, scan, finding, etc.)
+            user_id: User ID who performed the action
+            username: Username for quick reference
+            resource_id: ID of affected resource
+            status: Status (success, failure, error)
+            ip_address: Client IP address
+            user_agent: Client user agent
+            details: Additional context as dict
+
+        Returns:
+            Created audit log record
+        """
+        session = self.get_session()
+        try:
+            audit_log = AuditLog(
+                id=str(uuid.uuid4()),
+                timestamp=datetime.utcnow(),
+                user_id=user_id,
+                username=username,
+                action=action,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                status=status,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                details=details or {}
+            )
+
+            session.add(audit_log)
+            session.commit()
+
+            logger.debug(
+                f"Audit log: {action} {resource_type} "
+                f"by {username or user_id or 'system'} - {status}"
+            )
+
+            return audit_log
+
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to create audit log: {e}")
+            # Don't raise - audit logging failure shouldn't break the application
+            return None
+        finally:
+            session.close()
+
+    def get_audit_logs(
+        self,
+        user_id: Optional[str] = None,
+        action: Optional[str] = None,
+        resource_type: Optional[str] = None,
+        resource_id: Optional[str] = None,
+        status: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[AuditLog]:
+        """
+        Query audit logs with filtering.
+
+        Args:
+            user_id: Filter by user ID
+            action: Filter by action
+            resource_type: Filter by resource type
+            resource_id: Filter by resource ID
+            status: Filter by status
+            start_time: Filter logs after this time
+            end_time: Filter logs before this time
+            limit: Maximum number of results
+            offset: Number of results to skip
+
+        Returns:
+            List of audit log records
+        """
+        session = self.get_session()
+        try:
+            query = session.query(AuditLog)
+
+            if user_id:
+                query = query.filter(AuditLog.user_id == user_id)
+            if action:
+                query = query.filter(AuditLog.action == action)
+            if resource_type:
+                query = query.filter(AuditLog.resource_type == resource_type)
+            if resource_id:
+                query = query.filter(AuditLog.resource_id == resource_id)
+            if status:
+                query = query.filter(AuditLog.status == status)
+            if start_time:
+                query = query.filter(AuditLog.timestamp >= start_time)
+            if end_time:
+                query = query.filter(AuditLog.timestamp <= end_time)
+
+            return query.order_by(AuditLog.timestamp.desc()).limit(limit).offset(offset).all()
+
+        finally:
+            session.close()
+
+    def get_user_activity(self, user_id: str, days: int = 30) -> List[AuditLog]:
+        """
+        Get recent activity for a specific user.
+
+        Args:
+            user_id: User ID
+            days: Number of days to look back
+
+        Returns:
+            List of audit log records for the user
+        """
+        start_time = datetime.utcnow() - timedelta(days=days)
+        return self.get_audit_logs(
+            user_id=user_id,
+            start_time=start_time,
+            limit=1000
+        )
+
+    def cleanup_old_audit_logs(self, days: int = 365):
+        """
+        Clean up audit logs older than specified days.
+
+        Args:
+            days: Delete logs older than this many days
+        """
+        session = self.get_session()
+        try:
+            cutoff = datetime.utcnow() - timedelta(days=days)
+
+            deleted_count = (
+                session.query(AuditLog)
+                .filter(AuditLog.timestamp < cutoff)
+                .delete()
+            )
+
+            session.commit()
+            logger.info(f"Cleaned up {deleted_count} old audit logs")
+
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Audit log cleanup failed: {e}")
             raise
         finally:
             session.close()
