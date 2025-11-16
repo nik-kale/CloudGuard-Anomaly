@@ -359,6 +359,44 @@ class DatabaseStorage:
         finally:
             session.close()
 
+    def get_compliance_results(
+        self,
+        framework: Optional[str] = None,
+        environment_name: Optional[str] = None,
+        days: int = 30,
+        limit: int = 50,
+    ) -> List[ComplianceRecord]:
+        """
+        Query compliance results from database.
+
+        Args:
+            framework: Filter by compliance framework (e.g., 'soc2', 'pci_dss')
+            environment_name: Filter by environment name
+            days: Look back this many days
+            limit: Maximum number of results
+
+        Returns:
+            List of ComplianceRecord objects
+        """
+        session = self.get_session()
+        try:
+            query = session.query(ComplianceRecord)
+
+            if framework:
+                query = query.filter(ComplianceRecord.framework == framework)
+
+            if environment_name:
+                query = query.filter(ComplianceRecord.environment_name == environment_name)
+
+            if days:
+                since = datetime.utcnow() - timedelta(days=days)
+                query = query.filter(ComplianceRecord.timestamp >= since)
+
+            return query.order_by(ComplianceRecord.timestamp.desc()).limit(limit).all()
+
+        finally:
+            session.close()
+
     def get_statistics(self, environment_name: str, days: int = 30) -> Dict[str, Any]:
         """
         Get statistics for an environment.

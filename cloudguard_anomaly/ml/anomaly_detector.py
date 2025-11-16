@@ -269,7 +269,7 @@ class MLAnomalyDetector:
         Args:
             path: File path to load model from
         """
-        data = joblib.dump(path)
+        data = joblib.load(path)
 
         self.model = data["model"]
         self.scaler = data["scaler"]

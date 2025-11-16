@@ -79,7 +79,7 @@ def get_overview():
             'environments': len(environments),
             'avg_risk_score': round(avg_risk_score, 1),
             'severity_counts': severity_counts,
-            'last_scan': recent_scans[0].created_at.isoformat() if recent_scans else None
+            'last_scan': recent_scans[0].timestamp.isoformat() if recent_scans else None
         })
     except Exception as e:
         logger.error(f"Error getting overview: {e}")
@@ -105,11 +105,10 @@ def get_scans():
                 'id': scan.id,
                 'environment': scan.environment_name,
                 'provider': scan.provider,
-                'timestamp': scan.created_at.isoformat(),
+                'timestamp': scan.timestamp.isoformat(),
                 'findings_count': len(scan.data.get('findings', [])),
                 'risk_score': summary.get('risk_score', 0),
-                'severity_counts': summary.get('severity_counts', {}),
-                'status': scan.status
+                'severity_counts': summary.get('severity_counts', {})
             })
 
         return jsonify({'scans': scan_list})
@@ -133,12 +132,11 @@ def get_scan_details(scan_id: str):
             'id': scan.id,
             'environment': scan.environment_name,
             'provider': scan.provider,
-            'timestamp': scan.created_at.isoformat(),
+            'timestamp': scan.timestamp.isoformat(),
             'findings': scan.data.get('findings', []),
             'anomalies': scan.data.get('anomalies', []),
             'summary': scan.data.get('summary', {}),
-            'narratives': scan.data.get('narratives', {}),
-            'status': scan.status
+            'narratives': scan.data.get('narratives', {})
         })
     except Exception as e:
         logger.error(f"Error getting scan details: {e}")
@@ -187,7 +185,7 @@ def get_findings():
 
         findings = db.get_findings(
             severity=severity,
-            status=status,
+            unresolved_only=(status == 'open'),
             limit=limit
         )
 
@@ -201,8 +199,8 @@ def get_findings():
                 'title': finding.title,
                 'description': finding.description,
                 'resource_id': finding.resource_id,
-                'status': finding.status,
-                'created_at': finding.created_at.isoformat()
+                'status': 'open' if not finding.resolved else 'resolved',
+                'created_at': finding.timestamp.isoformat()
             })
 
         return jsonify({'findings': finding_list})
@@ -247,10 +245,10 @@ def get_compliance():
                 'id': record.id,
                 'scan_id': record.scan_id,
                 'framework': record.framework,
-                'score': record.score,
-                'passed': record.passed,
-                'failed': record.failed,
-                'created_at': record.created_at.isoformat()
+                'score': record.compliance_score,
+                'passed': record.passed_controls,
+                'failed': record.failed_controls,
+                'created_at': record.timestamp.isoformat()
             })
 
         return jsonify({'compliance': compliance_list})
