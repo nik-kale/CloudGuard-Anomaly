@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudGuard-Anomaly Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            padding: 1.5rem 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border-bottom: 2px solid #3b82f6;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            color: #60a5fa;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .header p {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #334155;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .metric-label {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+
+        .metric-change {
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        .severity-critical { color: #ef4444; }
+        .severity-high { color: #f97316; }
+        .severity-medium { color: #fbbf24; }
+        .severity-low { color: #3b82f6; }
+
+        .chart-container {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #334155;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .chart-title {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #e2e8f0;
+        }
+
+        .findings-table {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #334155;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #334155;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: #e2e8f0;
+            border-bottom: 2px solid #3b82f6;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid #334155;
+        }
+
+        tr:hover {
+            background: #2d3748;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-critical {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid #ef4444;
+        }
+
+        .badge-high {
+            background: rgba(249, 115, 22, 0.2);
+            color: #f97316;
+            border: 1px solid #f97316;
+        }
+
+        .badge-medium {
+            background: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
+            border: 1px solid #fbbf24;
+        }
+
+        .badge-low {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+            border: 1px solid #3b82f6;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #94a3b8;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-online {
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+        }
+
+        .refresh-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>
+            <span class="status-indicator status-online"></span>
+            CloudGuard-Anomaly Dashboard
+        </h1>
+        <p>Real-time Cloud Security Monitoring & Analysis</p>
+    </div>
+
+    <div class="container">
+        <div class="metrics-grid" id="metricsGrid">
+            <div class="metric-card">
+                <div class="metric-label">Total Scans</div>
+                <div class="metric-value" id="totalScans">-</div>
+                <div class="metric-change">Last 30 days</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Active Findings</div>
+                <div class="metric-value severity-high" id="totalFindings">-</div>
+                <div class="metric-change">Open security issues</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Environments</div>
+                <div class="metric-value" id="totalEnvironments">-</div>
+                <div class="metric-change">Monitored resources</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Risk Score</div>
+                <div class="metric-value severity-critical" id="avgRiskScore">-</div>
+                <div class="metric-change">Average across environments</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2 class="chart-title">Severity Distribution</h2>
+                <button class="refresh-btn" onclick="loadDashboardData()">Refresh</button>
+            </div>
+            <canvas id="severityChart" height="80"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h2 class="chart-title">Risk Trend (30 Days)</h2>
+            <canvas id="trendChart" height="80"></canvas>
+        </div>
+
+        <div class="findings-table">
+            <h2 class="chart-title">Recent Findings</h2>
+            <table id="findingsTable">
+                <thead>
+                    <tr>
+                        <th>Severity</th>
+                        <th>Title</th>
+                        <th>Resource</th>
+                        <th>Environment</th>
+                        <th>Detected</th>
+                    </tr>
+                </thead>
+                <tbody id="findingsBody">
+                    <tr>
+                        <td colspan="5" class="loading">Loading findings...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let severityChart = null;
+        let trendChart = null;
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('Connected to dashboard');
+            socket.emit('subscribe_scans', {});
+        });
+
+        socket.on('scan_update', (data) => {
+            console.log('Scan update received:', data);
+            loadDashboardData();
+        });
+
+        async function loadDashboardData() {
+            try {
+                // Load overview
+                const overviewResponse = await fetch('/api/overview');
+                const overview = await overviewResponse.json();
+
+                document.getElementById('totalScans').textContent = overview.total_scans || 0;
+                document.getElementById('totalFindings').textContent = overview.total_findings || 0;
+                document.getElementById('totalEnvironments').textContent = overview.environments || 0;
+                document.getElementById('avgRiskScore').textContent = overview.avg_risk_score || 0;
+
+                // Update severity chart
+                updateSeverityChart(overview.severity_counts);
+
+                // Load trends
+                const trendsResponse = await fetch('/api/trends?days=30');
+                const trendsData = await trendsResponse.json();
+                updateTrendChart(trendsData.trends);
+
+                // Load findings
+                const findingsResponse = await fetch('/api/findings?limit=20');
+                const findingsData = await findingsResponse.json();
+                updateFindingsTable(findingsData.findings);
+
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+            }
+        }
+
+        function updateSeverityChart(severityCounts) {
+            const ctx = document.getElementById('severityChart').getContext('2d');
+
+            if (severityChart) {
+                severityChart.destroy();
+            }
+
+            severityChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Critical', 'High', 'Medium', 'Low', 'Info'],
+                    datasets: [{
+                        data: [
+                            severityCounts.critical || 0,
+                            severityCounts.high || 0,
+                            severityCounts.medium || 0,
+                            severityCounts.low || 0,
+                            severityCounts.info || 0
+                        ],
+                        backgroundColor: [
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(249, 115, 22, 0.8)',
+                            'rgba(251, 191, 36, 0.8)',
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(148, 163, 184, 0.8)'
+                        ],
+                        borderColor: '#1e293b',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: '#e2e8f0',
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateTrendChart(trends) {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+
+            if (trendChart) {
+                trendChart.destroy();
+            }
+
+            const dates = trends.map(t => new Date(t.date).toLocaleDateString());
+            const riskScores = trends.map(t => t.risk_score);
+            const findingCounts = trends.map(t => t.findings_count);
+
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Risk Score',
+                        data: riskScores,
+                        borderColor: 'rgba(239, 68, 68, 0.8)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.4,
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Findings Count',
+                        data: findingCounts,
+                        borderColor: 'rgba(59, 130, 246, 0.8)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e2e8f0'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#334155' }
+                        },
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#334155' },
+                            title: {
+                                display: true,
+                                text: 'Risk Score',
+                                color: '#e2e8f0'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            ticks: { color: '#94a3b8' },
+                            grid: { display: false },
+                            title: {
+                                display: true,
+                                text: 'Findings',
+                                color: '#e2e8f0'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateFindingsTable(findings) {
+            const tbody = document.getElementById('findingsBody');
+            tbody.innerHTML = '';
+
+            if (findings.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="loading">No findings found</td></tr>';
+                return;
+            }
+
+            findings.forEach(finding => {
+                const row = document.createElement('tr');
+                const severityClass = `badge-${finding.severity}`;
+                const timeAgo = getTimeAgo(new Date(finding.created_at));
+
+                row.innerHTML = `
+                    <td><span class="badge ${severityClass}">${finding.severity}</span></td>
+                    <td>${finding.title}</td>
+                    <td>${finding.resource_id || 'N/A'}</td>
+                    <td>${finding.scan_id.split('-')[0]}...</td>
+                    <td>${timeAgo}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function getTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            const intervals = {
+                year: 31536000,
+                month: 2592000,
+                week: 604800,
+                day: 86400,
+                hour: 3600,
+                minute: 60
+            };
+
+            for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+                const interval = Math.floor(seconds / secondsInUnit);
+                if (interval >= 1) {
+                    return `${interval} ${unit}${interval > 1 ? 's' : ''} ago`;
+                }
+            }
+            return 'Just now';
+        }
+
+        // Initial load
+        loadDashboardData();
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadDashboardData, 30000);
+    </script>
+</body>
+</html>

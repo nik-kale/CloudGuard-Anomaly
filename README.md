@@ -7,11 +7,36 @@ CloudGuard-Anomaly is an agentic AI-powered framework for analyzing cloud securi
 
 ## Features
 
+### Core Security Capabilities
 - **Multi-Cloud Support**: Analyze AWS, Azure, and GCP environments with provider-agnostic abstractions
 - **Policy-as-Code Engine**: Extensible rule-based security checks based on industry standards (CIS, NIST, PCI-DSS)
 - **Drift Detection**: Compare baseline configurations against current state to identify unauthorized changes
-- **Agentic Explanations**: AI-powered agents provide human-readable explanations and remediation guidance
+- **Compliance Frameworks**: Evaluate against SOC2, PCI-DSS, HIPAA, ISO 27001, and more
+- **Threat Intelligence**: Enrich findings with threat indicators and contextual risk information
 - **Comprehensive Reporting**: Generate JSON, Markdown, and HTML reports for different audiences
+
+### Live Cloud Integration
+- **Real-Time Scanning**: Discover and analyze live cloud resources using native SDKs
+- **Multi-Provider Discovery**: AWS (boto3), Azure (Azure SDK), GCP (Google Cloud SDK)
+- **Historical Tracking**: Database backend for trend analysis and compliance reporting
+- **Web Dashboard**: Real-time monitoring with interactive visualizations
+
+### AI & Machine Learning
+- **LLM Integration**: Claude, OpenAI, and local LLM support for intelligent analysis
+- **Agentic Explanations**: AI-powered agents provide human-readable explanations and remediation guidance
+- **ML Anomaly Detection**: Isolation Forest-based behavioral anomaly detection
+- **Automated Insights**: Natural language summaries and risk assessments
+
+### Automation & Integration
+- **Auto-Remediation**: Safe, dry-run enabled automatic fixing of common issues
+- **CI/CD Integration**: Templates for GitLab CI, GitHub Actions, and Jenkins
+- **Webhook Notifications**: Slack and custom webhook support
+- **API & CLI**: Comprehensive command-line interface and Python API
+
+### Enterprise Features
+- **RBAC & Multi-Tenancy**: Role-based access control and organization management
+- **Cost Analysis**: Estimate cloud costs and identify cost optimization opportunities
+- **Audit Logging**: Complete audit trail for compliance and forensics
 - **Synthetic Environments**: Test and demonstrate with built-in synthetic cloud scenarios
 
 ## Architecture
@@ -89,19 +114,44 @@ pip install -e ".[dev]"
 
 ## Quick Start
 
-### 1. Generate a Synthetic Environment
+### 1. Scan Synthetic Environment (No Cloud Account Required)
 
 ```bash
+# Generate a test environment
 cloudguard-anomaly generate --name my-test-env --provider aws --with-issues
+
+# Scan it
+cloudguard-anomaly scan --env examples/environments/my-test-env
 ```
 
-### 2. Run a Security Scan
+### 2. Scan Live Cloud Environment (Requires Cloud Credentials)
 
 ```bash
-cloudguard-anomaly scan --env examples/environments/env_aws_small
+# AWS - uses AWS CLI credentials
+cloudguard-anomaly live-scan --provider aws --profile production
+
+# Azure - requires subscription ID
+cloudguard-anomaly live-scan --provider azure --subscription-id <id>
+
+# GCP - requires project ID
+cloudguard-anomaly live-scan --provider gcp --project-id my-project
 ```
 
-### 3. View Reports
+### 3. Evaluate Compliance
+
+```bash
+cloudguard-anomaly compliance --env ./infrastructure --framework soc2
+```
+
+### 4. Launch Web Dashboard
+
+```bash
+cloudguard-anomaly dashboard --database-url sqlite:///cloudguard.db
+```
+
+Open your browser to `http://localhost:5000` for real-time monitoring.
+
+### 5. View Reports
 
 Reports are saved to `./reports/` by default:
 - `<env-name>_report.json` - Structured findings in JSON format
@@ -160,6 +210,59 @@ cloudguard-anomaly validate --env examples/environments/env_aws_small
 cloudguard-anomaly validate --policies cloudguard_anomaly/policies/aws_policies.yaml
 ```
 
+### Advanced Usage
+
+#### Live Scanning with Database Persistence
+
+```bash
+cloudguard-anomaly live-scan \
+  --provider aws \
+  --profile production \
+  --database-url postgresql://user:pass@localhost/cloudguard \
+  --slack-webhook https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+```
+
+#### Compliance Evaluation
+
+```bash
+# SOC2 compliance
+cloudguard-anomaly compliance --env ./infrastructure --framework soc2
+
+# PCI-DSS compliance
+cloudguard-anomaly compliance --env ./infrastructure --framework pci_dss --format json
+
+# HIPAA compliance
+cloudguard-anomaly compliance --env ./infrastructure --framework hipaa
+```
+
+#### Auto-Remediation (Dry Run)
+
+```bash
+# Dry run (safe, no changes made)
+cloudguard-anomaly remediate --scan-id abc123 --dry-run --database-url sqlite:///cloudguard.db
+
+# Remediate critical findings only
+cloudguard-anomaly remediate --scan-id abc123 --severity critical --database-url sqlite:///cloudguard.db
+```
+
+#### Machine Learning Model Training
+
+```bash
+# Train ML anomaly detection model
+cloudguard-anomaly train-ml \
+  --database-url sqlite:///cloudguard.db \
+  --days 30 \
+  --save-model anomaly_model.pkl
+```
+
+#### CI/CD Integration
+
+```bash
+# Fail build on critical findings
+cloudguard-anomaly scan --env ./infrastructure --format json
+# Exit code: 0 = pass, 1 = warnings, 2 = critical failures
+```
+
 ## Project Structure
 
 ```
@@ -175,6 +278,10 @@ cloudguard-anomaly/
 │   │   ├── aws.py                # AWS provider
 │   │   ├── azure.py              # Azure provider
 │   │   └── gcp.py                # GCP provider
+│   ├── integrations/             # Live cloud integrations
+│   │   ├── aws_live.py           # AWS SDK integration
+│   │   ├── azure_live.py         # Azure SDK integration
+│   │   └── gcp_live.py           # GCP SDK integration
 │   ├── policies/                 # Security policies
 │   │   ├── policy_engine.py      # Policy management
 │   │   ├── baseline_policies.yaml
@@ -191,17 +298,45 @@ cloudguard-anomaly/
 │   │   ├── misconfig_explainer_agent.py
 │   │   ├── drift_explainer_agent.py
 │   │   ├── remediation_planner_agent.py
-│   │   └── risk_summarizer_agent.py
+│   │   ├── risk_summarizer_agent.py
+│   │   └── llm/                  # LLM integration
+│   │       ├── providers.py      # Claude, OpenAI, Local
+│   │       └── enhanced_agents.py
+│   ├── ml/                       # Machine Learning
+│   │   └── anomaly_detector.py   # ML-based anomaly detection
+│   ├── compliance/               # Compliance frameworks
+│   │   └── frameworks.py         # SOC2, PCI-DSS, HIPAA, etc.
+│   ├── storage/                  # Data persistence
+│   │   └── database.py           # SQLAlchemy models & storage
+│   ├── notifications/            # Alert integrations
+│   │   └── webhooks.py           # Slack, generic webhooks
+│   ├── remediation/              # Auto-remediation
+│   │   └── auto_fix.py           # Automated remediation engine
+│   ├── cicd/                     # CI/CD integration
+│   │   └── pipeline.py           # GitLab CI, GitHub Actions, Jenkins
+│   ├── dashboard/                # Web dashboard
+│   │   ├── app.py                # Flask application
+│   │   ├── templates/            # HTML templates
+│   │   └── static/               # CSS, JS assets
+│   ├── enterprise/               # Enterprise features
+│   │   ├── rbac.py               # Role-based access control
+│   │   ├── cost_analyzer.py      # Cost analysis
+│   │   └── threat_intel.py       # Threat intelligence
 │   ├── explainers/               # Narrative generation
 │   │   ├── narrative_builder.py
 │   │   └── aggregation.py
 │   ├── reports/                  # Report generation
 │   │   ├── json_reporter.py
 │   │   ├── markdown_reporter.py
-│   │   └── html_report_stub.py
+│   │   └── html_reporter.py
 │   └── cli/                      # Command-line interface
 │       ├── main.py
 │       └── commands/
+│           ├── scan.py
+│           ├── live_scan.py
+│           ├── compliance.py
+│           ├── generate_example.py
+│           └── validate.py
 ├── examples/                     # Example environments
 │   ├── environments/
 │   ├── drift_scenarios/
@@ -252,7 +387,17 @@ AI-powered agents provide explanations and guidance:
 3. **Remediation Planner**: Generates step-by-step remediation plans
 4. **Risk Summarizer**: Aggregates findings into executive summaries
 
-**Note**: Current implementation uses deterministic logic but is structured to easily integrate LLM APIs.
+**LLM Integration**: Supports multiple LLM providers:
+- **Claude (Anthropic)**: claude-3-5-sonnet-20241022 and other models
+- **OpenAI**: GPT-4, GPT-3.5-turbo
+- **Local LLMs**: Ollama and other local models
+- **Fallback**: Deterministic implementations when LLM unavailable
+
+Configure LLM provider via environment variables:
+```bash
+export ANTHROPIC_API_KEY=your_api_key
+export OPENAI_API_KEY=your_api_key
+```
 
 ### Report Formats
 
@@ -430,14 +575,31 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Roadmap
 
-- [ ] Real-time monitoring integration
-- [ ] Webhook notifications
-- [ ] Integration with ticketing systems
-- [ ] Machine learning-based anomaly detection
-- [ ] LLM integration for agentic components
+### Completed ✅
+- [x] Live cloud provider integration (AWS, Azure, GCP)
+- [x] LLM integration for agentic components (Claude, OpenAI, Local)
+- [x] Machine learning-based anomaly detection (Isolation Forest)
+- [x] Compliance frameworks (SOC2, HIPAA, PCI-DSS, ISO 27001)
+- [x] CI/CD pipeline integration (GitLab CI, GitHub Actions, Jenkins)
+- [x] Webhook notifications (Slack, generic webhooks)
+- [x] Database backend for historical tracking (SQLAlchemy)
+- [x] Web dashboard for real-time monitoring (Flask + WebSockets)
+- [x] Auto-remediation engine with dry-run mode
+- [x] RBAC and multi-tenancy support
+- [x] Cost analysis and optimization recommendations
+- [x] Threat intelligence integration
+
+### Planned 🚀
 - [ ] Kubernetes security posture analysis
-- [ ] Compliance frameworks (SOC2, HIPAA, PCI-DSS)
-- [ ] CI/CD pipeline integration
+- [ ] Integration with ticketing systems (Jira, ServiceNow)
+- [ ] Container security scanning (Docker, OCI images)
+- [ ] Infrastructure as Code scanning (Terraform, CloudFormation)
+- [ ] Advanced ML models (deep learning for pattern recognition)
+- [ ] Mobile app for notifications and monitoring
+- [ ] Advanced reporting (PDF exports, executive dashboards)
+- [ ] Multi-region and cross-account analysis
+- [ ] Custom integration marketplace
+- [ ] SaaS offering with managed deployment
 
 ## Support
 
