@@ -7,19 +7,72 @@ Flask-based real-time security monitoring dashboard.
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_socketio import SocketIO, emit
 
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+    LIMITER_AVAILABLE = True
+except ImportError:
+    LIMITER_AVAILABLE = False
+
+try:
+    from flask_caching import Cache
+    CACHE_AVAILABLE = True
+except ImportError:
+    CACHE_AVAILABLE = False
+
+try:
+    from flask_cors import CORS
+    CORS_AVAILABLE = True
+except ImportError:
+    CORS_AVAILABLE = False
+
 from cloudguard_anomaly.storage.database import DatabaseStorage
 from cloudguard_anomaly.core.models import Severity
+from cloudguard_anomaly.config import get_config
 
 logger = logging.getLogger(__name__)
 
+# Initialize Flask app
 app = Flask(__name__, template_folder='templates', static_folder='static')
-app.config['SECRET_KEY'] = 'cloudguard-secret-key-change-in-production'
+
+# Load configuration
+config = get_config()
+app.config['SECRET_KEY'] = config.dashboard_secret_key or 'dev-key-change-in-production'
+
+# Initialize extensions
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+# CORS support
+if CORS_AVAILABLE:
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+# Rate limiting
+limiter: Optional[Limiter] = None
+if LIMITER_AVAILABLE and config.rate_limit_enabled:
+    limiter = Limiter(
+        app=app,
+        key_func=get_remote_address,
+        default_limits=[config.rate_limit_default],
+        storage_uri=config.redis_url if config.cache_backend == "redis" else None
+    )
+    logger.info(f"Rate limiting enabled: {config.rate_limit_default}")
+
+# Caching
+cache: Optional[Cache] = None
+if CACHE_AVAILABLE:
+    cache_config = {
+        'CACHE_TYPE': config.cache_backend,
+    }
+    if config.cache_backend == 'redis':
+        cache_config['CACHE_REDIS_URL'] = config.redis_url
+
+    cache = Cache(app, config=cache_config)
+    logger.info(f"Caching enabled: {config.cache_backend}")
 
 # Global database instance
 db = None
@@ -32,6 +85,89 @@ def init_dashboard(database_url: str):
     logger.info(f"Dashboard initialized with database: {database_url}")
 
 
+# =============================================================================
+# HEALTH CHECK ENDPOINTS
+# =============================================================================
+
+@app.route('/health')
+def health():
+    """
+    Health check endpoint.
+
+    Returns 200 if service is running.
+    """
+    return jsonify({
+        'status': 'healthy',
+        'service': 'cloudguard-anomaly-dashboard',
+        'timestamp': datetime.utcnow().isoformat(),
+        'version': '3.0.0'
+    })
+
+
+@app.route('/ready')
+def ready():
+    """
+    Readiness check endpoint.
+
+    Returns 200 if service is ready to accept requests (database connected).
+    """
+    if not db:
+        return jsonify({
+            'status': 'not ready',
+            'reason': 'Database not initialized'
+        }), 503
+
+    # Try to query database
+    try:
+        db.get_scans(days=1, limit=1)
+        return jsonify({
+            'status': 'ready',
+            'database': 'connected',
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        return jsonify({
+            'status': 'not ready',
+            'reason': 'Database connection failed',
+            'error': str(e)
+        }), 503
+
+
+@app.route('/metrics')
+def metrics():
+    """
+    Metrics endpoint for monitoring.
+
+    Returns basic performance and usage metrics.
+    """
+    if not db:
+        return jsonify({'error': 'Database not initialized'}), 500
+
+    try:
+        # Get basic metrics
+        recent_scans = db.get_scans(days=7, limit=1000)
+
+        return jsonify({
+            'scans_last_7_days': len(recent_scans),
+            'database_healthy': True,
+            'cache_backend': config.cache_backend,
+            'rate_limiting_enabled': config.rate_limit_enabled,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Metrics collection failed: {e}")
+        return jsonify({
+            'error': str(e),
+            'database_healthy': False,
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
+
+# =============================================================================
+# MAIN ROUTES
+# =============================================================================
+
 @app.route('/')
 def index():
     """Dashboard home page."""
@@ -43,6 +179,13 @@ def get_overview():
     """Get overview statistics."""
     if not db:
         return jsonify({'error': 'Database not initialized'}), 500
+
+    # Apply caching if available
+    cache_key = 'overview_stats'
+    if cache:
+        cached = cache.get(cache_key)
+        if cached:
+            return jsonify(cached)
 
     try:
         # Get recent scans
@@ -73,14 +216,20 @@ def get_overview():
         risk_scores = [scan.data.get('summary', {}).get('risk_score', 0) for scan in recent_scans]
         avg_risk_score = sum(risk_scores) / len(risk_scores) if risk_scores else 0
 
-        return jsonify({
+        result = {
             'total_scans': total_scans,
             'total_findings': total_findings,
             'environments': len(environments),
             'avg_risk_score': round(avg_risk_score, 1),
             'severity_counts': severity_counts,
             'last_scan': recent_scans[0].timestamp.isoformat() if recent_scans else None
-        })
+        }
+
+        # Cache result for 5 minutes
+        if cache:
+            cache.set(cache_key, result, timeout=300)
+
+        return jsonify(result)
     except Exception as e:
         logger.error(f"Error getting overview: {e}")
         return jsonify({'error': str(e)}), 500
