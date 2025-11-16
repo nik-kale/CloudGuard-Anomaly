@@ -71,6 +71,77 @@ def setup_middleware(app: Flask):
         response.headers['X-Request-ID'] = g.get('request_id', 'unknown')
         response.headers['X-Response-Time'] = f"{duration:.3f}s"
 
+        # ===================================================================
+        # SECURITY HEADERS - OWASP Best Practices
+        # ===================================================================
+
+        # Content Security Policy - Prevent XSS attacks
+        # Restricts sources for scripts, styles, images, etc.
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: https:; "
+            "font-src 'self' data:; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
+        )
+
+        # X-Frame-Options - Prevent clickjacking attacks
+        # Denies embedding in iframes from other domains
+        response.headers['X-Frame-Options'] = 'DENY'
+
+        # X-Content-Type-Options - Prevent MIME sniffing
+        # Forces browser to respect declared content type
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+
+        # X-XSS-Protection - Enable browser XSS protection
+        # Legacy header, but still useful for older browsers
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+
+        # Strict-Transport-Security (HSTS) - Enforce HTTPS
+        # Forces browser to use HTTPS for 1 year
+        # Include subdomains and allow preloading
+        response.headers['Strict-Transport-Security'] = (
+            'max-age=31536000; includeSubDomains; preload'
+        )
+
+        # Referrer-Policy - Control referrer information
+        # Limits referrer header to same-origin only
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+
+        # Permissions-Policy - Control browser features
+        # Disables potentially dangerous features
+        response.headers['Permissions-Policy'] = (
+            'geolocation=(), '
+            'microphone=(), '
+            'camera=(), '
+            'payment=(), '
+            'usb=(), '
+            'magnetometer=(), '
+            'gyroscope=(), '
+            'accelerometer=()'
+        )
+
+        # X-Permitted-Cross-Domain-Policies - Restrict cross-domain access
+        # Prevents Adobe Flash/PDF from loading cross-domain content
+        response.headers['X-Permitted-Cross-Domain-Policies'] = 'none'
+
+        # X-Download-Options - Prevent file execution in IE
+        response.headers['X-Download-Options'] = 'noopen'
+
+        # X-DNS-Prefetch-Control - Control DNS prefetching
+        # Disable to prevent privacy leakage
+        response.headers['X-DNS-Prefetch-Control'] = 'off'
+
+        # Cache-Control for sensitive endpoints
+        if '/api/' in request.path:
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+
         # Log response
         logger.info(
             "Request completed",
