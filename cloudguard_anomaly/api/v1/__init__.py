@@ -1,24 +1,18 @@
 """
 CloudGuard-Anomaly API v1.
 
-Complete REST API with authentication, RBAC, and full CRUD operations.
+RESTful API endpoints for CloudGuard-Anomaly.
 """
 
 from flask import Blueprint
 
-# Create API v1 blueprint
-api_v1_blueprint = Blueprint('api_v1', __name__, url_prefix='/api/v1')
+# Create v1 blueprint
+api_v1 = Blueprint('api_v1', __name__, url_prefix='/api/v1')
 
-# Import all route modules to register them
-from cloudguard_anomaly.api.v1 import (
-    scans,
-    findings,
-    policies,
-    users,
-    roles,
-    audit,
-    compliance,
-    health
-)
+# Import routes to register them with the blueprint
+from cloudguard_anomaly.api.v1 import policies
 
-__all__ = ['api_v1_blueprint']
+# Additional routes will be imported as they are created:
+# from cloudguard_anomaly.api.v1 import users, roles
+
+__all__ = ['api_v1']

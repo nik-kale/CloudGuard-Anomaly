@@ -112,6 +112,28 @@ class ComplianceRecord(Base):
     data = Column(JSON)
 
 
+class PolicyRecord(Base):
+    """Database model for security policies."""
+
+    __tablename__ = "policies"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, index=True, nullable=False)
+    description = Column(String)
+    severity = Column(String, index=True)
+    provider = Column(String, index=True)
+    enabled = Column(Boolean, default=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = Column(String)  # User ID who created the policy
+    data = Column(JSON)  # Full policy data (resource_types, condition, remediation, etc.)
+
+    __table_args__ = (
+        Index("idx_provider_enabled", "provider", "enabled"),
+        Index("idx_severity", "severity"),
+    )
+
+
 class DatabaseStorage:
     """Persistent storage for CloudGuard-Anomaly data."""
 
@@ -508,6 +530,229 @@ class DatabaseStorage:
         except Exception as e:
             session.rollback()
             logger.error(f"Cleanup failed: {e}")
+            raise
+        finally:
+            session.close()
+
+    # Policy CRUD operations
+
+    def create_policy(
+        self,
+        name: str,
+        description: str,
+        severity: str,
+        provider: str,
+        resource_types: List[str],
+        condition: Dict[str, Any],
+        remediation: str,
+        references: Optional[List[str]] = None,
+        enabled: bool = True,
+        created_by: Optional[str] = None
+    ) -> PolicyRecord:
+        """
+        Create a new security policy.
+
+        Args:
+            name: Policy name
+            description: Policy description
+            severity: Severity level
+            provider: Target cloud provider
+            resource_types: Applicable resource types
+            condition: Policy condition logic
+            remediation: Remediation guidance
+            references: External references
+            enabled: Whether policy is enabled
+            created_by: User ID who created the policy
+
+        Returns:
+            Created policy record
+        """
+        session = self.get_session()
+        try:
+            policy = PolicyRecord(
+                id=str(uuid.uuid4()),
+                name=name,
+                description=description,
+                severity=severity,
+                provider=provider,
+                enabled=enabled,
+                created_by=created_by,
+                data={
+                    "resource_types": resource_types,
+                    "condition": condition,
+                    "remediation": remediation,
+                    "references": references or []
+                }
+            )
+
+            session.add(policy)
+            session.commit()
+            logger.info(f"Created policy: {name} (ID: {policy.id})")
+            return policy
+
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to create policy: {e}")
+            raise
+        finally:
+            session.close()
+
+    def get_policy(self, policy_id: str) -> Optional[PolicyRecord]:
+        """
+        Get policy by ID.
+
+        Args:
+            policy_id: Policy ID
+
+        Returns:
+            Policy record or None if not found
+        """
+        session = self.get_session()
+        try:
+            return session.query(PolicyRecord).filter(PolicyRecord.id == policy_id).first()
+        finally:
+            session.close()
+
+    def list_policies(
+        self,
+        provider: Optional[str] = None,
+        severity: Optional[str] = None,
+        enabled_only: bool = False,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[PolicyRecord]:
+        """
+        List policies with filtering.
+
+        Args:
+            provider: Filter by provider
+            severity: Filter by severity
+            enabled_only: Only return enabled policies
+            limit: Maximum number of results
+            offset: Number of results to skip
+
+        Returns:
+            List of policy records
+        """
+        session = self.get_session()
+        try:
+            query = session.query(PolicyRecord)
+
+            if provider:
+                query = query.filter(PolicyRecord.provider == provider)
+
+            if severity:
+                query = query.filter(PolicyRecord.severity == severity)
+
+            if enabled_only:
+                query = query.filter(PolicyRecord.enabled == True)
+
+            return query.order_by(PolicyRecord.created_at.desc()).limit(limit).offset(offset).all()
+
+        finally:
+            session.close()
+
+    def update_policy(
+        self,
+        policy_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        severity: Optional[str] = None,
+        provider: Optional[str] = None,
+        resource_types: Optional[List[str]] = None,
+        condition: Optional[Dict[str, Any]] = None,
+        remediation: Optional[str] = None,
+        references: Optional[List[str]] = None,
+        enabled: Optional[bool] = None
+    ) -> Optional[PolicyRecord]:
+        """
+        Update an existing policy.
+
+        Args:
+            policy_id: Policy ID
+            name: New policy name
+            description: New description
+            severity: New severity
+            provider: New provider
+            resource_types: New resource types
+            condition: New condition
+            remediation: New remediation
+            references: New references
+            enabled: New enabled status
+
+        Returns:
+            Updated policy record or None if not found
+        """
+        session = self.get_session()
+        try:
+            policy = session.query(PolicyRecord).filter(PolicyRecord.id == policy_id).first()
+
+            if not policy:
+                return None
+
+            # Update basic fields
+            if name is not None:
+                policy.name = name
+            if description is not None:
+                policy.description = description
+            if severity is not None:
+                policy.severity = severity
+            if provider is not None:
+                policy.provider = provider
+            if enabled is not None:
+                policy.enabled = enabled
+
+            # Update data field
+            if any([resource_types, condition, remediation, references]):
+                data = policy.data or {}
+                if resource_types is not None:
+                    data['resource_types'] = resource_types
+                if condition is not None:
+                    data['condition'] = condition
+                if remediation is not None:
+                    data['remediation'] = remediation
+                if references is not None:
+                    data['references'] = references
+                policy.data = data
+
+            policy.updated_at = datetime.utcnow()
+
+            session.commit()
+            logger.info(f"Updated policy: {policy_id}")
+            return policy
+
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to update policy: {e}")
+            raise
+        finally:
+            session.close()
+
+    def delete_policy(self, policy_id: str) -> bool:
+        """
+        Delete a policy.
+
+        Args:
+            policy_id: Policy ID
+
+        Returns:
+            True if deleted, False if not found
+        """
+        session = self.get_session()
+        try:
+            policy = session.query(PolicyRecord).filter(PolicyRecord.id == policy_id).first()
+
+            if not policy:
+                return False
+
+            session.delete(policy)
+            session.commit()
+            logger.info(f"Deleted policy: {policy_id}")
+            return True
+
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to delete policy: {e}")
             raise
         finally:
             session.close()

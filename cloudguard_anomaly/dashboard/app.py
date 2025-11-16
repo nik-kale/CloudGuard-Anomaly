@@ -109,6 +109,11 @@ if CACHE_AVAILABLE:
 # Global database instance
 db = None
 
+# Register API v1 blueprint
+from cloudguard_anomaly.api.v1 import api_v1
+app.register_blueprint(api_v1)
+logger.info("Registered API v1 blueprint at /api/v1")
+
 
 def init_dashboard(database_url: str):
     """Initialize dashboard with database connection."""

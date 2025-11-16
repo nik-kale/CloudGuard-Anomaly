@@ -38,6 +38,14 @@ class ValidFramework(str, Enum):
     NIST = 'nist'
 
 
+class ValidProvider(str, Enum):
+    """Valid cloud providers."""
+    AWS = 'aws'
+    AZURE = 'azure'
+    GCP = 'gcp'
+    MULTI = 'multi'
+
+
 def validate_severity(severity: Optional[str]) -> Optional[str]:
     """Validate severity parameter."""
     if severity is None:
@@ -76,6 +84,20 @@ def validate_framework(framework: Optional[str]) -> Optional[str]:
     try:
         ValidFramework(framework)
         return framework
+    except ValueError:
+        return None
+
+
+def validate_provider(provider: Optional[str]) -> Optional[str]:
+    """Validate cloud provider parameter."""
+    if provider is None:
+        return None
+
+    provider = provider.lower().strip()
+
+    try:
+        ValidProvider(provider)
+        return provider
     except ValueError:
         return None
 
