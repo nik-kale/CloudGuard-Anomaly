@@ -59,11 +59,14 @@ config = get_config()
 app.config['SECRET_KEY'] = config.dashboard_secret_key or 'dev-key-change-in-production'
 
 # Initialize extensions
-socketio = SocketIO(app, cors_allowed_origins="*")
+# WebSocket CORS - use configured origins or disable in production
+allowed_origins = config.cors_origins.split(',') if config.cors_origins else []
+socketio = SocketIO(app, cors_allowed_origins=allowed_origins or ["http://localhost:5000"])
 
-# CORS support
+# CORS support - use configured origins
 if CORS_AVAILABLE:
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    cors_origins_list = config.cors_origins.split(',') if config.cors_origins else ["http://localhost:5000"]
+    CORS(app, resources={r"/api/*": {"origins": cors_origins_list}})
 
 # Rate limiting
 limiter: Optional[Limiter] = None
@@ -190,6 +193,14 @@ def login():
     GET: Show login page
     POST: Authenticate user
     """
+    # Apply rate limiting for POST requests (login attempts)
+    if request.method == 'POST' and limiter:
+        # Check rate limit: 5 attempts per minute
+        try:
+            limiter.check()
+        except Exception:
+            return jsonify({'error': 'Too many login attempts. Please try again later.'}), 429
+
     if request.method == 'GET':
         return render_template('login.html')
 
@@ -312,10 +323,13 @@ def index():
 
 
 @app.route('/api/overview')
+@login_required
+@permission_required(Permission.SCAN_VIEW)
 def get_overview():
     """Get overview statistics."""
     if not db:
-        return jsonify({'error': 'Database not initialized'}), 500
+        logger.error("Database not initialized")
+        return jsonify({'error': safe_error_message(None, 'Service unavailable')}), 500
 
     # Apply caching if available
     cache_key = 'overview_stats'
@@ -325,8 +339,9 @@ def get_overview():
             return jsonify(cached)
 
     try:
-        # Get recent scans
-        recent_scans = db.get_scans(days=30, limit=100)
+        # Get recent scans with validated parameters
+        days = validate_days(request.args.get('days', type=int), max_days=365)
+        recent_scans = db.get_scans(days=days, limit=100)
 
         # Calculate statistics
         total_scans = len(recent_scans)
@@ -368,19 +383,24 @@ def get_overview():
 
         return jsonify(result)
     except Exception as e:
-        logger.error(f"Error getting overview: {e}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error getting overview: {e}", exc_info=True)
+        return jsonify({'error': safe_error_message(e, 'Failed to retrieve overview')}), 500
 
 
 @app.route('/api/scans')
+@login_required
+@permission_required(Permission.SCAN_VIEW)
 def get_scans():
     """Get list of scans."""
     if not db:
-        return jsonify({'error': 'Database not initialized'}), 500
+        logger.error("Database not initialized")
+        return jsonify({'error': safe_error_message(None, 'Service unavailable')}), 500
 
     try:
-        days = request.args.get('days', default=30, type=int)
-        limit = request.args.get('limit', default=50, type=int)
+        # Validate input parameters
+        days = validate_days(request.args.get('days', type=int))
+        limit = validate_limit(request.args.get('limit', type=int))
+        environment = validate_environment_name(request.args.get('environment'))
 
         scans = db.get_scans(days=days, limit=limit)
 
@@ -399,15 +419,23 @@ def get_scans():
 
         return jsonify({'scans': scan_list})
     except Exception as e:
-        logger.error(f"Error getting scans: {e}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error getting scans: {e}", exc_info=True)
+        return jsonify({'error': safe_error_message(e, 'Failed to retrieve scans')}), 500
 
 
 @app.route('/api/scans/<scan_id>')
+@login_required
+@permission_required(Permission.SCAN_VIEW)
 def get_scan_details(scan_id: str):
     """Get detailed scan information."""
     if not db:
-        return jsonify({'error': 'Database not initialized'}), 500
+        logger.error("Database not initialized")
+        return jsonify({'error': safe_error_message(None, 'Service unavailable')}), 500
+
+    # Validate scan ID
+    scan_id = validate_scan_id(scan_id)
+    if not scan_id:
+        return jsonify({'error': 'Invalid scan ID'}), 400
 
     try:
         scan = db.get_scan(scan_id)
@@ -425,19 +453,23 @@ def get_scan_details(scan_id: str):
             'narratives': scan.data.get('narratives', {})
         })
     except Exception as e:
-        logger.error(f"Error getting scan details: {e}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error getting scan details: {e}", exc_info=True)
+        return jsonify({'error': safe_error_message(e, 'Failed to retrieve scan')}), 500
 
 
 @app.route('/api/trends')
+@login_required
+@permission_required(Permission.SCAN_VIEW)
 def get_trends():
     """Get trend data for charts."""
     if not db:
-        return jsonify({'error': 'Database not initialized'}), 500
+        logger.error("Database not initialized")
+        return jsonify({'error': safe_error_message(None, 'Service unavailable')}), 500
 
     try:
-        environment = request.args.get('environment')
-        days = request.args.get('days', default=30, type=int)
+        # Validate parameters
+        environment = validate_environment_name(request.args.get('environment'))
+        days = validate_days(request.args.get('days', type=int))
 
         if not environment:
             # Get list of environments
@@ -454,20 +486,24 @@ def get_trends():
             'trends': trend_data
         })
     except Exception as e:
-        logger.error(f"Error getting trends: {e}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error getting trends: {e}", exc_info=True)
+        return jsonify({'error': safe_error_message(e, 'Failed to retrieve trends')}), 500
 
 
 @app.route('/api/findings')
+@login_required
+@permission_required(Permission.FINDING_VIEW)
 def get_findings():
     """Get findings with filtering."""
     if not db:
-        return jsonify({'error': 'Database not initialized'}), 500
+        logger.error("Database not initialized")
+        return jsonify({'error': safe_error_message(None, 'Service unavailable')}), 500
 
     try:
-        severity = request.args.get('severity')
-        status = request.args.get('status', default='open')
-        limit = request.args.get('limit', default=100, type=int)
+        # Validate all input parameters
+        severity = validate_severity(request.args.get('severity'))
+        status = validate_status(request.args.get('status')) or 'open'
+        limit = validate_limit(request.args.get('limit', type=int))
 
         findings = db.get_findings(
             severity=severity,
@@ -491,33 +527,46 @@ def get_findings():
 
         return jsonify({'findings': finding_list})
     except Exception as e:
-        logger.error(f"Error getting findings: {e}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error getting findings: {e}", exc_info=True)
+        return jsonify({'error': safe_error_message(e, 'Failed to retrieve findings')}), 500
 
 
 @app.route('/api/findings/<finding_id>/resolve', methods=['POST'])
+@login_required
+@permission_required(Permission.FINDING_RESOLVE)
 def resolve_finding(finding_id: str):
     """Mark a finding as resolved."""
     if not db:
-        return jsonify({'error': 'Database not initialized'}), 500
+        logger.error("Database not initialized")
+        return jsonify({'error': safe_error_message(None, 'Service unavailable')}), 500
+
+    # Validate finding ID
+    finding_id = validate_scan_id(finding_id)  # Uses same validation as scan_id
+    if not finding_id:
+        return jsonify({'error': 'Invalid finding ID'}), 400
 
     try:
         db.mark_finding_resolved(finding_id)
+        logger.info(f"Finding {finding_id} marked as resolved by user {getattr(request, 'current_user', 'unknown')}")
         return jsonify({'success': True, 'message': 'Finding resolved'})
     except Exception as e:
-        logger.error(f"Error resolving finding: {e}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error resolving finding: {e}", exc_info=True)
+        return jsonify({'error': safe_error_message(e, 'Failed to resolve finding')}), 500
 
 
 @app.route('/api/compliance')
+@login_required
+@permission_required(Permission.COMPLIANCE_VIEW)
 def get_compliance():
     """Get compliance status."""
     if not db:
-        return jsonify({'error': 'Database not initialized'}), 500
+        logger.error("Database not initialized")
+        return jsonify({'error': safe_error_message(None, 'Service unavailable')}), 500
 
     try:
-        framework = request.args.get('framework')
-        days = request.args.get('days', default=30, type=int)
+        # Validate parameters
+        framework = validate_framework(request.args.get('framework'))
+        days = validate_days(request.args.get('days', type=int))
 
         compliance_records = db.get_compliance_results(
             framework=framework,
@@ -539,8 +588,8 @@ def get_compliance():
 
         return jsonify({'compliance': compliance_list})
     except Exception as e:
-        logger.error(f"Error getting compliance: {e}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error getting compliance: {e}", exc_info=True)
+        return jsonify({'error': safe_error_message(e, 'Failed to retrieve compliance data')}), 500
 
 
 @socketio.on('connect')

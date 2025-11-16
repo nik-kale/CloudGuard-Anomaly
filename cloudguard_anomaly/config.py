@@ -62,6 +62,9 @@ class Config:
     dashboard_debug: bool = field(
         default_factory=lambda: os.getenv("DASHBOARD_DEBUG", "false").lower() == "true"
     )
+    cors_origins: str = field(
+        default_factory=lambda: os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5000")
+    )
 
     # Authentication
     enable_auth: bool = field(
