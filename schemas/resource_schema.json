@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CloudGuard Resource Schema",
+  "description": "Schema for cloud resources in CloudGuard-Anomaly",
+  "type": "object",
+  "required": ["id", "name", "type", "provider", "region"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique resource identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable resource name"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "compute", "storage", "database", "network", "security_group",
+        "iam_role", "iam_policy", "load_balancer", "api_gateway",
+        "function", "queue", "topic", "secret", "key", "unknown"
+      ],
+      "description": "Resource type"
+    },
+    "provider": {
+      "type": "string",
+      "enum": ["aws", "azure", "gcp", "multi"],
+      "description": "Cloud provider"
+    },
+    "region": {
+      "type": "string",
+      "description": "Cloud region or location"
+    },
+    "properties": {
+      "type": "object",
+      "description": "Resource-specific configuration properties"
+    },
+    "tags": {
+      "type": "object",
+      "description": "Resource tags or labels",
+      "additionalProperties": {"type": "string"}
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata"
+    }
+  }
+}

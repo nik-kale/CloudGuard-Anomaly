@@ -1,0 +1,30 @@
+{
+  "resources": [
+    {
+      "id": "s3-secure-bucket-001",
+      "name": "secure-data-bucket",
+      "type": "aws_s3_bucket",
+      "region": "us-east-1",
+      "properties": {
+        "bucket_name": "secure-data-bucket",
+        "acl": "public-read",
+        "versioning": {
+          "enabled": true
+        },
+        "public_access_block_configuration": {
+          "block_public_acls": false,
+          "block_public_policy": false,
+          "ignore_public_acls": false,
+          "restrict_public_buckets": false
+        },
+        "encryption": {
+          "sse_algorithm": "AES256"
+        }
+      },
+      "tags": {
+        "Environment": "production",
+        "Confidentiality": "high"
+      }
+    }
+  ]
+}

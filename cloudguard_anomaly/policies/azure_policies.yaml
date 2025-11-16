@@ -1,0 +1,192 @@
+---
+# Azure-specific security policies
+
+policies:
+  - id: azure-001
+    name: Storage Account Secure Transfer
+    description: Storage accounts must require secure transfer (HTTPS)
+    severity: high
+    provider: azure
+    resource_types:
+      - storage
+    condition:
+      property_check:
+        path: enable_https_traffic_only
+        operator: not_equals
+        value: true
+    remediation: |
+      Enable secure transfer:
+      az storage account update --name <account> \
+        --resource-group <rg> --https-only true
+    references:
+      - CIS Azure Foundations 3.1
+
+  - id: azure-002
+    name: Storage Account Minimum TLS Version
+    description: Storage accounts must use TLS 1.2 or higher
+    severity: medium
+    provider: azure
+    resource_types:
+      - storage
+    condition:
+      property_check:
+        path: minimum_tls_version
+        operator: not_equals
+        value: TLS1_2
+    remediation: |
+      Set minimum TLS version:
+      az storage account update --name <account> \
+        --min-tls-version TLS1_2
+    references:
+      - CIS Azure Foundations 3.15
+
+  - id: azure-003
+    name: SQL Database Auditing
+    description: SQL Database must have auditing enabled
+    severity: high
+    provider: azure
+    resource_types:
+      - database
+    condition:
+      exists:
+        path: auditing_policy
+        should_exist: false
+    remediation: |
+      Enable SQL auditing:
+      1. Go to SQL server settings
+      2. Enable Auditing
+      3. Configure storage destination
+    references:
+      - CIS Azure Foundations 4.1.1
+
+  - id: azure-004
+    name: SQL Database TDE
+    description: SQL Database must have Transparent Data Encryption (TDE) enabled
+    severity: high
+    provider: azure
+    resource_types:
+      - database
+    condition:
+      property_check:
+        path: transparent_data_encryption.status
+        operator: not_equals
+        value: Enabled
+    remediation: |
+      Enable TDE:
+      az sql db tde set --database <db> --server <server> \
+        --resource-group <rg> --status Enabled
+    references:
+      - CIS Azure Foundations 4.1.2
+
+  - id: azure-005
+    name: Network Security Group Flow Logs
+    description: NSG must have flow logs enabled
+    severity: medium
+    provider: azure
+    resource_types:
+      - security_group
+    condition:
+      exists:
+        path: flow_logs
+        should_exist: false
+    remediation: |
+      Enable NSG flow logs:
+      1. Navigate to Network Watcher
+      2. Select NSG flow logs
+      3. Configure storage account
+    references:
+      - CIS Azure Foundations 6.5
+
+  - id: azure-006
+    name: Key Vault Soft Delete
+    description: Key Vault must have soft delete enabled
+    severity: medium
+    provider: azure
+    resource_types:
+      - secret
+    condition:
+      property_check:
+        path: enable_soft_delete
+        operator: not_equals
+        value: true
+    remediation: |
+      Enable soft delete:
+      az keyvault update --name <vault> --enable-soft-delete true
+    references:
+      - CIS Azure Foundations 8.4
+
+  - id: azure-007
+    name: Key Vault Purge Protection
+    description: Key Vault must have purge protection enabled
+    severity: medium
+    provider: azure
+    resource_types:
+      - secret
+    condition:
+      property_check:
+        path: enable_purge_protection
+        operator: not_equals
+        value: true
+    remediation: |
+      Enable purge protection:
+      az keyvault update --name <vault> --enable-purge-protection true
+    references:
+      - CIS Azure Foundations 8.5
+
+  - id: azure-008
+    name: VM Managed Identity
+    description: VMs should use managed identity for authentication
+    severity: low
+    provider: azure
+    resource_types:
+      - compute
+    condition:
+      exists:
+        path: identity
+        should_exist: false
+    remediation: |
+      Enable managed identity:
+      az vm identity assign --name <vm> --resource-group <rg>
+    references:
+      - Azure Security Best Practices
+
+  - id: azure-009
+    name: Diagnostic Logs Enabled
+    description: Resources must have diagnostic logs enabled
+    severity: medium
+    provider: azure
+    resource_types:
+      - storage
+      - database
+      - network
+    condition:
+      exists:
+        path: diagnostic_settings
+        should_exist: false
+    remediation: |
+      Enable diagnostic logs:
+      1. Go to resource Diagnostic settings
+      2. Add diagnostic setting
+      3. Select categories and destination
+    references:
+      - CIS Azure Foundations 5.1
+
+  - id: azure-010
+    name: Storage Account Network Rules
+    description: Storage accounts should restrict network access
+    severity: medium
+    provider: azure
+    resource_types:
+      - storage
+    condition:
+      property_check:
+        path: network_rule_set.default_action
+        operator: equals
+        value: Allow
+    remediation: |
+      Restrict network access:
+      1. Go to Storage account Firewalls and virtual networks
+      2. Set to "Selected networks"
+      3. Add allowed VNets and IP ranges
+    references:
+      - CIS Azure Foundations 3.7

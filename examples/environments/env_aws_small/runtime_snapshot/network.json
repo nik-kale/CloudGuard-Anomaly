@@ -1,0 +1,48 @@
+{
+  "resources": [
+    {
+      "id": "sg-web-001",
+      "name": "web-security-group",
+      "type": "aws_security_group",
+      "region": "us-east-1",
+      "properties": {
+        "group_name": "web-security-group",
+        "description": "Security group for web servers",
+        "ingress": [
+          {
+            "from_port": 22,
+            "to_port": 22,
+            "protocol": "tcp",
+            "cidr_blocks": ["0.0.0.0/0"],
+            "description": "SSH from anywhere"
+          },
+          {
+            "from_port": 3389,
+            "to_port": 3389,
+            "protocol": "tcp",
+            "cidr_blocks": ["0.0.0.0/0"],
+            "description": "RDP from anywhere"
+          },
+          {
+            "from_port": 80,
+            "to_port": 80,
+            "protocol": "tcp",
+            "cidr_blocks": ["0.0.0.0/0"],
+            "description": "HTTP from anywhere"
+          }
+        ],
+        "egress": [
+          {
+            "from_port": 0,
+            "to_port": 65535,
+            "protocol": "-1",
+            "cidr_blocks": ["0.0.0.0/0"]
+          }
+        ]
+      },
+      "tags": {
+        "Environment": "production"
+      }
+    }
+  ]
+}

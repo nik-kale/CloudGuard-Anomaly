@@ -1,0 +1,4 @@
+---
+name: public_bucket_after_change
+provider: aws
+description: "Demonstrates a previously private bucket that was made public"

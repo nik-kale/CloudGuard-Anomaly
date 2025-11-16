@@ -1,0 +1,27 @@
+{
+  "resources": [
+    {
+      "id": "s3-public-bucket-001",
+      "name": "company-public-data",
+      "type": "aws_s3_bucket",
+      "region": "us-east-1",
+      "properties": {
+        "bucket_name": "company-public-data",
+        "acl": "public-read",
+        "versioning": {
+          "enabled": false
+        },
+        "public_access_block_configuration": {
+          "block_public_acls": false,
+          "block_public_policy": false,
+          "ignore_public_acls": false,
+          "restrict_public_buckets": false
+        }
+      },
+      "tags": {
+        "Environment": "production",
+        "Owner": "data-team"
+      }
+    }
+  ]
+}

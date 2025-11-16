@@ -1,0 +1,23 @@
+{
+  "resources": [
+    {
+      "id": "rds-prod-001",
+      "name": "production-database",
+      "type": "aws_rds_instance",
+      "region": "us-east-1",
+      "properties": {
+        "engine": "postgres",
+        "engine_version": "14.7",
+        "instance_class": "db.t3.medium",
+        "publicly_accessible": true,
+        "encrypted": false,
+        "backup_retention_period": 0,
+        "multi_az": false
+      },
+      "tags": {
+        "Environment": "production",
+        "Criticality": "high"
+      }
+    }
+  ]
+}

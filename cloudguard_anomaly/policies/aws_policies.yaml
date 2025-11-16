@@ -1,0 +1,202 @@
+---
+# AWS-specific security policies
+
+policies:
+  - id: aws-001
+    name: S3 Bucket Public Access Block
+    description: S3 buckets must have Block Public Access settings enabled
+    severity: critical
+    provider: aws
+    resource_types:
+      - storage
+    condition:
+      property_check:
+        path: public_access_block_configuration.block_public_acls
+        operator: not_equals
+        value: true
+    remediation: |
+      Enable S3 Block Public Access:
+      1. Navigate to S3 bucket settings
+      2. Edit Block Public Access settings
+      3. Enable all four settings:
+         - Block public ACLs
+         - Ignore public ACLs
+         - Block public bucket policies
+         - Restrict public bucket policies
+    references:
+      - CIS AWS Foundations 2.1.5
+
+  - id: aws-002
+    name: S3 Bucket Server-Side Encryption
+    description: S3 buckets must have default encryption enabled
+    severity: high
+    provider: aws
+    resource_types:
+      - storage
+    condition:
+      exists:
+        path: server_side_encryption_configuration
+        should_exist: false
+    remediation: |
+      Enable S3 default encryption:
+      1. Go to bucket Properties
+      2. Enable Default encryption
+      3. Choose AES-256 or AWS-KMS
+    references:
+      - CIS AWS Foundations 2.1.1
+
+  - id: aws-003
+    name: IAM Password Policy - Minimum Length
+    description: IAM password policy must require minimum length of 14 characters
+    severity: medium
+    provider: aws
+    resource_types:
+      - iam_policy
+    condition:
+      property_check:
+        path: minimum_password_length
+        operator: less_than
+        value: 14
+    remediation: |
+      Update IAM password policy:
+      aws iam update-account-password-policy --minimum-password-length 14
+    references:
+      - CIS AWS Foundations 1.8
+
+  - id: aws-004
+    name: IAM Root Account MFA
+    description: Root account must have MFA enabled
+    severity: critical
+    provider: aws
+    resource_types:
+      - iam_role
+    condition:
+      property_check:
+        path: mfa_enabled
+        operator: not_equals
+        value: true
+    remediation: |
+      Enable MFA for root account:
+      1. Sign in as root user
+      2. Go to My Security Credentials
+      3. Assign MFA device
+    references:
+      - CIS AWS Foundations 1.5
+
+  - id: aws-005
+    name: EC2 Instance IMDSv2
+    description: EC2 instances must use IMDSv2 for instance metadata
+    severity: medium
+    provider: aws
+    resource_types:
+      - compute
+    condition:
+      property_check:
+        path: metadata_options.http_tokens
+        operator: not_equals
+        value: required
+    remediation: |
+      Enable IMDSv2:
+      aws ec2 modify-instance-metadata-options \
+        --instance-id <instance-id> \
+        --http-tokens required
+    references:
+      - AWS Security Best Practices
+
+  - id: aws-006
+    name: RDS Instance Public Access
+    description: RDS instances should not be publicly accessible
+    severity: critical
+    provider: aws
+    resource_types:
+      - database
+    condition:
+      property_check:
+        path: publicly_accessible
+        operator: equals
+        value: true
+    remediation: |
+      Disable public access:
+      1. Modify RDS instance
+      2. Set "Publicly accessible" to No
+      3. Ensure instance is in private subnet
+    references:
+      - CIS AWS Foundations 2.3.1
+
+  - id: aws-007
+    name: Lambda Function in VPC
+    description: Lambda functions processing sensitive data should run in VPC
+    severity: low
+    provider: aws
+    resource_types:
+      - function
+    condition:
+      exists:
+        path: vpc_config
+        should_exist: false
+    remediation: |
+      Configure Lambda VPC:
+      1. Edit function configuration
+      2. Add VPC, subnets, and security groups
+      3. Ensure NAT gateway for internet access
+    references:
+      - AWS Lambda Best Practices
+
+  - id: aws-008
+    name: CloudTrail Enabled
+    description: CloudTrail must be enabled in all regions
+    severity: high
+    provider: aws
+    resource_types:
+      - iam_policy
+    condition:
+      property_check:
+        path: is_multi_region_trail
+        operator: not_equals
+        value: true
+    remediation: |
+      Enable CloudTrail:
+      aws cloudtrail create-trail --name all-regions \
+        --s3-bucket-name <bucket> --is-multi-region-trail
+    references:
+      - CIS AWS Foundations 3.1
+
+  - id: aws-009
+    name: VPC Flow Logs Enabled
+    description: VPC must have flow logs enabled
+    severity: medium
+    provider: aws
+    resource_types:
+      - network
+    condition:
+      exists:
+        path: flow_logs
+        should_exist: false
+    remediation: |
+      Enable VPC Flow Logs:
+      1. Go to VPC console
+      2. Select VPC
+      3. Create flow log
+      4. Configure destination (S3/CloudWatch)
+    references:
+      - CIS AWS Foundations 3.9
+
+  - id: aws-010
+    name: EBS Volume Encryption
+    description: EBS volumes must be encrypted
+    severity: high
+    provider: aws
+    resource_types:
+      - storage
+    condition:
+      property_check:
+        path: encrypted
+        operator: not_equals
+        value: true
+    remediation: |
+      Enable EBS encryption:
+      1. Cannot encrypt existing unencrypted volumes
+      2. Create encrypted snapshot
+      3. Create new volume from encrypted snapshot
+    references:
+      - CIS AWS Foundations 2.2.1

@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CloudGuard Report Schema",
+  "description": "Schema for scan reports in CloudGuard-Anomaly",
+  "type": "object",
+  "required": ["environment", "timestamp"],
+  "properties": {
+    "environment": {
+      "type": "object",
+      "required": ["name", "provider"],
+      "properties": {
+        "name": {"type": "string"},
+        "provider": {
+          "type": "string",
+          "enum": ["aws", "azure", "gcp", "multi"]
+        },
+        "resources": {
+          "type": "array",
+          "items": {"$ref": "resource_schema.json"}
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {"$ref": "finding_schema.json"},
+      "description": "List of security findings"
+    },
+    "anomalies": {
+      "type": "array",
+      "description": "List of configuration anomalies"
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "total_findings": {"type": "integer"},
+        "total_anomalies": {"type": "integer"},
+        "severity_counts": {
+          "type": "object",
+          "properties": {
+            "critical": {"type": "integer"},
+            "high": {"type": "integer"},
+            "medium": {"type": "integer"},
+            "low": {"type": "integer"}
+          }
+        },
+        "risk_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "narratives": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Human-readable narratives"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Scan timestamp"
+    }
+  }
+}

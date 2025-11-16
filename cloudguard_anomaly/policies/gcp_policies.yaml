@@ -1,0 +1,196 @@
+---
+# GCP-specific security policies
+
+policies:
+  - id: gcp-001
+    name: Storage Bucket Uniform Access
+    description: GCS buckets must use uniform bucket-level access
+    severity: medium
+    provider: gcp
+    resource_types:
+      - storage
+    condition:
+      property_check:
+        path: iam_configuration.uniform_bucket_level_access.enabled
+        operator: not_equals
+        value: true
+    remediation: |
+      Enable uniform bucket-level access:
+      gsutil uniformbucketlevelaccess set on gs://<bucket>
+    references:
+      - CIS GCP Foundations 5.1
+
+  - id: gcp-002
+    name: Storage Bucket Public Access Prevention
+    description: GCS buckets must have public access prevention enabled
+    severity: critical
+    provider: gcp
+    resource_types:
+      - storage
+    condition:
+      property_check:
+        path: iam_configuration.public_access_prevention
+        operator: not_equals
+        value: enforced
+    remediation: |
+      Enable public access prevention:
+      gsutil pap set enforced gs://<bucket>
+    references:
+      - CIS GCP Foundations 5.2
+
+  - id: gcp-003
+    name: Cloud SQL Backup Enabled
+    description: Cloud SQL instances must have automated backups enabled
+    severity: high
+    provider: gcp
+    resource_types:
+      - database
+    condition:
+      property_check:
+        path: settings.backup_configuration.enabled
+        operator: not_equals
+        value: true
+    remediation: |
+      Enable automated backups:
+      gcloud sql instances patch <instance> \
+        --backup-start-time=<time> --enable-bin-log
+    references:
+      - CIS GCP Foundations 6.7
+
+  - id: gcp-004
+    name: Cloud SQL SSL Required
+    description: Cloud SQL instances must require SSL connections
+    severity: high
+    provider: gcp
+    resource_types:
+      - database
+    condition:
+      property_check:
+        path: settings.ip_configuration.require_ssl
+        operator: not_equals
+        value: true
+    remediation: |
+      Require SSL connections:
+      gcloud sql instances patch <instance> --require-ssl
+    references:
+      - CIS GCP Foundations 6.4
+
+  - id: gcp-005
+    name: Cloud SQL Public IP
+    description: Cloud SQL instances should not have public IPs
+    severity: high
+    provider: gcp
+    resource_types:
+      - database
+    condition:
+      property_check:
+        path: settings.ip_configuration.ipv4_enabled
+        operator: equals
+        value: true
+    remediation: |
+      Disable public IP:
+      1. Create new instance without public IP
+      2. Use Cloud SQL Proxy or Private IP
+      3. Migrate data from old instance
+    references:
+      - CIS GCP Foundations 6.6
+
+  - id: gcp-006
+    name: Compute Instance OS Login
+    description: Compute instances should use OS Login
+    severity: medium
+    provider: gcp
+    resource_types:
+      - compute
+    condition:
+      property_check:
+        path: metadata.enable-oslogin
+        operator: not_equals
+        value: "TRUE"
+    remediation: |
+      Enable OS Login:
+      gcloud compute instances add-metadata <instance> \
+        --metadata enable-oslogin=TRUE
+    references:
+      - CIS GCP Foundations 4.3
+
+  - id: gcp-007
+    name: Compute Instance Shielded VM
+    description: Compute instances should use Shielded VM features
+    severity: low
+    provider: gcp
+    resource_types:
+      - compute
+    condition:
+      exists:
+        path: shielded_instance_config
+        should_exist: false
+    remediation: |
+      Enable Shielded VM:
+      1. Stop instance
+      2. Enable Shielded VM features:
+         - Secure Boot
+         - vTPM
+         - Integrity Monitoring
+      3. Start instance
+    references:
+      - CIS GCP Foundations 4.8
+
+  - id: gcp-008
+    name: Firewall Rule Unrestricted Access
+    description: Firewall rules should not allow unrestricted access (0.0.0.0/0)
+    severity: high
+    provider: gcp
+    resource_types:
+      - security_group
+    condition:
+      property_check:
+        path: source_ranges
+        operator: contains
+        value: "0.0.0.0/0"
+    remediation: |
+      Restrict firewall access:
+      1. Review firewall rule
+      2. Replace 0.0.0.0/0 with specific IP ranges
+      3. Apply principle of least privilege
+    references:
+      - CIS GCP Foundations 3.7
+
+  - id: gcp-009
+    name: VPC Flow Logs Enabled
+    description: VPC subnets must have flow logs enabled
+    severity: medium
+    provider: gcp
+    resource_types:
+      - network
+    condition:
+      property_check:
+        path: log_config.enable
+        operator: not_equals
+        value: true
+    remediation: |
+      Enable flow logs:
+      gcloud compute networks subnets update <subnet> \
+        --enable-flow-logs --region=<region>
+    references:
+      - CIS GCP Foundations 3.9
+
+  - id: gcp-010
+    name: KMS Encryption for Disks
+    description: Compute disks should use customer-managed encryption keys
+    severity: medium
+    provider: gcp
+    resource_types:
+      - storage
+    condition:
+      exists:
+        path: disk_encryption_key.kms_key_name
+        should_exist: false
+    remediation: |
+      Use CMEK for disk encryption:
+      1. Create KMS key
+      2. Grant Compute Engine service account access
+      3. Create new disk with CMEK
+      4. Migrate data
+    references:
+      - CIS GCP Foundations 4.7

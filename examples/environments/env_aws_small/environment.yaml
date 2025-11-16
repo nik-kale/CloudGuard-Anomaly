@@ -1,0 +1,6 @@
+---
+name: env_aws_small
+provider: aws
+metadata:
+  description: "Small AWS environment for testing with intentional security issues"
+  created_for: "demonstration and testing"

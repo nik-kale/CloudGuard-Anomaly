@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CloudGuard Finding Schema",
+  "description": "Schema for security findings in CloudGuard-Anomaly",
+  "type": "object",
+  "required": ["id", "type", "severity", "title", "description", "resource"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique finding identifier"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "misconfiguration", "drift", "identity_risk",
+        "network_exposure", "compliance_violation", "anomaly"
+      ],
+      "description": "Type of finding"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low", "info"],
+      "description": "Severity level"
+    },
+    "title": {
+      "type": "string",
+      "description": "Short title or summary"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description"
+    },
+    "resource": {
+      "$ref": "resource_schema.json",
+      "description": "Affected resource"
+    },
+    "policy": {
+      "type": ["object", "null"],
+      "description": "Policy that triggered the finding"
+    },
+    "evidence": {
+      "type": "object",
+      "description": "Supporting evidence"
+    },
+    "remediation": {
+      "type": "string",
+      "description": "Remediation steps"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When finding was detected"
+    }
+  }
+}

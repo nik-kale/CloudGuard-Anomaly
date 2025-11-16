@@ -1,0 +1,102 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cloudguard-anomaly"
+version = "0.1.0"
+description = "Agentic Cloud Security Posture & Anomaly Analyzer"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "CloudGuard-Anomaly Contributors"}
+]
+keywords = [
+    "cloud security",
+    "security posture",
+    "anomaly detection",
+    "configuration drift",
+    "cspm",
+    "aws",
+    "azure",
+    "gcp",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: System :: Monitoring",
+]
+
+dependencies = [
+    "click>=8.1.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.7.0",
+    "ruff>=0.0.285",
+    "mypy>=1.5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/cloudguard-anomaly/cloudguard-anomaly"
+Documentation = "https://github.com/cloudguard-anomaly/cloudguard-anomaly#readme"
+Repository = "https://github.com/cloudguard-anomaly/cloudguard-anomaly"
+Issues = "https://github.com/cloudguard-anomaly/cloudguard-anomaly/issues"
+
+[project.scripts]
+cloudguard-anomaly = "cloudguard_anomaly.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cloudguard_anomaly*"]
+exclude = ["tests*", "docs*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--verbose --cov=cloudguard_anomaly --cov-report=term-missing"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = []
+exclude = [
+    ".git",
+    ".venv",
+    "build",
+    "dist",
+]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true

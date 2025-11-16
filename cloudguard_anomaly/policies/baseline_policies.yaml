@@ -1,0 +1,210 @@
+---
+# CloudGuard-Anomaly Baseline Security Policies
+# Cross-cloud security policies applicable to multiple providers
+
+policies:
+  - id: baseline-001
+    name: Encryption at Rest Required
+    description: All storage resources must have encryption at rest enabled
+    severity: high
+    provider: multi
+    resource_types:
+      - storage
+      - database
+    condition:
+      custom:
+        type: encryption
+    remediation: |
+      Enable encryption at rest for this resource:
+      - For AWS S3: Enable default encryption in bucket settings
+      - For Azure Storage: Enable storage service encryption
+      - For GCP Storage: Enable default encryption
+    references:
+      - CIS Benchmark 2.1.1
+      - NIST 800-53 SC-28
+
+  - id: baseline-002
+    name: Public Access Prohibited
+    description: Resources should not allow unrestricted public access
+    severity: critical
+    provider: multi
+    resource_types:
+      - storage
+      - database
+    condition:
+      custom:
+        type: public_access
+    remediation: |
+      Remove public access from this resource:
+      1. Review access control lists and policies
+      2. Remove any rules allowing 0.0.0.0/0 or ::/0
+      3. Implement principle of least privilege
+    references:
+      - CIS Benchmark 2.1.2
+      - OWASP A5:2021
+
+  - id: baseline-003
+    name: Logging and Monitoring Required
+    description: Critical resources must have logging and monitoring enabled
+    severity: medium
+    provider: multi
+    resource_types:
+      - storage
+      - database
+      - load_balancer
+    condition:
+      custom:
+        type: logging
+    remediation: |
+      Enable logging and monitoring:
+      1. Configure access logs
+      2. Enable audit trails
+      3. Set up CloudWatch/Azure Monitor/Cloud Logging
+    references:
+      - CIS Benchmark 3.1
+      - PCI-DSS 10.1
+
+  - id: baseline-004
+    name: Network Exposure - Unrestricted SSH
+    description: Security groups should not allow SSH (port 22) from 0.0.0.0/0
+    severity: high
+    provider: multi
+    resource_types:
+      - security_group
+    condition:
+      property_check:
+        path: ingress
+        operator: contains
+        value:
+          from_port: 22
+          cidr_blocks: ["0.0.0.0/0"]
+    remediation: |
+      Restrict SSH access:
+      1. Limit SSH access to specific IP ranges
+      2. Use VPN or bastion hosts
+      3. Consider using SSM Session Manager or equivalent
+    references:
+      - CIS Benchmark 4.1
+      - NIST 800-53 AC-4
+
+  - id: baseline-005
+    name: Network Exposure - Unrestricted RDP
+    description: Security groups should not allow RDP (port 3389) from 0.0.0.0/0
+    severity: high
+    provider: multi
+    resource_types:
+      - security_group
+    condition:
+      property_check:
+        path: ingress
+        operator: contains
+        value:
+          from_port: 3389
+          cidr_blocks: ["0.0.0.0/0"]
+    remediation: |
+      Restrict RDP access:
+      1. Limit RDP access to specific IP ranges
+      2. Use VPN or bastion hosts
+      3. Consider using Azure Bastion or equivalent
+    references:
+      - CIS Benchmark 4.2
+
+  - id: baseline-006
+    name: Versioning Enabled for Storage
+    description: Storage buckets should have versioning enabled
+    severity: low
+    provider: multi
+    resource_types:
+      - storage
+    condition:
+      property_check:
+        path: versioning.enabled
+        operator: not_equals
+        value: true
+    remediation: |
+      Enable versioning:
+      1. Enable versioning in bucket configuration
+      2. Configure lifecycle policies for old versions
+    references:
+      - CIS Benchmark 2.1.3
+
+  - id: baseline-007
+    name: MFA Delete Protection
+    description: Storage buckets should have MFA delete enabled
+    severity: medium
+    provider: multi
+    resource_types:
+      - storage
+    condition:
+      property_check:
+        path: versioning.mfa_delete
+        operator: not_equals
+        value: true
+    remediation: |
+      Enable MFA delete:
+      1. Configure MFA for root/admin account
+      2. Enable MFA delete in bucket versioning settings
+    references:
+      - CIS Benchmark 2.1.4
+
+  - id: baseline-008
+    name: Database Backup Enabled
+    description: Database instances must have automated backups enabled
+    severity: high
+    provider: multi
+    resource_types:
+      - database
+    condition:
+      property_check:
+        path: backup_retention_period
+        operator: less_than
+        value: 7
+    remediation: |
+      Enable automated backups:
+      1. Set backup retention period to at least 7 days
+      2. Configure backup window
+      3. Test restore procedures
+    references:
+      - CIS Benchmark 3.1
+
+  - id: baseline-009
+    name: Database Multi-AZ/HA
+    description: Production databases should be deployed in multi-AZ/HA mode
+    severity: medium
+    provider: multi
+    resource_types:
+      - database
+    condition:
+      property_check:
+        path: multi_az
+        operator: not_equals
+        value: true
+    remediation: |
+      Enable high availability:
+      1. Enable multi-AZ deployment
+      2. Configure automatic failover
+      3. Test failover procedures
+    references:
+      - AWS Well-Architected Framework
+
+  - id: baseline-010
+    name: TLS/SSL Enforcement
+    description: Services must enforce TLS/SSL for data in transit
+    severity: high
+    provider: multi
+    resource_types:
+      - load_balancer
+      - database
+      - api_gateway
+    condition:
+      property_check:
+        path: ssl_policy
+        operator: exists
+    remediation: |
+      Enforce TLS/SSL:
+      1. Configure SSL/TLS listeners
+      2. Use strong cipher suites
+      3. Enforce minimum TLS version 1.2
+    references:
+      - CIS Benchmark 4.3
+      - PCI-DSS 4.1
