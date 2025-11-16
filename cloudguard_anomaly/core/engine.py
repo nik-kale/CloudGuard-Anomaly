@@ -149,10 +149,24 @@ class AnalysisEngine:
         from cloudguard_anomaly.agents.risk_summarizer_agent import RiskSummarizerAgent
         from cloudguard_anomaly.explainers.narrative_builder import NarrativeBuilder
 
+        # Try to use LLM-enhanced agents if available
+        try:
+            from cloudguard_anomaly.agents.llm.providers import get_llm_provider
+            from cloudguard_anomaly.agents.llm.enhanced_agents import EnhancedRiskSummarizerAgent
+
+            llm_provider = get_llm_provider()
+            if llm_provider:
+                logger.info("Using LLM-enhanced agents for narratives")
+                summarizer = EnhancedRiskSummarizerAgent(llm_provider)
+            else:
+                summarizer = RiskSummarizerAgent()
+        except Exception as e:
+            logger.warning(f"Could not initialize LLM agents, using deterministic: {e}")
+            summarizer = RiskSummarizerAgent()
+
         narratives = []
 
         # Generate overall risk summary
-        summarizer = RiskSummarizerAgent()
         risk_summary = summarizer.summarize(findings, anomalies, environment)
         narratives.append(risk_summary)
 

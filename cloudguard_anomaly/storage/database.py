@@ -117,17 +117,38 @@ class DatabaseStorage:
 
     def __init__(self, database_url: str = "sqlite:///cloudguard.db"):
         """
-        Initialize database storage.
+        Initialize database storage with connection pooling.
 
         Args:
             database_url: SQLAlchemy database URL
         """
+        from cloudguard_anomaly.config import get_config
+        config = get_config()
+
         self.database_url = database_url
-        self.engine = create_engine(
-            database_url,
-            echo=False,
-            pool_pre_ping=True,
-        )
+
+        # Configure engine with connection pooling
+        engine_kwargs = {
+            'echo': False,
+            'pool_pre_ping': True,  # Verify connections before using
+        }
+
+        # Add pooling only for non-SQLite databases
+        if not database_url.startswith('sqlite'):
+            from sqlalchemy.pool import QueuePool
+            engine_kwargs.update({
+                'poolclass': QueuePool,
+                'pool_size': config.database_pool_size,
+                'max_overflow': config.database_max_overflow,
+                'pool_recycle': 3600,  # Recycle connections after 1 hour
+                'pool_timeout': 30,  # Wait up to 30 seconds for a connection
+            })
+            logger.info(
+                f"Connection pooling enabled: pool_size={config.database_pool_size}, "
+                f"max_overflow={config.database_max_overflow}"
+            )
+
+        self.engine = create_engine(database_url, **engine_kwargs)
         Base.metadata.create_all(self.engine)
         self.SessionLocal = sessionmaker(bind=self.engine)
 

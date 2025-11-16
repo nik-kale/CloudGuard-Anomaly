@@ -141,3 +141,68 @@ class LocalLLMProvider(LLMProvider):
         except Exception as e:
             logger.error(f"Local LLM error: {e}")
             raise
+
+
+def get_llm_provider() -> Optional[LLMProvider]:
+    """
+    Auto-detect and create appropriate LLM provider.
+
+    Checks configuration and available API keys to determine which
+    provider to use.
+
+    Returns:
+        LLM provider instance or None if no provider available
+    """
+    from cloudguard_anomaly.config import get_config
+
+    config = get_config()
+
+    # Check LLM provider setting
+    provider_type = config.llm_provider.lower()
+
+    if provider_type == "none":
+        logger.info("LLM provider disabled in configuration")
+        return None
+
+    # Try Claude/Anthropic
+    if provider_type in ["auto", "claude"] and config.anthropic_api_key:
+        try:
+            model = config.llm_model or "claude-3-5-sonnet-20241022"
+            provider = ClaudeLLMProvider(api_key=config.anthropic_api_key, model=model)
+            logger.info(f"Using Claude LLM provider: {model}")
+            return provider
+        except Exception as e:
+            logger.warning(f"Failed to initialize Claude provider: {e}")
+            if provider_type == "claude":
+                return None  # Explicitly requested Claude, don't fallback
+
+    # Try OpenAI
+    if provider_type in ["auto", "openai"] and config.openai_api_key:
+        try:
+            model = config.llm_model or "gpt-4"
+            provider = OpenAIProvider(api_key=config.openai_api_key, model=model)
+            logger.info(f"Using OpenAI LLM provider: {model}")
+            return provider
+        except Exception as e:
+            logger.warning(f"Failed to initialize OpenAI provider: {e}")
+            if provider_type == "openai":
+                return None  # Explicitly requested OpenAI, don't fallback
+
+    # Try Local LLM
+    if provider_type in ["auto", "local"]:
+        try:
+            model = config.llm_model or "llama2"
+            provider = LocalLLMProvider(base_url=config.local_llm_url, model=model)
+            logger.info(f"Using local LLM provider: {model}")
+            return provider
+        except Exception as e:
+            logger.warning(f"Failed to initialize local LLM provider: {e}")
+            if provider_type == "local":
+                return None  # Explicitly requested local, don't fallback
+
+    if provider_type == "auto":
+        logger.info("No LLM provider available - will use deterministic agents")
+    else:
+        logger.warning(f"Requested LLM provider '{provider_type}' not available")
+
+    return None
