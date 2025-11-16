@@ -159,18 +159,24 @@ class AuthenticationManager:
         session = self.database.get_session()
 
         try:
-            user = session.query(User).filter(User.api_key == api_key).first()
+            # Get prefix for faster lookup
+            prefix = api_key[:8] if len(api_key) >= 8 else api_key
 
-            if not user:
-                logger.warning("Authentication failed: invalid API key")
-                return None
+            # Find user by prefix (narrows down candidates)
+            users = session.query(User).filter(User.api_key_prefix == prefix).all()
 
-            if not user.is_active:
-                logger.warning(f"Authentication failed: user '{user.username}' is inactive")
-                return None
+            # Verify against each candidate
+            for user in users:
+                if user.verify_api_key(api_key):
+                    if not user.is_active:
+                        logger.warning(f"Authentication failed: user '{user.username}' is inactive")
+                        return None
 
-            logger.info(f"API key authenticated: {user.username}")
-            return user
+                    logger.info(f"API key authenticated: {user.username}")
+                    return user
+
+            logger.warning("Authentication failed: invalid API key")
+            return None
 
         finally:
             session.close()

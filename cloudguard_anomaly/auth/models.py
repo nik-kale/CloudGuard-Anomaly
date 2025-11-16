@@ -35,7 +35,8 @@ class User(Base):
     username = Column(String, unique=True, nullable=False, index=True)
     email = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=False)
-    api_key = Column(String, unique=True, nullable=True, index=True)
+    api_key_hash = Column(String, unique=True, nullable=True, index=True)  # Hashed API key
+    api_key_prefix = Column(String, nullable=True)  # First 8 chars for identification
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -74,9 +75,55 @@ class User(Base):
             return False
 
     def generate_api_key(self) -> str:
-        """Generate new API key for user."""
-        self.api_key = f"cgak_{secrets.token_urlsafe(32)}"
-        return self.api_key
+        """
+        Generate new API key for user.
+
+        Returns the plaintext API key (only shown once).
+        Stores hashed version in database.
+        """
+        # Generate secure random API key
+        api_key = f"cgak_{secrets.token_urlsafe(32)}"
+
+        # Store prefix for identification (first 8 chars)
+        self.api_key_prefix = api_key[:8]
+
+        # Hash the API key before storing
+        salt = secrets.token_hex(16)
+        key_hash = hashlib.pbkdf2_hmac(
+            'sha256',
+            api_key.encode('utf-8'),
+            salt.encode('utf-8'),
+            100000
+        )
+        self.api_key_hash = f"{salt}${key_hash.hex()}"
+
+        # Return plaintext key (only shown once)
+        return api_key
+
+    def verify_api_key(self, api_key: str) -> bool:
+        """
+        Verify an API key against stored hash.
+
+        Args:
+            api_key: Plaintext API key to verify
+
+        Returns:
+            True if API key matches, False otherwise
+        """
+        if not self.api_key_hash:
+            return False
+
+        try:
+            salt, stored_hash = self.api_key_hash.split('$')
+            key_hash = hashlib.pbkdf2_hmac(
+                'sha256',
+                api_key.encode('utf-8'),
+                salt.encode('utf-8'),
+                100000
+            )
+            return key_hash.hex() == stored_hash
+        except (ValueError, AttributeError):
+            return False
 
     def has_role(self, role_name: str) -> bool:
         """Check if user has a specific role."""
