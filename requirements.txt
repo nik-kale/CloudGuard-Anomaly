@@ -35,6 +35,7 @@ flask-limiter>=3.5.0  # Rate limiting
 flask-caching>=2.1.0  # Caching
 flask-cors>=4.0.0  # CORS support
 flask-wtf>=1.2.0  # CSRF protection
+flasgger>=0.9.7  # OpenAPI/Swagger documentation
 plotly>=5.17.0
 
 # CLI Enhancement
