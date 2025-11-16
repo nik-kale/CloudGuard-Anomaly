@@ -68,8 +68,8 @@ class MonitoringDaemon:
             try:
                 from cloudguard_anomaly.notifications.webhooks import SlackNotifier
                 self.slack_notifier = SlackNotifier(slack_webhook or config.slack_webhook_url)
-            except:
-                logger.warning("Could not initialize Slack notifier")
+            except (ImportError, Exception) as e:
+                logger.warning(f"Could not initialize Slack notifier: {e}")
 
         # Scan targets
         self.scan_targets: Dict[str, Dict[str, Any]] = {}

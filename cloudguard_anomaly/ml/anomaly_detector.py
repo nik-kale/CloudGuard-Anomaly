@@ -69,7 +69,8 @@ class MLAnomalyDetector:
                 creation = parser.parse(resource.properties["creation_date"])
                 age_days = (datetime.now(creation.tzinfo) - creation).days
                 features.append(age_days)
-            except:
+            except (ValueError, TypeError, ImportError, AttributeError) as e:
+                logger.debug(f"Failed to parse creation_date for resource {resource.id}: {e}")
                 features.append(0)
         else:
             features.append(0)

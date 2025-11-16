@@ -164,12 +164,14 @@ class SecretsManager:
             # Try KV v2 first
             secret_version = self.client.secrets.kv.v2.read_secret_version(path=path)
             return secret_version['data']['data'].get('value', default)
-        except:
+        except Exception as e:
+            logger.debug(f"Vault KV v2 failed for '{path}', trying KV v1: {e}")
             try:
                 # Fallback to KV v1
                 secret = self.client.secrets.kv.v1.read_secret(path=path)
                 return secret['data'].get('value', default)
-            except:
+            except Exception as e2:
+                logger.debug(f"Vault KV v1 also failed for '{path}': {e2}")
                 return default
 
     def _get_aws_secret(self, path: str, default: Optional[str]) -> Optional[str]:
@@ -254,7 +256,8 @@ class SecretsManager:
             )
             logger.info(f"Secret '{path}' stored in Vault")
             return True
-        except:
+        except Exception as e:
+            logger.debug(f"Vault KV v2 failed for '{path}', trying KV v1: {e}")
             try:
                 # Fallback to KV v1
                 self.client.secrets.kv.v1.create_or_update_secret(
@@ -263,8 +266,8 @@ class SecretsManager:
                 )
                 logger.info(f"Secret '{path}' stored in Vault (KV v1)")
                 return True
-            except Exception as e:
-                logger.error(f"Vault error: {e}")
+            except Exception as e2:
+                logger.error(f"Vault error for both KV v1 and v2: {e2}")
                 return False
 
     def _set_aws_secret(self, path: str, value: str) -> bool:
@@ -309,7 +312,8 @@ class SecretsManager:
                 secret_name = f"{parent}/secrets/{path}"
                 self.client.get_secret(request={"name": secret_name})
                 exists = True
-            except:
+            except Exception as e:
+                logger.debug(f"GCP secret '{path}' does not exist, will create: {e}")
                 exists = False
 
             if not exists:
