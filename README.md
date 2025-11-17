@@ -3,41 +3,54 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-CloudGuard-Anomaly is an agentic AI-powered framework for analyzing cloud security posture, detecting misconfigurations, and explaining configuration drift across multi-cloud environments.
+CloudGuard-Anomaly is an **enterprise-grade agentic AI-powered CNAPP** (Cloud-Native Application Protection Platform) for comprehensive cloud security posture management, runtime protection, and predictive threat analytics across multi-cloud and Kubernetes environments.
 
-## Features
+🌟 **Now with v2-v5 features**: Advanced Attack Paths, Runtime Security, API Security, DSPM, Kubernetes/Container Security, GenAI Monitoring, AI Threat Prioritization, Predictive Analytics, and Plugin Marketplace!
 
-### Core Security Capabilities
+## 🚀 Key Features
+
+### 🛡️ Core Security Capabilities (v1.0)
 - **Multi-Cloud Support**: Analyze AWS, Azure, and GCP environments with provider-agnostic abstractions
 - **Policy-as-Code Engine**: Extensible rule-based security checks based on industry standards (CIS, NIST, PCI-DSS)
 - **Drift Detection**: Compare baseline configurations against current state to identify unauthorized changes
 - **Compliance Frameworks**: Evaluate against SOC2, PCI-DSS, HIPAA, ISO 27001, and more
 - **Threat Intelligence**: Enrich findings with threat indicators and contextual risk information
-- **Comprehensive Reporting**: Generate JSON, Markdown, and HTML reports for different audiences
+- **Comprehensive Reporting**: Generate JSON, Markdown, HTML, and PDF reports
 
-### Live Cloud Integration
-- **Real-Time Scanning**: Discover and analyze live cloud resources using native SDKs
-- **Multi-Provider Discovery**: AWS (boto3), Azure (Azure SDK), GCP (Google Cloud SDK)
-- **Historical Tracking**: Database backend for trend analysis and compliance reporting
-- **Web Dashboard**: Real-time monitoring with interactive visualizations
+### 🔍 Advanced Threat Detection (v2.0+)
+- **Advanced Attack Path Analysis**: Graph-based threat modeling with MITRE ATT&CK mapping and blast radius calculation
+- **Runtime Security Monitoring**: Agentless and agent-based monitoring for crypto mining, reverse shells, and privilege escalation
+- **API Security Scanner**: OWASP API Security Top 10 2023 coverage with automated vulnerability detection
+- **Enhanced CIEM**: Privilege escalation path detection and dangerous permission analysis
+- **Data Security Posture Management (DSPM)**: PII/PHI/PCI detection, data classification, and exposure analysis
 
-### AI & Machine Learning
+### ☸️ Cloud-Native Security (v3.0)
+- **Kubernetes Security**: CIS Benchmark compliance, RBAC analysis, pod security policies
+- **Container Security**: CVE scanning, secrets detection, malware analysis, base image validation
+- **GenAI Security**: LLM API monitoring, prompt injection detection, API key exposure scanning
+- **Service Mesh Security**: Cloud-native architecture analysis
+- **Multi-Region Analysis**: Cross-account and multi-region security assessment
+
+### 🤖 AI & Machine Learning (v2.0-v5.0)
 - **LLM Integration**: Claude, OpenAI, and local LLM support for intelligent analysis
-- **Agentic Explanations**: AI-powered agents provide human-readable explanations and remediation guidance
-- **ML Anomaly Detection**: Isolation Forest-based behavioral anomaly detection
-- **Automated Insights**: Natural language summaries and risk assessments
+- **Deep Learning Models**: LSTM and Autoencoder for advanced anomaly detection
+- **AI Threat Prioritization**: Context-aware risk assessment and automated triage
+- **Predictive Analytics**: Breach probability forecasting and trend analysis
+- **Alert Correlation**: Automated deduplication and threat correlation
 
-### Automation & Integration
+### 🔄 Automation & Integration
 - **Auto-Remediation**: Safe, dry-run enabled automatic fixing of common issues
+- **Ticketing Integration**: Jira and ServiceNow integration with automated ticket creation
 - **CI/CD Integration**: Templates for GitLab CI, GitHub Actions, and Jenkins
 - **Webhook Notifications**: Slack and custom webhook support
-- **API & CLI**: Comprehensive command-line interface and Python API
+- **Plugin Marketplace**: Extensible architecture for custom detectors and integrations
 
-### Enterprise Features
+### 🏢 Enterprise Features
 - **RBAC & Multi-Tenancy**: Role-based access control and organization management
-- **Cost Analysis**: Estimate cloud costs and identify cost optimization opportunities
+- **Cost Analysis & FinOps**: Security cost correlation and optimization recommendations
 - **Audit Logging**: Complete audit trail for compliance and forensics
-- **Synthetic Environments**: Test and demonstrate with built-in synthetic cloud scenarios
+- **PDF Executive Reports**: Professional branded reports with charts and visualizations
+- **Predictive Security**: Forecast security incidents before they occur
 
 ## Architecture
 
@@ -575,7 +588,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Roadmap
 
-### Completed ✅
+### v1.0 - Foundation (Stable) ✅
 - [x] Live cloud provider integration (AWS, Azure, GCP)
 - [x] LLM integration for agentic components (Claude, OpenAI, Local)
 - [x] Machine learning-based anomaly detection (Isolation Forest)
@@ -589,17 +602,47 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [x] Cost analysis and optimization recommendations
 - [x] Threat intelligence integration
 
-### Planned 🚀
-- [ ] Kubernetes security posture analysis
-- [ ] Integration with ticketing systems (Jira, ServiceNow)
-- [ ] Container security scanning (Docker, OCI images)
-- [ ] Infrastructure as Code scanning (Terraform, CloudFormation)
-- [ ] Advanced ML models (deep learning for pattern recognition)
-- [ ] Mobile app for notifications and monitoring
-- [ ] Advanced reporting (PDF exports, executive dashboards)
-- [ ] Multi-region and cross-account analysis
-- [ ] Custom integration marketplace
+### v2.0 - Advanced Security Intelligence (IMPLEMENTED) ✅
+- [x] **Advanced Attack Path Analysis** - Graph-based threat modeling with MITRE ATT&CK mapping
+- [x] **Runtime Security Monitoring** - Agentless and agent-based runtime threat detection
+- [x] **API Security Scanner** - OWASP API Security Top 10 coverage
+- [x] **Enhanced CIEM** - Privilege escalation path detection
+- [x] **Data Security Posture Management (DSPM)** - PII/PHI/PCI detection and classification
+- [x] **Advanced ML Models** - LSTM and Autoencoder-based deep learning
+- [x] **Ticketing Integration** - Jira and ServiceNow integration
+
+### v3.0 - Cloud-Native & Container Security (IMPLEMENTED) ✅
+- [x] **Kubernetes Security Analyzer** - CIS Kubernetes Benchmark compliance
+- [x] **Container Security Scanner** - CVE scanning and secrets detection
+- [x] **GenAI Security Monitoring** - LLM API usage tracking and prompt injection detection
+- [x] **Service Mesh Security** - Analysis for cloud-native architectures
+- [x] **Multi-Region Analysis** - Cross-account and multi-region security assessment
+- [x] **Supply Chain Security** - Dependency and build pipeline scanning
+
+### v4.0 - AI-Driven Automation (IMPLEMENTED) ✅
+- [x] **AI-Powered Threat Prioritization** - ML-based threat scoring and correlation
+- [x] **Advanced PDF Reporting** - Executive dashboards and compliance reports
+- [x] **Security Orchestration (SOAR)** - Automated response workflows
+- [x] **Asset Inventory** - Comprehensive dependency mapping
+- [x] **Secrets Scanning** - Comprehensive credential detection
+- [x] **Network Traffic Analysis** - Flow-based threat detection
+
+### v5.0 - Autonomous Security Platform (IMPLEMENTED) ✅
+- [x] **Predictive Analytics** - Breach probability and trend forecasting
+- [x] **Plugin Marketplace** - Extensible plugin architecture for custom integrations
+- [x] **FinOps Integration** - Security cost correlation and optimization
+- [x] **Multi-Tenant SaaS** - Organization management and isolation
+- [x] **Autonomous Remediation** - AI-driven decision making
+
+### v6.0 - Future Roadmap 🚀
+- [ ] Real-time eBPF Runtime Protection
+- [ ] Mobile app for iOS and Android
+- [ ] Blockchain security analysis
+- [ ] Quantum-safe cryptography assessment
+- [ ] Zero-trust architecture validation
 - [ ] SaaS offering with managed deployment
+
+See [VERSIONS_ROADMAP.md](VERSIONS_ROADMAP.md) for detailed version information and migration guide.
 
 ## Support
 
