@@ -11,6 +11,7 @@ from cloudguard_anomaly.policies.policy_engine import PolicyEngine
 from cloudguard_anomaly.reports.html_report_stub import HTMLReporter
 from cloudguard_anomaly.reports.json_reporter import JSONReporter
 from cloudguard_anomaly.reports.markdown_reporter import MarkdownReporter
+from cloudguard_anomaly.reports.pdf_reporter import PDFReporter
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +127,23 @@ def execute_scan(
         html_path = output_dir / f"{env_name_safe}_report.html"
         html_reporter.save_report(scan_result, html_path)
         print(f"✓ HTML report saved to: {html_path}")
+    
+    if output_format in ["pdf", "all"]:
+        logger.info("Generating PDF report...")
+        try:
+            pdf_reporter = PDFReporter(page_size='letter')
+            pdf_path = output_dir / f"{env_name_safe}_report.pdf"
+            pdf_reporter.generate_report(
+                scan_results=scan_result,
+                output_path=str(pdf_path),
+                include_executive_summary=True,
+                include_detailed_findings=True,
+                include_compliance_mapping=True
+            )
+            print(f"✓ PDF report saved to: {pdf_path}")
+        except ImportError as e:
+            logger.warning(f"PDF generation skipped: {e}")
+            print(f"⚠️  PDF generation requires reportlab (pip install reportlab)")
 
     print(f"\nAll reports saved to: {output_dir}")
 
