@@ -64,7 +64,7 @@ def cli(verbose, quiet):
     "--format",
     "-f",
     "output_format",
-    type=click.Choice(["json", "markdown", "html", "all"], case_sensitive=False),
+    type=click.Choice(["json", "markdown", "html", "pdf", "all"], case_sensitive=False),
     default="all",
     help="Output format for reports",
 )
