@@ -204,6 +204,28 @@ def version():
     click.echo("Agentic Cloud Security Posture & Anomaly Analyzer")
 
 
+@cli.command()
+@click.option('--image', required=True, help='Docker image to scan')
+@click.option('--dockerfile', type=click.Path(exists=True), help='Path to Dockerfile')
+@click.option('--output', '-o', type=click.Path(), help='Output file path')
+@click.option('--format', type=click.Choice(['json', 'markdown', 'text']), default='text')
+@click.option('--skip-vulnerabilities', is_flag=True, help='Skip CVE scanning')
+@click.option('--skip-secrets', is_flag=True, help='Skip secret detection')
+@click.option('--skip-config', is_flag=True, help='Skip configuration checks')
+def container_scan(image, dockerfile, output, format, skip_vulnerabilities, skip_secrets, skip_config):
+    """
+    Scan Docker/OCI container image for security issues.
+    
+    Examples:
+        cloudguard-anomaly container-scan --image nginx:latest
+        cloudguard-anomaly container-scan --image myapp:1.0 --dockerfile Dockerfile
+        cloudguard-anomaly container-scan --image nginx:latest --format json --output report.json
+    """
+    from cloudguard_anomaly.cli.commands.container_scan import container_scan as execute_container_scan
+    
+    execute_container_scan.callback(image, dockerfile, output, format, skip_vulnerabilities, skip_secrets, skip_config)
+
+
 def main():
     """Main entry point."""
     cli()
