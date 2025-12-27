@@ -1,0 +1,151 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "cloudguard-security-posture",
+    "title": "CloudGuard Security Posture Overview",
+    "tags": ["cloudguard", "security", "overview"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+        "type": "stat",
+        "title": "Risk Score",
+        "targets": [
+          {
+            "expr": "cloudguard_risk_score",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 50, "color": "yellow"},
+                {"value": 75, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+        "type": "stat",
+        "title": "Total Findings",
+        "targets": [
+          {
+            "expr": "sum(cloudguard_findings_total)",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+        "type": "stat",
+        "title": "Critical Findings",
+        "targets": [
+          {
+            "expr": "cloudguard_findings_total{severity=\"critical\"}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "fixed", "fixedColor": "red"}
+          }
+        }
+      },
+      {
+        "id": 4,
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+        "type": "stat",
+        "title": "Scans Last 24h",
+        "targets": [
+          {
+            "expr": "increase(cloudguard_scans_total[24h])",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "gridPos": {"h": 10, "w": 12, "x": 0, "y": 8},
+        "type": "timeseries",
+        "title": "Findings Trend by Severity",
+        "targets": [
+          {
+            "expr": "cloudguard_findings_total{severity=\"critical\"}",
+            "legendFormat": "Critical",
+            "refId": "A"
+          },
+          {
+            "expr": "cloudguard_findings_total{severity=\"high\"}",
+            "legendFormat": "High",
+            "refId": "B"
+          },
+          {
+            "expr": "cloudguard_findings_total{severity=\"medium\"}",
+            "legendFormat": "Medium",
+            "refId": "C"
+          },
+          {
+            "expr": "cloudguard_findings_total{severity=\"low\"}",
+            "legendFormat": "Low",
+            "refId": "D"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "gridPos": {"h": 10, "w": 12, "x": 12, "y": 8},
+        "type": "piechart",
+        "title": "Findings by Type",
+        "targets": [
+          {
+            "expr": "sum by (type) (cloudguard_findings_total)",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "gridPos": {"h": 10, "w": 12, "x": 0, "y": 18},
+        "type": "bargauge",
+        "title": "Top Resources with Findings",
+        "targets": [
+          {
+            "expr": "topk(10, sum by (resource) (cloudguard_findings_total))",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "gridPos": {"h": 10, "w": 12, "x": 12, "y": 18},
+        "type": "timeseries",
+        "title": "Scan Duration",
+        "targets": [
+          {
+            "expr": "cloudguard_scan_duration_seconds",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          }
+        }
+      }
+    ]
+  }
+}
+

@@ -1,0 +1,225 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "cloudguard-sli-slo",
+    "title": "CloudGuard SLI/SLO Dashboard",
+    "tags": ["cloudguard", "sli", "slo", "sre"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "1m",
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0},
+        "type": "stat",
+        "title": "Scan Success Rate (SLI)",
+        "description": "Percentage of successful scans in last 30 days",
+        "targets": [
+          {
+            "expr": "sum(rate(cloudguard_scans_total{status=\"success\"}[30d])) / sum(rate(cloudguard_scans_total[30d])) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 95, "color": "yellow"},
+                {"value": 99.5, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "gridPos": {"h": 6, "w": 8, "x": 8, "y": 0},
+        "type": "stat",
+        "title": "Finding Detection Rate (SLI)",
+        "description": "Percentage of critical findings detected within 1 hour",
+        "targets": [
+          {
+            "expr": "(sum(cloudguard_findings_detected{severity=\"critical\",detection_time_seconds<3600}) / sum(cloudguard_findings_detected{severity=\"critical\"})) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 90, "color": "yellow"},
+                {"value": 99, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "gridPos": {"h": 6, "w": 8, "x": 16, "y": 0},
+        "type": "stat",
+        "title": "API Availability (SLI)",
+        "description": "Percentage of successful API requests",
+        "targets": [
+          {
+            "expr": "(sum(rate(cloudguard_api_requests_total{status=~\"2..\"}[5m])) / sum(rate(cloudguard_api_requests_total[5m]))) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 99.5, "color": "yellow"},
+                {"value": 99.9, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 6},
+        "type": "table",
+        "title": "SLO Compliance Summary",
+        "targets": [
+          {
+            "expr": "100",
+            "refId": "A",
+            "format": "table"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "renameByName": {
+                "Metric": "SLO",
+                "Value": "Current %"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "gridPos": {"h": 10, "w": 12, "x": 0, "y": 14},
+        "type": "timeseries",
+        "title": "Error Budget Burn Rate",
+        "description": "Rate at which error budget is being consumed",
+        "targets": [
+          {
+            "expr": "1 - (sum(rate(cloudguard_scans_total{status=\"success\"}[1h])) / sum(rate(cloudguard_scans_total[1h])))",
+            "legendFormat": "Actual Error Rate",
+            "refId": "A"
+          },
+          {
+            "expr": "0.005",
+            "legendFormat": "SLO Threshold (99.5%)",
+            "refId": "B"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "gridPos": {"h": 10, "w": 12, "x": 12, "y": 14},
+        "type": "timeseries",
+        "title": "Mean Time to Detect (MTTD)",
+        "description": "Average time to detect critical security issues",
+        "targets": [
+          {
+            "expr": "avg(cloudguard_detection_time_seconds{severity=\"critical\"})",
+            "legendFormat": "Critical MTTD",
+            "refId": "A"
+          },
+          {
+            "expr": "avg(cloudguard_detection_time_seconds{severity=\"high\"})",
+            "legendFormat": "High MTTD",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+        "type": "gauge",
+        "title": "Scan Performance SLI",
+        "description": "Percentage of scans completing within 5 minutes",
+        "targets": [
+          {
+            "expr": "(sum(cloudguard_scan_duration_seconds_bucket{le=\"300\"}) / sum(cloudguard_scan_duration_seconds_count)) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 80, "color": "yellow"},
+                {"value": 95, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 8,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "type": "stat",
+        "title": "Error Budget Remaining",
+        "description": "Percentage of error budget remaining for the month",
+        "targets": [
+          {
+            "expr": "((0.005 - (1 - sum(rate(cloudguard_scans_total{status=\"success\"}[30d])) / sum(rate(cloudguard_scans_total[30d])))) / 0.005) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 25, "color": "yellow"},
+                {"value": 50, "color": "green"}
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "name": "SLO Violations",
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "ALERTS{alertname=~\".*SLO.*\"}",
+          "iconColor": "red"
+        }
+      ]
+    }
+  }
+}
+
