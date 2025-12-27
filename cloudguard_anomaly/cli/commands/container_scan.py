@@ -60,30 +60,30 @@ def container_scan(
 ):
     """
     Scan a Docker/OCI container image for security issues.
-    
+
     Scans for:
     - Known vulnerabilities (CVEs)
     - Security misconfigurations
     - Secrets and sensitive data
     - Dockerfile best practices
-    
+
     Examples:
-    
+
       # Scan a local image
       cloudguard-anomaly container-scan --image nginx:latest
-      
+
       # Scan with Dockerfile analysis
       cloudguard-anomaly container-scan --image myapp:1.0 --dockerfile Dockerfile
-      
+
       # Generate JSON report
       cloudguard-anomaly container-scan --image nginx:latest --format json --output report.json
     """
     try:
         print_info(f"Scanning container image: {image}")
-        
+
         # Initialize scanner
         scanner = DockerScanner()
-        
+
         # Perform scan
         result = scanner.scan_image(
             image=image,
@@ -92,10 +92,10 @@ def container_scan(
             scan_secrets=not skip_secrets,
             scan_config=not skip_config
         )
-        
+
         # Generate report
         report = scanner.generate_report(result, format=format)
-        
+
         # Output report
         if output:
             with open(output, 'w') as f:
@@ -103,11 +103,11 @@ def container_scan(
             print_success(f"Report saved to: {output}")
         else:
             print(report)
-        
+
         # Print summary
         summary = result.summary
         total_issues = summary['total_vulnerabilities'] + summary['total_findings']
-        
+
         if summary.get('critical', 0) > 0:
             print_error(f"\n🚨 Found {summary['critical']} CRITICAL issues!")
         elif summary.get('high', 0) > 0:
@@ -116,7 +116,7 @@ def container_scan(
             print_info(f"\n✓ Scan complete: {total_issues} issues found")
         else:
             print_success(f"\n✓ Scan complete: No issues found!")
-        
+
         # Exit with appropriate code
         if summary.get('critical', 0) > 0:
             raise click.exceptions.Exit(2)
@@ -124,7 +124,7 @@ def container_scan(
             raise click.exceptions.Exit(1)
         else:
             raise click.exceptions.Exit(0)
-            
+
     except Exception as e:
         print_error(f"Container scan failed: {e}")
         logger.error(f"Container scan error: {e}", exc_info=True)

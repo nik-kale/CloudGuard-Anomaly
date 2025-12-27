@@ -218,7 +218,7 @@ Plain text output suitable for terminal display and logs.
       --image ${{ env.IMAGE_NAME }}:${{ github.sha }} \
       --format json \
       --output scan-results.json
-    
+
     # Fail on critical findings
     if grep -q '"critical": [1-9]' scan-results.json; then
       echo "Critical vulnerabilities found!"
@@ -243,7 +243,7 @@ container_security_scan:
 stage('Container Scan') {
     steps {
         sh 'cloudguard-anomaly container-scan --image myapp:latest --format json --output scan.json'
-        
+
         script {
             def scan = readJSON file: 'scan.json'
             if (scan.summary.critical > 0) {
