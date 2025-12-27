@@ -204,6 +204,40 @@ def version():
     click.echo("Agentic Cloud Security Posture & Anomaly Analyzer")
 
 
+@cli.group()
+def interactive():
+    """Interactive mode with guided wizards."""
+    pass
+
+
+@interactive.command(name='scan')
+def interactive_scan():
+    """Interactive scan wizard with step-by-step guidance."""
+    from cloudguard_anomaly.cli.interactive import interactive_scan_wizard
+    interactive_scan_wizard()
+
+
+@interactive.command(name='compliance')
+def interactive_compliance():
+    """Interactive compliance evaluation wizard."""
+    from cloudguard_anomaly.cli.interactive import interactive_compliance_wizard
+    interactive_compliance_wizard()
+
+
+@interactive.command(name='integrations')
+def interactive_integrations():
+    """Interactive integration setup wizard."""
+    from cloudguard_anomaly.cli.interactive import interactive_integration_wizard
+    interactive_integration_wizard()
+
+
+@cli.command()
+def quickhelp():
+    """Show quick reference guide."""
+    from cloudguard_anomaly.cli.interactive import show_quick_help
+    show_quick_help()
+
+
 @cli.command()
 @click.option('--image', required=True, help='Docker image to scan')
 @click.option('--dockerfile', type=click.Path(exists=True), help='Path to Dockerfile')
