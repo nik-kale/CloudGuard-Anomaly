@@ -1,10 +1,10 @@
 """Security modules for CloudGuard-Anomaly."""
 
 from cloudguard_anomaly.security.secrets import (
-    SecretsManager,
     SecretsBackend,
-    get_secrets_manager,
+    SecretsManager,
     get_secret,
+    get_secrets_manager,
 )
 
 __all__ = [

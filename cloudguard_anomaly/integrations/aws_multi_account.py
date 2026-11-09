@@ -5,20 +5,21 @@ Supports scanning across AWS Organizations with cross-account role assumption
 and parallel region scanning for comprehensive security posture analysis.
 """
 
-import logging
 import concurrent.futures
-from typing import List, Dict, Any, Optional
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 try:
     import boto3
-    from botocore.exceptions import ClientError, BotoCoreError
+    from botocore.exceptions import ClientError
+
     BOTO3_AVAILABLE = True
 except ImportError:
     BOTO3_AVAILABLE = False
 
-from cloudguard_anomaly.core.models import Environment, Resource, Provider
+from cloudguard_anomaly.core.models import Environment
 
 logger = logging.getLogger(__name__)
 
@@ -26,23 +27,25 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AWSAccount:
     """Represents an AWS account to scan."""
+
     account_id: str
     account_name: str
-    role_arn: Optional[str] = None
-    regions: List[str] = field(default_factory=list)
-    tags: Dict[str, str] = field(default_factory=dict)
+    role_arn: str | None = None
+    regions: list[str] = field(default_factory=list)
+    tags: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
 class MultiAccountScanResult:
     """Results from multi-account scan."""
-    organization_id: Optional[str]
-    accounts_scanned: List[str]
-    regions_scanned: List[str]
+
+    organization_id: str | None
+    accounts_scanned: list[str]
+    regions_scanned: list[str]
     total_resources: int
-    environments: List[Environment]
+    environments: list[Environment]
     scan_timestamp: datetime
-    errors: List[Dict[str, str]] = field(default_factory=list)
+    errors: list[dict[str, str]] = field(default_factory=list)
 
 
 class AWSMultiAccountScanner:
@@ -59,9 +62,9 @@ class AWSMultiAccountScanner:
 
     def __init__(
         self,
-        master_profile: Optional[str] = None,
-        default_regions: Optional[List[str]] = None,
-        max_workers: int = 10
+        master_profile: str | None = None,
+        default_regions: list[str] | None = None,
+        max_workers: int = 10,
     ):
         """
         Initialize multi-account scanner.
@@ -75,7 +78,7 @@ class AWSMultiAccountScanner:
             raise ImportError("boto3 required for AWS scanning. Install with: pip install boto3")
 
         self.master_profile = master_profile
-        self.default_regions = default_regions or ['us-east-1', 'us-west-2']
+        self.default_regions = default_regions or ["us-east-1", "us-west-2"]
         self.max_workers = max_workers
 
         # Initialize master session
@@ -86,7 +89,7 @@ class AWSMultiAccountScanner:
 
         logger.info(f"AWS Multi-Account Scanner initialized (regions: {self.default_regions})")
 
-    def discover_organization_accounts(self) -> List[AWSAccount]:
+    def discover_organization_accounts(self) -> list[AWSAccount]:
         """
         Discover all accounts in AWS Organization.
 
@@ -98,31 +101,33 @@ class AWSMultiAccountScanner:
         accounts = []
 
         try:
-            org_client = self.master_session.client('organizations')
+            org_client = self.master_session.client("organizations")
 
             # Get organization info
             try:
                 org_info = org_client.describe_organization()
-                org_id = org_info['Organization']['Id']
+                org_id = org_info["Organization"]["Id"]
                 logger.info(f"Found organization: {org_id}")
             except ClientError as e:
-                if e.response['Error']['Code'] == 'AWSOrganizationsNotInUseException':
+                if e.response["Error"]["Code"] == "AWSOrganizationsNotInUseException":
                     logger.warning("AWS Organizations not enabled for this account")
                     return []
                 raise
 
             # List accounts
-            paginator = org_client.get_paginator('list_accounts')
+            paginator = org_client.get_paginator("list_accounts")
 
             for page in paginator.paginate():
-                for account in page['Accounts']:
-                    if account['Status'] == 'ACTIVE':
-                        accounts.append(AWSAccount(
-                            account_id=account['Id'],
-                            account_name=account['Name'],
-                            role_arn=None,  # Will be set per account
-                            regions=self.default_regions.copy()
-                        ))
+                for account in page["Accounts"]:
+                    if account["Status"] == "ACTIVE":
+                        accounts.append(
+                            AWSAccount(
+                                account_id=account["Id"],
+                                account_name=account["Name"],
+                                role_arn=None,  # Will be set per account
+                                regions=self.default_regions.copy(),
+                            )
+                        )
 
             logger.info(f"Discovered {len(accounts)} active accounts")
 
@@ -135,9 +140,9 @@ class AWSMultiAccountScanner:
 
     def scan_accounts(
         self,
-        accounts: List[AWSAccount],
-        assume_role_name: str = 'CloudGuardAnomalyScanner',
-        services: Optional[List[str]] = None
+        accounts: list[AWSAccount],
+        assume_role_name: str = "CloudGuardAnomalyScanner",
+        services: list[str] | None = None,
     ) -> MultiAccountScanResult:
         """
         Scan multiple AWS accounts across regions.
@@ -162,10 +167,7 @@ class AWSMultiAccountScanner:
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             future_to_account = {
                 executor.submit(
-                    self._scan_single_account,
-                    account,
-                    assume_role_name,
-                    services
+                    self._scan_single_account, account, assume_role_name, services
                 ): account
                 for account in accounts
             }
@@ -182,7 +184,7 @@ class AWSMultiAccountScanner:
 
                         # Track regions
                         for env in account_envs:
-                            if hasattr(env, 'region'):
+                            if hasattr(env, "region"):
                                 regions_scanned.add(env.region)
 
                     if account_errors:
@@ -195,11 +197,13 @@ class AWSMultiAccountScanner:
 
                 except Exception as e:
                     logger.error(f"Failed to scan account {account.account_id}: {e}")
-                    errors.append({
-                        'account_id': account.account_id,
-                        'error': str(e),
-                        'type': 'account_scan_failure'
-                    })
+                    errors.append(
+                        {
+                            "account_id": account.account_id,
+                            "error": str(e),
+                            "type": "account_scan_failure",
+                        }
+                    )
 
         # Calculate totals
         total_resources = sum(len(env.resources) for env in environments)
@@ -211,7 +215,7 @@ class AWSMultiAccountScanner:
             total_resources=total_resources,
             environments=environments,
             scan_timestamp=start_time,
-            errors=errors
+            errors=errors,
         )
 
         logger.info(
@@ -222,11 +226,8 @@ class AWSMultiAccountScanner:
         return result
 
     def _scan_single_account(
-        self,
-        account: AWSAccount,
-        assume_role_name: str,
-        services: Optional[List[str]]
-    ) -> tuple[List[Environment], List[Dict]]:
+        self, account: AWSAccount, assume_role_name: str, services: list[str] | None
+    ) -> tuple[list[Environment], list[dict]]:
         """Scan a single AWS account across all specified regions."""
         environments = []
         errors = []
@@ -250,11 +251,7 @@ class AWSMultiAccountScanner:
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(account.regions)) as executor:
             future_to_region = {
                 executor.submit(
-                    self._scan_single_region,
-                    session,
-                    region,
-                    account,
-                    services
+                    self._scan_single_region, session, region, account, services
                 ): region
                 for region in account.regions
             }
@@ -267,23 +264,23 @@ class AWSMultiAccountScanner:
                     if env:
                         environments.append(env)
                 except Exception as e:
-                    logger.error(f"Failed to scan region {region} in account {account.account_id}: {e}")
-                    errors.append({
-                        'account_id': account.account_id,
-                        'region': region,
-                        'error': str(e),
-                        'type': 'region_scan_failure'
-                    })
+                    logger.error(
+                        f"Failed to scan region {region} in account {account.account_id}: {e}"
+                    )
+                    errors.append(
+                        {
+                            "account_id": account.account_id,
+                            "region": region,
+                            "error": str(e),
+                            "type": "region_scan_failure",
+                        }
+                    )
 
         return environments, errors
 
     def _scan_single_region(
-        self,
-        session: boto3.Session,
-        region: str,
-        account: AWSAccount,
-        services: Optional[List[str]]
-    ) -> Optional[Environment]:
+        self, session: boto3.Session, region: str, account: AWSAccount, services: list[str] | None
+    ) -> Environment | None:
         """Scan a single region for an account."""
         logger.debug(f"Scanning region {region} for account {account.account_id}")
 
@@ -291,33 +288,21 @@ class AWSMultiAccountScanner:
         from cloudguard_anomaly.integrations.aws_live import AWSLiveIntegration
 
         try:
-            # Create scanner for this region
-            scanner = AWSLiveIntegration(
-                profile_name=None,  # Using session instead
-                region=region,
-                session=session
-            )
+            # The assumed-role session carries this account's credentials
+            scanner = AWSLiveIntegration(region=region, session=session)
 
-            # Discover resources
-            resources = scanner.discover_resources()
-
-            # Create environment
-            env = Environment(
-                name=f"{account.account_name}-{region}",
-                provider=Provider.AWS,
-                resources=resources,
-                metadata={
-                    'account_id': account.account_id,
-                    'account_name': account.account_name,
-                    'region': region,
-                    'scan_type': 'multi_account'
+            env = scanner.discover_all_resources()
+            env.name = f"{account.account_name}-{region}"
+            env.metadata.update(
+                {
+                    "account_id": account.account_id,
+                    "account_name": account.account_name,
+                    "region": region,
+                    "scan_type": "multi_account",
                 }
             )
 
-            # Add region attribute
-            env.region = region
-
-            logger.debug(f"Found {len(resources)} resources in {region}/{account.account_id}")
+            logger.debug(f"Found {len(env.resources)} resources in {region}/{account.account_id}")
 
             return env
 
@@ -338,22 +323,22 @@ class AWSMultiAccountScanner:
         """
         logger.debug(f"Assuming role: {role_arn}")
 
-        sts_client = self.master_session.client('sts')
+        sts_client = self.master_session.client("sts")
 
         try:
             response = sts_client.assume_role(
                 RoleArn=role_arn,
-                RoleSessionName='CloudGuardAnomalyScanner',
-                DurationSeconds=duration_seconds
+                RoleSessionName="CloudGuardAnomalyScanner",
+                DurationSeconds=duration_seconds,
             )
 
-            credentials = response['Credentials']
+            credentials = response["Credentials"]
 
             # Create new session with temporary credentials
             session = boto3.Session(
-                aws_access_key_id=credentials['AccessKeyId'],
-                aws_secret_access_key=credentials['SecretAccessKey'],
-                aws_session_token=credentials['SessionToken']
+                aws_access_key_id=credentials["AccessKeyId"],
+                aws_secret_access_key=credentials["SecretAccessKey"],
+                aws_session_token=credentials["SessionToken"],
             )
 
             return session
@@ -362,7 +347,7 @@ class AWSMultiAccountScanner:
             logger.error(f"Failed to assume role {role_arn}: {e}")
             raise
 
-    def generate_aggregate_report(self, result: MultiAccountScanResult) -> Dict[str, Any]:
+    def generate_aggregate_report(self, result: MultiAccountScanResult) -> dict[str, Any]:
         """
         Generate aggregate report across all accounts and regions.
 
@@ -373,69 +358,67 @@ class AWSMultiAccountScanner:
             Aggregate report dictionary
         """
         report = {
-            'scan_summary': {
-                'timestamp': result.scan_timestamp.isoformat(),
-                'accounts_scanned': len(result.accounts_scanned),
-                'regions_scanned': len(result.regions_scanned),
-                'total_resources': result.total_resources,
-                'total_errors': len(result.errors)
+            "scan_summary": {
+                "timestamp": result.scan_timestamp.isoformat(),
+                "accounts_scanned": len(result.accounts_scanned),
+                "regions_scanned": len(result.regions_scanned),
+                "total_resources": result.total_resources,
+                "total_errors": len(result.errors),
             },
-            'accounts': result.accounts_scanned,
-            'regions': result.regions_scanned,
-            'resource_breakdown': {},
-            'account_breakdown': [],
-            'region_breakdown': [],
-            'errors': result.errors
+            "accounts": result.accounts_scanned,
+            "regions": result.regions_scanned,
+            "resource_breakdown": {},
+            "account_breakdown": [],
+            "region_breakdown": [],
+            "errors": result.errors,
         }
 
         # Resource breakdown by type
-        resource_types = {}
+        resource_types: dict[str, int] = {}
         for env in result.environments:
             for resource in env.resources:
-                rtype = resource.type.value if hasattr(resource.type, 'value') else str(resource.type)
+                rtype = (
+                    resource.type.value if hasattr(resource.type, "value") else str(resource.type)
+                )
                 resource_types[rtype] = resource_types.get(rtype, 0) + 1
 
-        report['resource_breakdown'] = resource_types
+        report["resource_breakdown"] = resource_types
 
         # Account breakdown
         account_resources = {}
         for env in result.environments:
-            account_id = env.metadata.get('account_id', 'unknown')
+            account_id = env.metadata.get("account_id", "unknown")
             if account_id not in account_resources:
                 account_resources[account_id] = {
-                    'account_id': account_id,
-                    'account_name': env.metadata.get('account_name', account_id),
-                    'resource_count': 0,
-                    'regions': []
+                    "account_id": account_id,
+                    "account_name": env.metadata.get("account_name", account_id),
+                    "resource_count": 0,
+                    "regions": [],
                 }
-            account_resources[account_id]['resource_count'] += len(env.resources)
-            region = env.metadata.get('region')
-            if region and region not in account_resources[account_id]['regions']:
-                account_resources[account_id]['regions'].append(region)
+            account_resources[account_id]["resource_count"] += len(env.resources)
+            region = env.metadata.get("region")
+            if region and region not in account_resources[account_id]["regions"]:
+                account_resources[account_id]["regions"].append(region)
 
-        report['account_breakdown'] = list(account_resources.values())
+        report["account_breakdown"] = list(account_resources.values())
 
         # Region breakdown
         region_resources = {}
         for env in result.environments:
-            region = env.metadata.get('region', 'unknown')
+            region = env.metadata.get("region", "unknown")
             if region not in region_resources:
-                region_resources[region] = {
-                    'region': region,
-                    'resource_count': 0,
-                    'accounts': []
-                }
-            region_resources[region]['resource_count'] += len(env.resources)
-            account_id = env.metadata.get('account_id')
-            if account_id and account_id not in region_resources[region]['accounts']:
-                region_resources[region]['accounts'].append(account_id)
+                region_resources[region] = {"region": region, "resource_count": 0, "accounts": []}
+            region_resources[region]["resource_count"] += len(env.resources)
+            account_id = env.metadata.get("account_id")
+            if account_id and account_id not in region_resources[region]["accounts"]:
+                region_resources[region]["accounts"].append(account_id)
 
-        report['region_breakdown'] = list(region_resources.values())
+        report["region_breakdown"] = list(region_resources.values())
 
         return report
 
 
-def create_cross_account_role_policy() -> Dict[str, Any]:
+def create_cross_account_role_policy() -> dict[str, Any]:
     """
     Generate IAM policy for cross-account scanning role.
 
@@ -463,10 +446,9 @@ def create_cross_account_role_policy() -> Dict[str, Any]:
                     "guardduty:List*",
                     "securityhub:Describe*",
                     "kms:List*",
-                    "kms:Describe*"
+                    "kms:Describe*",
                 ],
-                "Resource": "*"
+                "Resource": "*",
             }
-        ]
+        ],
     }
-

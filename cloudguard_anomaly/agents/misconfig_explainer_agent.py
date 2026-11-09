@@ -5,7 +5,7 @@ Generates human-readable explanations for security misconfigurations,
 including what the issue is, why it matters, and potential impact.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 from cloudguard_anomaly.agents.base_agent import BaseAgent
 from cloudguard_anomaly.core.models import Finding
@@ -17,7 +17,7 @@ class MisconfigExplainerAgent(BaseAgent):
     def __init__(self):
         super().__init__("misconfig_explainer")
 
-    def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    def process(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """
         Generate explanation for a misconfiguration.
 
@@ -33,7 +33,7 @@ class MisconfigExplainerAgent(BaseAgent):
                 - risk_level: Risk level assessment
         """
         finding: Finding = input_data.get("finding")
-        context: Dict[str, Any] = input_data.get("context", {})
+        input_data.get("context", {})
 
         if not finding:
             return {"error": "No finding provided"}
@@ -82,7 +82,8 @@ class MisconfigExplainerAgent(BaseAgent):
 
         # Build explanation based on finding type and resource
         explanation_parts = [
-            f"The {resource_type} resource '{resource.name}' has a security misconfiguration: {finding.description}."
+            f"The {resource_type} resource '{resource.name}' has a security misconfiguration: "
+            f"{finding.description}."
         ]
 
         # Add specific details from evidence
@@ -118,14 +119,16 @@ class MisconfigExplainerAgent(BaseAgent):
                 "impacting data integrity and confidentiality.",
                 "security_group": "This significantly increases the attack surface, making it "
                 "easier for attackers to probe and potentially exploit the system.",
-                "default": "This creates a significant security risk that should be addressed promptly.",
+                "default": "This creates a significant security risk that should be addressed "
+                "promptly.",
             },
             "medium": {
                 "default": "This represents a security gap that could be exploited in combination "
                 "with other vulnerabilities."
             },
             "low": {
-                "default": "While not immediately critical, this represents a security best practice "
+                "default": "While not immediately critical, this represents a security best "
+                "practice "
                 "violation that should be addressed."
             },
         }
@@ -134,7 +137,9 @@ class MisconfigExplainerAgent(BaseAgent):
         resource_type = resource.type.value
 
         severity_impacts = impact_templates.get(severity_key, {})
-        impact = severity_impacts.get(resource_type, severity_impacts.get("default", "Unknown impact"))
+        impact = severity_impacts.get(
+            resource_type, severity_impacts.get("default", "Unknown impact")
+        )
 
         return impact
 

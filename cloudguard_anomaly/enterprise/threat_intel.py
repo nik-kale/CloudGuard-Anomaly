@@ -4,13 +4,13 @@ Threat Intelligence Integration for CloudGuard-Anomaly.
 Integrates with threat intelligence feeds to enrich security findings.
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional, Set
-from enum import Enum
 import hashlib
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any
 
-from cloudguard_anomaly.core.models import Resource, Finding, Severity
+from cloudguard_anomaly.core.models import Finding, Resource
 
 
 class ThreatLevel(Enum):
@@ -51,8 +51,8 @@ class ThreatIndicator:
     first_seen: datetime = field(default_factory=datetime.utcnow)
     last_seen: datetime = field(default_factory=datetime.utcnow)
     confidence: float = 0.5  # 0.0 to 1.0
-    tags: List[str] = field(default_factory=list)
-    context: Dict[str, Any] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
+    context: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -71,8 +71,8 @@ class ThreatIntelligence:
 
     def __init__(self):
         """Initialize threat intelligence system."""
-        self.indicators: Dict[str, ThreatIndicator] = {}
-        self.matches: List[ThreatMatch] = []
+        self.indicators: dict[str, ThreatIndicator] = {}
+        self.matches: list[ThreatMatch] = []
 
         # Load built-in threat indicators (simplified demo)
         self._load_builtin_indicators()
@@ -141,13 +141,13 @@ class ThreatIntelligence:
 
     def _generate_id(self, value: str) -> str:
         """Generate unique ID for indicator."""
-        return hashlib.md5(value.encode()).hexdigest()[:16]
+        return hashlib.sha256(value.encode()).hexdigest()[:16]
 
     def add_indicator(self, indicator: ThreatIndicator):
         """Add threat indicator to database."""
         self.indicators[indicator.id] = indicator
 
-    def check_ip(self, ip_address: str) -> List[ThreatIndicator]:
+    def check_ip(self, ip_address: str) -> list[ThreatIndicator]:
         """Check if IP address is in threat database."""
         matches = []
         for indicator in self.indicators.values():
@@ -155,7 +155,7 @@ class ThreatIntelligence:
                 matches.append(indicator)
         return matches
 
-    def check_domain(self, domain: str) -> List[ThreatIndicator]:
+    def check_domain(self, domain: str) -> list[ThreatIndicator]:
         """Check if domain is in threat database."""
         matches = []
         for indicator in self.indicators.values():
@@ -163,7 +163,7 @@ class ThreatIntelligence:
                 matches.append(indicator)
         return matches
 
-    def check_port(self, port: int) -> List[ThreatIndicator]:
+    def check_port(self, port: int) -> list[ThreatIndicator]:
         """Check if port has known vulnerabilities."""
         port_str = f"port:{port}"
         matches = []
@@ -172,7 +172,7 @@ class ThreatIntelligence:
                 matches.append(indicator)
         return matches
 
-    def enrich_resource(self, resource: Resource) -> List[ThreatMatch]:
+    def enrich_resource(self, resource: Resource) -> list[ThreatMatch]:
         """
         Enrich resource with threat intelligence.
 
@@ -240,7 +240,7 @@ class ThreatIntelligence:
 
         return matches
 
-    def enrich_finding(self, finding: Finding, resource: Resource) -> Dict[str, Any]:
+    def enrich_finding(self, finding: Finding, resource: Resource) -> dict[str, Any]:
         """
         Enrich security finding with threat intelligence.
 
@@ -283,18 +283,12 @@ class ThreatIntelligence:
                 ThreatLevel.LOW: 0.25,
                 ThreatLevel.INFO: 0.1,
             }
-            max_level_score = max(
-                threat_levels.get(m.indicator.level, 0.0) for m in matches
-            )
+            max_level_score = max(threat_levels.get(m.indicator.level, 0.0) for m in matches)
             enrichment["threat_score"] = max_confidence * max_level_score
 
             # Determine overall threat level
-            critical_threats = [
-                m for m in matches if m.indicator.level == ThreatLevel.CRITICAL
-            ]
-            high_threats = [
-                m for m in matches if m.indicator.level == ThreatLevel.HIGH
-            ]
+            critical_threats = [m for m in matches if m.indicator.level == ThreatLevel.CRITICAL]
+            high_threats = [m for m in matches if m.indicator.level == ThreatLevel.HIGH]
 
             if critical_threats:
                 enrichment["threat_level"] = ThreatLevel.CRITICAL.value
@@ -308,7 +302,7 @@ class ThreatIntelligence:
 
         return enrichment
 
-    def _generate_recommendations(self, matches: List[ThreatMatch]) -> List[str]:
+    def _generate_recommendations(self, matches: list[ThreatMatch]) -> list[str]:
         """Generate remediation recommendations based on threat matches."""
         recommendations = []
 
@@ -316,25 +310,19 @@ class ThreatIntelligence:
             indicator = match.indicator
 
             if indicator.type in [ThreatType.KNOWN_ATTACKER, ThreatType.BOTNET]:
-                recommendations.append(
-                    f"Block IP address {indicator.value} immediately"
-                )
+                recommendations.append(f"Block IP address {indicator.value} immediately")
                 recommendations.append(
                     "Review logs for any successful connections from this source"
                 )
 
             elif indicator.type == ThreatType.PHISHING:
                 recommendations.append(f"Block domain {indicator.value} at DNS/firewall")
-                recommendations.append(
-                    "Educate users about phishing from this domain"
-                )
+                recommendations.append("Educate users about phishing from this domain")
 
             elif indicator.type == ThreatType.VULNERABILITY_EXPLOIT:
                 if "port:" in indicator.value:
                     port = indicator.value.split(":")[1]
-                    recommendations.append(
-                        f"Restrict access to port {port} or disable service"
-                    )
+                    recommendations.append(f"Restrict access to port {port} or disable service")
                     recommendations.append(
                         f"Enable additional authentication for port {port} services"
                     )
@@ -346,18 +334,14 @@ class ThreatIntelligence:
 
         return list(set(recommendations))  # Remove duplicates
 
-    def get_threat_summary(self) -> Dict[str, Any]:
+    def get_threat_summary(self) -> dict[str, Any]:
         """Get summary of threat intelligence database."""
-        type_counts = {}
-        level_counts = {}
+        type_counts: dict[str, int] = {}
+        level_counts: dict[str, int] = {}
 
         for indicator in self.indicators.values():
-            type_counts[indicator.type.value] = (
-                type_counts.get(indicator.type.value, 0) + 1
-            )
-            level_counts[indicator.level.value] = (
-                level_counts.get(indicator.level.value, 0) + 1
-            )
+            type_counts[indicator.type.value] = type_counts.get(indicator.type.value, 0) + 1
+            level_counts[indicator.level.value] = level_counts.get(indicator.level.value, 0) + 1
 
         return {
             "total_indicators": len(self.indicators),

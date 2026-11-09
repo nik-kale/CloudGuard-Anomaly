@@ -8,7 +8,6 @@ public exposure, and insecure network configurations.
 import logging
 import uuid
 from datetime import datetime
-from typing import List, Set
 
 from cloudguard_anomaly.core.models import (
     Finding,
@@ -31,7 +30,7 @@ class NetworkDetector:
         self.high_risk_ports = {1433, 3306, 5432, 27017, 6379}  # Databases
         self.medium_risk_ports = {80, 8080, 443, 8443}  # Web services
 
-    def detect(self, resources: List[Resource]) -> List[Finding]:
+    def detect(self, resources: list[Resource]) -> list[Finding]:
         """
         Detect network exposure issues.
 
@@ -60,7 +59,7 @@ class NetworkDetector:
         logger.info(f"Network detector found {len(findings)} issues")
         return findings
 
-    def _check_security_group(self, sg: Resource) -> List[Finding]:
+    def _check_security_group(self, sg: Resource) -> list[Finding]:
         """Check security group for network issues."""
         findings = []
         props = sg.properties
@@ -83,8 +82,10 @@ class NetworkDetector:
                     id=finding_id,
                     type=FindingType.NETWORK_EXPOSURE,
                     severity=severity,
-                    title=f"Security Group Allows Unrestricted Access on Ports {from_port}-{to_port}",
-                    description=f"Security group {sg.name} allows {protocol} traffic from 0.0.0.0/0 "
+                    title=f"Security Group Allows Unrestricted Access on Ports "
+                    f"{from_port}-{to_port}",
+                    description=f"Security group {sg.name} allows {protocol} traffic from "
+                    "0.0.0.0/0 "
                     f"on ports {from_port}-{to_port}",
                     resource=sg,
                     policy=None,
@@ -108,8 +109,9 @@ class NetworkDetector:
                         id=finding_id,
                         type=FindingType.NETWORK_EXPOSURE,
                         severity=Severity.MEDIUM,
-                        title=f"Security Group with Overly Broad CIDR Range",
-                        description=f"Security group {sg.name} allows traffic from broad CIDR range {cidr}",
+                        title="Security Group with Overly Broad CIDR Range",
+                        description=f"Security group {sg.name} allows traffic from broad CIDR "
+                        f"range {cidr}",
                         resource=sg,
                         policy=None,
                         evidence={
@@ -117,14 +119,15 @@ class NetworkDetector:
                             "cidr": cidr,
                             "rule": rule,
                         },
-                        remediation="Restrict CIDR ranges to specific IP addresses or smaller subnets.",
+                        remediation="Restrict CIDR ranges to specific IP addresses or smaller "
+                        "subnets.",
                         timestamp=datetime.utcnow(),
                     )
                     findings.append(finding)
 
         return findings
 
-    def _check_network_resource(self, net: Resource) -> List[Finding]:
+    def _check_network_resource(self, net: Resource) -> list[Finding]:
         """Check network resource for security issues."""
         findings = []
         props = net.properties
@@ -137,7 +140,8 @@ class NetworkDetector:
                 type=FindingType.NETWORK_EXPOSURE,
                 severity=Severity.MEDIUM,
                 title="VPC Flow Logs Not Enabled",
-                description=f"Network {net.name} does not have flow logs enabled for traffic monitoring",
+                description=f"Network {net.name} does not have flow logs enabled for traffic "
+                "monitoring",
                 resource=net,
                 policy=None,
                 evidence={
@@ -150,7 +154,7 @@ class NetworkDetector:
 
         return findings
 
-    def _check_public_exposure(self, resource: Resource) -> List[Finding]:
+    def _check_public_exposure(self, resource: Resource) -> list[Finding]:
         """Check if resource has public exposure."""
         findings = []
         props = resource.properties
@@ -180,7 +184,8 @@ class NetworkDetector:
                 type=FindingType.NETWORK_EXPOSURE,
                 severity=severity,
                 title=f"{resource.type.value.title()} Resource with Public IP",
-                description=f"{resource.type.value.title()} {resource.name} has a public IP address",
+                description=f"{resource.type.value.title()} {resource.name} has a public IP "
+                "address",
                 resource=resource,
                 policy=None,
                 evidence={

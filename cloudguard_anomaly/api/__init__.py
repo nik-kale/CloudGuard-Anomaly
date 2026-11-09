@@ -1,10 +1,7 @@
 """
 CloudGuard-Anomaly REST API.
 
-Provides versioned REST API for all CloudGuard functionality.
+Import the versioned blueprint from ``cloudguard_anomaly.api.v1``. This package
+stays free of side effects so ``cloudguard_anomaly.api.validation`` can be used
+without registering routes or opening a database.
 """
-
-from cloudguard_anomaly.api.validation import *
-from cloudguard_anomaly.api.v1 import api_v1_blueprint
-
-__all__ = ['api_v1_blueprint']

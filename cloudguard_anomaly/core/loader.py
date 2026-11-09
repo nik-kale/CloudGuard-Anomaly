@@ -8,7 +8,7 @@ configuration snapshots from various formats (JSON, YAML, etc.)
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, cast
 
 import yaml
 
@@ -26,27 +26,27 @@ class ConfigLoader:
     """Loads cloud environment configurations from various sources."""
 
     @staticmethod
-    def load_json(file_path: Path) -> Dict[str, Any]:
+    def load_json(file_path: Path) -> dict[str, Any]:
         """Load configuration from JSON file."""
         try:
-            with open(file_path, "r") as f:
-                return json.load(f)
+            with open(file_path) as f:
+                return cast("dict[str, Any]", json.load(f))
         except Exception as e:
             logger.error(f"Failed to load JSON from {file_path}: {e}")
             raise
 
     @staticmethod
-    def load_yaml(file_path: Path) -> Dict[str, Any]:
+    def load_yaml(file_path: Path) -> dict[str, Any]:
         """Load configuration from YAML file."""
         try:
-            with open(file_path, "r") as f:
-                return yaml.safe_load(f)
+            with open(file_path) as f:
+                return cast("dict[str, Any]", yaml.safe_load(f))
         except Exception as e:
             logger.error(f"Failed to load YAML from {file_path}: {e}")
             raise
 
     @staticmethod
-    def load_config_file(file_path: Path) -> Dict[str, Any]:
+    def load_config_file(file_path: Path) -> dict[str, Any]:
         """Load configuration file based on extension."""
         suffix = file_path.suffix.lower()
         if suffix == ".json":
@@ -57,12 +57,35 @@ class ConfigLoader:
             raise ValueError(f"Unsupported file format: {suffix}")
 
     @staticmethod
-    def parse_resource(resource_data: Dict[str, Any], provider: Provider) -> Resource:
+    def _resource_type(raw_type: str, provider: Provider) -> ResourceType:
+        """Map a generic or provider-native type name (e.g. aws_s3_bucket) to a ResourceType."""
+        try:
+            return ResourceType(raw_type)
+        except ValueError:
+            pass
+
+        from cloudguard_anomaly.providers import AWSProvider, AzureProvider, GCPProvider
+
+        by_provider: dict[Provider, list[Any]] = {
+            Provider.AWS: [AWSProvider],
+            Provider.AZURE: [AzureProvider],
+            Provider.GCP: [GCPProvider],
+        }
+        for provider_class in by_provider.get(provider, [AWSProvider, AzureProvider, GCPProvider]):
+            mapping: dict[str, ResourceType] = provider_class().get_resource_type_mapping()
+            if raw_type in mapping:
+                return mapping[raw_type]
+
+        logger.warning(f"Unrecognized resource type '{raw_type}', treating as unknown")
+        return ResourceType.UNKNOWN
+
+    @staticmethod
+    def parse_resource(resource_data: dict[str, Any], provider: Provider) -> Resource:
         """Parse a resource from configuration data."""
         return Resource(
             id=resource_data.get("id", resource_data.get("name", "unknown")),
             name=resource_data.get("name", "unnamed"),
-            type=ResourceType(resource_data.get("type", "unknown")),
+            type=ConfigLoader._resource_type(resource_data.get("type", "unknown"), provider),
             provider=provider,
             region=resource_data.get("region", "global"),
             properties=resource_data.get("properties", {}),
@@ -78,7 +101,7 @@ class ConfigLoader:
         Expected structure:
         env_path/
           - environment.yaml  (environment metadata)
-          - runtime_snapshot/ (current resource configs)
+          - runtime_snapshot/ or current/ (current resource configs)
           - iac/             (infrastructure-as-code definitions)
           - baseline/        (optional baseline configs)
         """
@@ -90,6 +113,8 @@ class ConfigLoader:
         env_file = env_path / "environment.yaml"
         if not env_file.exists():
             env_file = env_path / "environment.json"
+        if not env_file.exists():
+            env_file = env_path / "scenario.yaml"
 
         if env_file.exists():
             env_config = ConfigLoader.load_config_file(env_file)
@@ -108,6 +133,10 @@ class ConfigLoader:
         runtime_path = env_path / "runtime_snapshot"
         if runtime_path.exists():
             resources.extend(ConfigLoader._load_resources_from_dir(runtime_path, provider))
+
+        # Drift scenarios keep their live state in current/
+        if not resources and (env_path / "current").exists():
+            resources.extend(ConfigLoader._load_resources_from_dir(env_path / "current", provider))
 
         # Load IaC resources if no runtime snapshot
         if not resources:
@@ -130,7 +159,7 @@ class ConfigLoader:
         )
 
     @staticmethod
-    def _load_resources_from_dir(dir_path: Path, provider: Provider) -> List[Resource]:
+    def _load_resources_from_dir(dir_path: Path, provider: Provider) -> list[Resource]:
         """Load all resources from a directory of config files."""
         resources = []
 
@@ -141,7 +170,7 @@ class ConfigLoader:
             except Exception as e:
                 logger.warning(f"Failed to load {file_path}: {e}")
 
-        for file_path in dir_path.glob("*.yaml"):
+        for file_path in sorted([*dir_path.glob("*.yaml"), *dir_path.glob("*.yml")]):
             try:
                 config = ConfigLoader.load_yaml(file_path)
                 resources.extend(ConfigLoader._parse_resources(config, provider))
@@ -151,7 +180,7 @@ class ConfigLoader:
         return resources
 
     @staticmethod
-    def _parse_resources(config: Dict[str, Any], provider: Provider) -> List[Resource]:
+    def _parse_resources(config: dict[str, Any], provider: Provider) -> list[Resource]:
         """Parse resources from a configuration dictionary."""
         resources = []
 

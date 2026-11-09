@@ -36,7 +36,7 @@ def upgrade():
     # Create indexes for query performance
     op.create_index('idx_user_timestamp', 'audit_logs', ['user_id', 'timestamp'])
     op.create_index('idx_action_status', 'audit_logs', ['action', 'status'])
-    op.create_index('idx_resource', 'audit_logs', ['resource_type', 'resource_id'])
+    op.create_index('idx_audit_resource', 'audit_logs', ['resource_type', 'resource_id'])
     op.create_index(op.f('ix_audit_logs_timestamp'), 'audit_logs', ['timestamp'])
     op.create_index(op.f('ix_audit_logs_user_id'), 'audit_logs', ['user_id'])
     op.create_index(op.f('ix_audit_logs_action'), 'audit_logs', ['action'])
@@ -53,7 +53,7 @@ def downgrade():
     op.drop_index(op.f('ix_audit_logs_action'), table_name='audit_logs')
     op.drop_index(op.f('ix_audit_logs_user_id'), table_name='audit_logs')
     op.drop_index(op.f('ix_audit_logs_timestamp'), table_name='audit_logs')
-    op.drop_index('idx_resource', table_name='audit_logs')
+    op.drop_index('idx_audit_resource', table_name='audit_logs')
     op.drop_index('idx_action_status', table_name='audit_logs')
     op.drop_index('idx_user_timestamp', table_name='audit_logs')
     op.drop_table('audit_logs')

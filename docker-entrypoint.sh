@@ -27,20 +27,26 @@ fi
 
 # Create default admin user if needed
 if [ "$CREATE_ADMIN" = "true" ]; then
-    echo "👤 Creating default admin user..."
-    python -c "
+    if [ -z "$ADMIN_PASSWORD" ]; then
+        echo "⚠️  CREATE_ADMIN is set but ADMIN_PASSWORD is empty; skipping admin creation"
+    else
+        echo "👤 Creating default admin user..."
+        # Credentials are read from the environment so quotes in them stay data
+        python -c "
+import os
 from cloudguard_anomaly.auth import get_auth_manager
 try:
     auth = get_auth_manager()
     auth.create_admin_user(
-        username='${ADMIN_USERNAME:-admin}',
-        email='${ADMIN_EMAIL:-admin@cloudguard.local}',
-        password='${ADMIN_PASSWORD:-changeme123}'
+        username=os.environ.get('ADMIN_USERNAME', 'admin'),
+        email=os.environ.get('ADMIN_EMAIL', 'admin@cloudguard.local'),
+        password=os.environ['ADMIN_PASSWORD'],
     )
     print('✅ Admin user created')
 except ValueError as e:
     print(f'ℹ️  Admin user already exists or error: {e}')
 " || echo "⚠️  Could not create admin user"
+    fi
 fi
 
 # Execute the command
@@ -76,6 +82,7 @@ daemon.start()
 
     scan)
         echo "🔍 Running one-time scan..."
+        shift
         exec python -m cloudguard_anomaly.cli.main scan "$@"
         ;;
 

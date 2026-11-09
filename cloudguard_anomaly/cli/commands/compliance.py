@@ -6,10 +6,10 @@ from pathlib import Path
 
 import click
 
+from cloudguard_anomaly.compliance.frameworks import ComplianceEngine, ComplianceFramework
 from cloudguard_anomaly.core.engine import AnalysisEngine
 from cloudguard_anomaly.core.loader import ConfigLoader
 from cloudguard_anomaly.policies.policy_engine import PolicyEngine
-from cloudguard_anomaly.compliance.frameworks import ComplianceEngine, ComplianceFramework
 
 logger = logging.getLogger(__name__)
 

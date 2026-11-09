@@ -3,7 +3,6 @@ Tests for configuration management.
 """
 
 import os
-import pytest
 from unittest.mock import patch
 
 from cloudguard_anomaly.config import Config, get_config
@@ -54,9 +53,7 @@ class TestConfiguration:
 
     def test_config_openai_settings(self):
         """Test OpenAI configuration."""
-        with patch.dict(
-            os.environ, {"LLM_PROVIDER": "openai", "OPENAI_API_KEY": "sk-test123"}
-        ):
+        with patch.dict(os.environ, {"LLM_PROVIDER": "openai", "OPENAI_API_KEY": "sk-test123"}):
             config = Config()
 
             assert config.llm_provider == "openai"
@@ -64,9 +61,7 @@ class TestConfiguration:
 
     def test_config_database_pooling(self):
         """Test database connection pooling configuration."""
-        with patch.dict(
-            os.environ, {"DATABASE_POOL_SIZE": "15", "DATABASE_MAX_OVERFLOW": "25"}
-        ):
+        with patch.dict(os.environ, {"DATABASE_POOL_SIZE": "15", "DATABASE_MAX_OVERFLOW": "25"}):
             config = Config()
 
             assert config.database_pool_size == 15
@@ -112,9 +107,7 @@ class TestConfiguration:
 
     def test_config_slack_webhook(self):
         """Test Slack webhook configuration."""
-        with patch.dict(
-            os.environ, {"SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/TEST"}
-        ):
+        with patch.dict(os.environ, {"SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/TEST"}):
             config = Config()
 
             assert config.slack_webhook_url == "https://hooks.slack.com/services/TEST"
@@ -169,8 +162,7 @@ class TestConfiguration:
         ):
             config = Config()
 
-            # Config should have these available if defined
-            assert hasattr(config, "aws_default_region") or True
+            assert config.aws_profile == "production"
 
     def test_config_local_llm_settings(self):
         """Test local LLM configuration."""

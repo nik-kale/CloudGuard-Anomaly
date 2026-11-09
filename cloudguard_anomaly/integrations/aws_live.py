@@ -5,16 +5,17 @@ Provides real-time resource discovery and analysis from live AWS accounts.
 """
 
 import logging
-from typing import List, Optional, Dict, Any
+from typing import Any, cast
 
 try:
     import boto3
-    from botocore.exceptions import ClientError, NoCredentialsError
+    from botocore.exceptions import ClientError
+
     BOTO3_AVAILABLE = True
 except ImportError:
     BOTO3_AVAILABLE = False
 
-from cloudguard_anomaly.core.models import Resource, ResourceType, Provider, Environment
+from cloudguard_anomaly.core.models import Environment, Provider, Resource, ResourceType
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +25,11 @@ class AWSLiveIntegration:
 
     def __init__(
         self,
-        profile: Optional[str] = None,
+        profile: str | None = None,
         region: str = "us-east-1",
-        access_key: Optional[str] = None,
-        secret_key: Optional[str] = None,
+        access_key: str | None = None,
+        secret_key: str | None = None,
+        session: Any = None,
     ):
         """
         Initialize AWS live integration.
@@ -37,11 +39,16 @@ class AWSLiveIntegration:
             region: AWS region
             access_key: AWS access key ID
             secret_key: AWS secret access key
+            session: Existing boto3 session, e.g. from an assumed role
         """
         if not BOTO3_AVAILABLE:
-            raise ImportError("boto3 is required for AWS live integration. Install with: pip install boto3")
+            raise ImportError(
+                "boto3 is required for AWS live integration. Install with: pip install boto3"
+            )
 
-        if access_key and secret_key:
+        if session is not None:
+            self.session = session
+        elif access_key and secret_key:
             self.session = boto3.Session(
                 aws_access_key_id=access_key,
                 aws_secret_access_key=secret_key,
@@ -59,7 +66,7 @@ class AWSLiveIntegration:
         """Get AWS account ID."""
         try:
             sts = self.session.client("sts")
-            return sts.get_caller_identity()["Account"]
+            return cast("str", sts.get_caller_identity()["Account"])
         except Exception as e:
             logger.warning(f"Could not get account ID: {e}")
             return "unknown"
@@ -96,7 +103,7 @@ class AWSLiveIntegration:
             },
         )
 
-    def _discover_s3_buckets(self) -> List[Resource]:
+    def _discover_s3_buckets(self) -> list[Resource]:
         """Discover S3 buckets with full configuration."""
         resources = []
 
@@ -175,7 +182,7 @@ class AWSLiveIntegration:
         logger.info(f"Discovered {len(resources)} S3 buckets")
         return resources
 
-    def _discover_ec2_instances(self) -> List[Resource]:
+    def _discover_ec2_instances(self) -> list[Resource]:
         """Discover EC2 instances."""
         resources = []
 
@@ -211,7 +218,10 @@ class AWSLiveIntegration:
                             },
                             tags=tags,
                             metadata={
-                                "arn": f"arn:aws:ec2:{self.region}:{self.account_id}:instance/{instance['InstanceId']}"
+                                "arn": (
+                                    f"arn:aws:ec2:{self.region}:{self.account_id}:"
+                                    f"instance/{instance['InstanceId']}"
+                                )
                             },
                         )
 
@@ -223,7 +233,7 @@ class AWSLiveIntegration:
         logger.info(f"Discovered {len(resources)} EC2 instances")
         return resources
 
-    def _discover_rds_instances(self) -> List[Resource]:
+    def _discover_rds_instances(self) -> list[Resource]:
         """Discover RDS database instances."""
         resources = []
 
@@ -236,9 +246,7 @@ class AWSLiveIntegration:
                     # Get tags
                     tags = {}
                     try:
-                        tags_response = rds.list_tags_for_resource(
-                            ResourceName=db["DBInstanceArn"]
-                        )
+                        tags_response = rds.list_tags_for_resource(ResourceName=db["DBInstanceArn"])
                         tags = {tag["Key"]: tag["Value"] for tag in tags_response["TagList"]}
                     except Exception:
                         pass
@@ -248,7 +256,11 @@ class AWSLiveIntegration:
                         name=db["DBInstanceIdentifier"],
                         type=ResourceType.DATABASE,
                         provider=Provider.AWS,
-                        region=db["AvailabilityZone"][:-1] if db.get("AvailabilityZone") else self.region,
+                        region=(
+                            db["AvailabilityZone"][:-1]
+                            if db.get("AvailabilityZone")
+                            else self.region
+                        ),
                         properties={
                             "engine": db["Engine"],
                             "engine_version": db["EngineVersion"],
@@ -271,7 +283,7 @@ class AWSLiveIntegration:
         logger.info(f"Discovered {len(resources)} RDS instances")
         return resources
 
-    def _discover_security_groups(self) -> List[Resource]:
+    def _discover_security_groups(self) -> list[Resource]:
         """Discover security groups."""
         resources = []
 
@@ -299,7 +311,10 @@ class AWSLiveIntegration:
                         },
                         tags=tags,
                         metadata={
-                            "arn": f"arn:aws:ec2:{self.region}:{self.account_id}:security-group/{sg['GroupId']}"
+                            "arn": (
+                                f"arn:aws:ec2:{self.region}:{self.account_id}:"
+                                f"security-group/{sg['GroupId']}"
+                            )
                         },
                     )
 
@@ -311,7 +326,7 @@ class AWSLiveIntegration:
         logger.info(f"Discovered {len(resources)} security groups")
         return resources
 
-    def _discover_iam_roles(self) -> List[Resource]:
+    def _discover_iam_roles(self) -> list[Resource]:
         """Discover IAM roles."""
         resources = []
 
@@ -357,7 +372,7 @@ class AWSLiveIntegration:
         logger.info(f"Discovered {len(resources)} IAM roles")
         return resources
 
-    def _discover_lambda_functions(self) -> List[Resource]:
+    def _discover_lambda_functions(self) -> list[Resource]:
         """Discover Lambda functions."""
         resources = []
 

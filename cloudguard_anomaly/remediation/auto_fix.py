@@ -5,7 +5,8 @@ Automatically fixes common security issues with safety controls.
 """
 
 import logging
-from typing import Dict, Any, Optional, Callable
+from collections.abc import Callable
+from typing import Any, cast
 
 from cloudguard_anomaly.core.models import Finding
 
@@ -23,7 +24,7 @@ class AutoRemediator:
             dry_run: If True, only simulate fixes without making changes
         """
         self.dry_run = dry_run
-        self.remediations: Dict[str, Callable] = {
+        self.remediations: dict[str, Callable] = {
             "Public S3 Bucket": self.fix_s3_public_access,
             "Public Storage Access": self.fix_s3_public_access,
             "Unencrypted Storage": self.enable_encryption,
@@ -33,7 +34,7 @@ class AutoRemediator:
 
         logger.info(f"Initialized auto-remediator (dry_run={dry_run})")
 
-    def remediate_finding(self, finding: Finding) -> Optional[Dict[str, Any]]:
+    def remediate_finding(self, finding: Finding) -> dict[str, Any] | None:
         """
         Attempt to auto-remediate a finding.
 
@@ -51,13 +52,15 @@ class AutoRemediator:
 
         try:
             result = handler(finding)
-            logger.info(f"Remediation {'simulated' if self.dry_run else 'executed'}: {finding.title}")
-            return result
+            logger.info(
+                f"Remediation {'simulated' if self.dry_run else 'executed'}: {finding.title}"
+            )
+            return cast("dict[str, Any] | None", result)
         except Exception as e:
             logger.error(f"Remediation failed for {finding.title}: {e}")
             return {"status": "failed", "error": str(e)}
 
-    def fix_s3_public_access(self, finding: Finding) -> Dict[str, Any]:
+    def fix_s3_public_access(self, finding: Finding) -> dict[str, Any]:
         """Fix public S3 bucket access."""
         bucket_name = finding.resource.properties.get("bucket_name") or finding.resource.name
 
@@ -104,7 +107,7 @@ class AutoRemediator:
         except Exception as e:
             return {"status": "failed", "error": str(e)}
 
-    def enable_encryption(self, finding: Finding) -> Dict[str, Any]:
+    def enable_encryption(self, finding: Finding) -> dict[str, Any]:
         """Enable encryption for storage resources."""
         resource = finding.resource
         resource_type = resource.type.value
@@ -114,7 +117,8 @@ class AutoRemediator:
                 "action": "would_enable_encryption",
                 "resource": resource.name,
                 "resource_type": resource_type,
-                "note": "Enabling encryption may require creating a new encrypted resource and migrating data",
+                "note": "Enabling encryption may require creating a new encrypted resource and "
+                "migrating data",
             }
 
         # Real encryption enabling would require provider-specific logic
@@ -123,7 +127,7 @@ class AutoRemediator:
             "message": "Encryption enablement requires manual intervention for data migration",
         }
 
-    def restrict_ssh_access(self, finding: Finding) -> Dict[str, Any]:
+    def restrict_ssh_access(self, finding: Finding) -> dict[str, Any]:
         """Restrict SSH access in security group."""
         sg_id = finding.resource.id
 
@@ -143,7 +147,7 @@ class AutoRemediator:
             "message": "SSH access restriction requires specifying allowed IP ranges",
         }
 
-    def restrict_rdp_access(self, finding: Finding) -> Dict[str, Any]:
+    def restrict_rdp_access(self, finding: Finding) -> dict[str, Any]:
         """Restrict RDP access in security group."""
         sg_id = finding.resource.id
 
@@ -162,7 +166,7 @@ class AutoRemediator:
             "message": "RDP access restriction requires specifying allowed IP ranges",
         }
 
-    def remediate_all(self, findings: list) -> Dict[str, Any]:
+    def remediate_all(self, findings: list) -> dict[str, Any]:
         """
         Attempt to remediate all findings.
 
@@ -172,7 +176,7 @@ class AutoRemediator:
         Returns:
             Summary of remediation results
         """
-        results = {
+        results: dict[str, Any] = {
             "total": len(findings),
             "remediated": 0,
             "failed": 0,

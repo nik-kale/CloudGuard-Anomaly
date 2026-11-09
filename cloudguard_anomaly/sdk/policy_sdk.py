@@ -5,19 +5,26 @@ Allows developers to write custom security policies in Python code with
 a clean, decorator-based API.
 """
 
-import logging
 import inspect
-from typing import Callable, Optional, List, Dict, Any
-from functools import wraps
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass
+from functools import wraps
+from typing import Any
 
-from cloudguard_anomaly.core.models import Resource, Finding, Policy, Severity, ResourceType, Provider
+from cloudguard_anomaly.core.models import (
+    Finding,
+    Provider,
+    Resource,
+    ResourceType,
+    Severity,
+)
 
 logger = logging.getLogger(__name__)
 
 
 # Global policy registry
-_custom_policies: Dict[str, "CustomPolicy"] = {}
+_custom_policies: dict[str, "CustomPolicy"] = {}
 
 
 @dataclass
@@ -29,10 +36,10 @@ class CustomPolicy:
     description: str
     severity: Severity
     provider: Provider
-    resource_types: List[ResourceType]
-    check_function: Callable[[Resource], Optional[Finding]]
+    resource_types: list[ResourceType]
+    check_function: Callable[[Resource], Finding | None]
     remediation: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class PolicyBuilder:
@@ -50,9 +57,9 @@ class PolicyBuilder:
         self.policy_description = ""
         self.policy_severity = Severity.MEDIUM
         self.policy_provider = Provider.AWS  # Default
-        self.policy_resource_types: List[ResourceType] = []
+        self.policy_resource_types: list[ResourceType] = []
         self.policy_remediation = ""
-        self.policy_metadata: Dict[str, Any] = {}
+        self.policy_metadata: dict[str, Any] = {}
 
     def name(self, name: str) -> "PolicyBuilder":
         """Set policy name."""
@@ -89,7 +96,7 @@ class PolicyBuilder:
         self.policy_metadata.update(kwargs)
         return self
 
-    def check(self, func: Callable[[Resource], Optional[Finding]]) -> CustomPolicy:
+    def check(self, func: Callable[[Resource], Finding | None]) -> CustomPolicy:
         """
         Register check function and create policy.
 
@@ -101,14 +108,14 @@ class PolicyBuilder:
         """
         policy = CustomPolicy(
             id=self.policy_id,
-            name=self.policy_name or func.__name__.replace('_', ' ').title(),
+            name=self.policy_name or func.__name__.replace("_", " ").title(),
             description=self.policy_description or func.__doc__ or "",
             severity=self.policy_severity,
             provider=self.policy_provider,
             resource_types=self.policy_resource_types,
             check_function=func,
             remediation=self.policy_remediation,
-            metadata=self.policy_metadata
+            metadata=self.policy_metadata,
         )
 
         # Register policy globally
@@ -124,9 +131,9 @@ def policy(
     description: str = "",
     severity: Severity = Severity.MEDIUM,
     provider: Provider = Provider.AWS,
-    resource_types: Optional[List[ResourceType]] = None,
+    resource_types: list[ResourceType] | None = None,
     remediation: str = "",
-    **metadata
+    **metadata,
 ) -> Callable:
     """
     Decorator for creating custom policies.
@@ -162,10 +169,11 @@ def policy(
     Returns:
         Decorator function
     """
-    def decorator(func: Callable[[Resource], Optional[Finding]]) -> Callable:
+
+    def decorator(func: Callable[[Resource], Finding | None]) -> Callable:
         # Create policy using builder
         builder = PolicyBuilder(policy_id)
-        builder.policy_name = name or func.__name__.replace('_', ' ').title()
+        builder.policy_name = name or func.__name__.replace("_", " ").title()
         builder.policy_description = description or func.__doc__ or ""
         builder.policy_severity = severity
         builder.policy_provider = provider
@@ -178,11 +186,11 @@ def policy(
 
         # Return wrapped function
         @wraps(func)
-        def wrapper(resource: Resource) -> Optional[Finding]:
+        def wrapper(resource: Resource) -> Finding | None:
             return func(resource)
 
         # Attach policy to function
-        wrapper.policy = custom_policy
+        setattr(wrapper, "policy", custom_policy)
 
         return wrapper
 
@@ -214,7 +222,7 @@ class PolicySDK:
         return PolicyBuilder(policy_id)
 
     @staticmethod
-    def get_policy(policy_id: str) -> Optional[CustomPolicy]:
+    def get_policy(policy_id: str) -> CustomPolicy | None:
         """
         Get registered custom policy by ID.
 
@@ -227,7 +235,7 @@ class PolicySDK:
         return _custom_policies.get(policy_id)
 
     @staticmethod
-    def get_all_policies() -> List[CustomPolicy]:
+    def get_all_policies() -> list[CustomPolicy]:
         """
         Get all registered custom policies.
 
@@ -243,7 +251,7 @@ class PolicySDK:
         logger.info("Cleared all custom policies")
 
     @staticmethod
-    def evaluate_resource(resource: Resource) -> List[Finding]:
+    def evaluate_resource(resource: Resource) -> list[Finding]:
         """
         Evaluate all registered policies against a resource.
 
@@ -261,7 +269,7 @@ class PolicySDK:
                 continue
 
             # Check if policy applies to this provider
-            if resource.provider != policy.provider:
+            if policy.provider not in (Provider.MULTI, resource.provider):
                 continue
 
             try:
@@ -305,6 +313,19 @@ class PolicySDK:
 
 # Convenience functions for common checks
 
+
+def _check_or_decorator(check: Callable[[Resource], Finding | None]) -> Callable:
+    """Let a check be called on a resource or applied to a function as a decorator."""
+
+    @wraps(check)
+    def wrapper(target: Any) -> Any:
+        if inspect.isfunction(target):
+            return wraps(target)(check)
+        return check(target)
+
+    return wrapper
+
+
 def require_tag(tag_name: str, severity: Severity = Severity.MEDIUM) -> Callable:
     """
     Create a policy that requires a specific tag.
@@ -321,7 +342,8 @@ def require_tag(tag_name: str, severity: Severity = Severity.MEDIUM) -> Callable
         def check_cost_center(resource: Resource) -> Optional[Finding]:
             pass  # Logic handled by decorator
     """
-    def check_func(resource: Resource) -> Optional[Finding]:
+
+    def check_func(resource: Resource) -> Finding | None:
         if tag_name not in resource.tags:
             return Finding(
                 resource=resource,
@@ -329,11 +351,11 @@ def require_tag(tag_name: str, severity: Severity = Severity.MEDIUM) -> Callable
                 severity=severity,
                 title=f"Missing required tag: {tag_name}",
                 description=f"Resource does not have required '{tag_name}' tag",
-                remediation=f"Add '{tag_name}' tag to resource"
+                remediation=f"Add '{tag_name}' tag to resource",
             )
         return None
 
-    return check_func
+    return _check_or_decorator(check_func)
 
 
 def require_encryption(severity: Severity = Severity.HIGH) -> Callable:
@@ -352,9 +374,11 @@ def require_encryption(severity: Severity = Severity.HIGH) -> Callable:
         def check_encryption(resource: Resource) -> Optional[Finding]:
             pass  # Logic handled by decorator
     """
-    def check_func(resource: Resource) -> Optional[Finding]:
-        encrypted = resource.properties.get('encryption_enabled') or \
-                   resource.properties.get('encrypted')
+
+    def check_func(resource: Resource) -> Finding | None:
+        encrypted = resource.properties.get("encryption_enabled") or resource.properties.get(
+            "encrypted"
+        )
 
         if not encrypted:
             return Finding(
@@ -363,11 +387,11 @@ def require_encryption(severity: Severity = Severity.HIGH) -> Callable:
                 severity=severity,
                 title="Encryption not enabled",
                 description="Resource does not have encryption enabled",
-                remediation="Enable encryption at rest for this resource"
+                remediation="Enable encryption at rest for this resource",
             )
         return None
 
-    return check_func
+    return _check_or_decorator(check_func)
 
 
 def deny_public_access(severity: Severity = Severity.CRITICAL) -> Callable:
@@ -386,9 +410,11 @@ def deny_public_access(severity: Severity = Severity.CRITICAL) -> Callable:
         def check_public_access(resource: Resource) -> Optional[Finding]:
             pass  # Logic handled by decorator
     """
-    def check_func(resource: Resource) -> Optional[Finding]:
-        public = resource.properties.get('public_access') or \
-                resource.properties.get('publicly_accessible')
+
+    def check_func(resource: Resource) -> Finding | None:
+        public = resource.properties.get("public_access") or resource.properties.get(
+            "publicly_accessible"
+        )
 
         if public:
             return Finding(
@@ -397,14 +423,15 @@ def deny_public_access(severity: Severity = Severity.CRITICAL) -> Callable:
                 severity=severity,
                 title="Resource is publicly accessible",
                 description="Resource allows public access which may expose sensitive data",
-                remediation="Restrict access to authorized users/networks only"
+                remediation="Restrict access to authorized users/networks only",
             )
         return None
 
-    return check_func
+    return _check_or_decorator(check_func)
 
 
 # Example custom policies (for documentation/testing)
+
 
 @policy(
     policy_id="example-001",
@@ -412,18 +439,18 @@ def deny_public_access(severity: Severity = Severity.CRITICAL) -> Callable:
     description="Ensures all resources have a 'Production' tag",
     severity=Severity.MEDIUM,
     resource_types=[ResourceType.STORAGE, ResourceType.COMPUTE, ResourceType.DATABASE],
-    remediation="Add 'Production' tag with value 'true' or 'false'"
+    remediation="Add 'Production' tag with value 'true' or 'false'",
 )
-def example_require_production_tag(resource: Resource) -> Optional[Finding]:
+def example_require_production_tag(resource: Resource) -> Finding | None:
     """Example policy: require Production tag."""
-    if 'Production' not in resource.tags:
+    if "Production" not in resource.tags:
         return Finding(
             resource=resource,
             policy_id="example-001",
             severity=Severity.MEDIUM,
             title="Missing Production tag",
             description="Resource does not have a 'Production' tag",
-            remediation="Add 'Production' tag to indicate if this is a production resource"
+            remediation="Add 'Production' tag to indicate if this is a production resource",
         )
     return None
 
@@ -435,11 +462,11 @@ def example_require_production_tag(resource: Resource) -> Optional[Finding]:
     severity=Severity.HIGH,
     provider=Provider.AWS,
     resource_types=[ResourceType.STORAGE],
-    remediation="Enable versioning on S3 bucket"
+    remediation="Enable versioning on S3 bucket",
 )
-def example_check_s3_versioning(resource: Resource) -> Optional[Finding]:
+def example_check_s3_versioning(resource: Resource) -> Finding | None:
     """Example policy: S3 versioning check."""
-    versioning = resource.properties.get('versioning_enabled', False)
+    versioning = resource.properties.get("versioning_enabled", False)
 
     if not versioning:
         return Finding(
@@ -448,6 +475,7 @@ def example_check_s3_versioning(resource: Resource) -> Optional[Finding]:
             severity=Severity.HIGH,
             title="S3 bucket versioning disabled",
             description="Bucket does not have versioning enabled, risking data loss",
-            remediation="Enable versioning: aws s3api put-bucket-versioning --bucket {bucket} --versioning-configuration Status=Enabled"
+            remediation="Enable versioning: aws s3api put-bucket-versioning --bucket {bucket} "
+            "--versioning-configuration Status=Enabled",
         )
     return None

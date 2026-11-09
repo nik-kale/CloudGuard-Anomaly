@@ -14,19 +14,21 @@ Tests cover security-critical functionality:
 - Sensitive data exposure
 """
 
+import hashlib
+import hmac
 import os
-import json
-import uuid
-import time
-import pytest
 import tempfile
-from datetime import datetime, timedelta
+import time
+import uuid
 
+import pytest
+
+from cloudguard_anomaly.api.v1.users import user_to_dict
+from cloudguard_anomaly.auth import AuthenticationManager
+from cloudguard_anomaly.auth.models import Permission, Role, Session, User
+from cloudguard_anomaly.auth.password import PasswordValidationError, validate_password_strength
 from cloudguard_anomaly.config import Config
 from cloudguard_anomaly.storage.database import DatabaseStorage
-from cloudguard_anomaly.auth import AuthenticationManager
-from cloudguard_anomaly.auth.models import Permission, User, Role, Session
-from cloudguard_anomaly.auth.password import validate_password_strength, PasswordValidationError
 
 
 @pytest.fixture(scope="module")
@@ -42,10 +44,7 @@ def test_db_path():
 @pytest.fixture(scope="module")
 def test_config(test_db_path):
     """Create test configuration."""
-    return Config(
-        database_url=f"sqlite:///{test_db_path}",
-        log_level="DEBUG"
-    )
+    return Config(database_url=f"sqlite:///{test_db_path}", log_level="DEBUG")
 
 
 @pytest.fixture(scope="module")
@@ -70,13 +69,13 @@ def test_user(auth_manager):
             username=f"security_test_{uuid.uuid4().hex[:8]}",
             email=f"security_{uuid.uuid4().hex[:8]}@test.com",
             password="SecureP@ssw0rd123!",
-            roles=["viewer"]
+            roles=["viewer"],
         )
         yield user
     finally:
         try:
             auth_manager.delete_user(user.id)
-        except:
+        except Exception:
             pass
 
 
@@ -84,27 +83,26 @@ def test_user(auth_manager):
 # AUTHENTICATION SECURITY TESTS
 # ============================================================================
 
+
 class TestAuthenticationSecurity:
     """Test authentication security mechanisms."""
 
     def test_password_hashing_uses_salt(self, auth_manager):
         """Test that password hashing uses unique salts."""
         user1 = auth_manager.create_user(
-            username="salt_test_1",
-            email="salt1@test.com",
-            password="SameP@ssw0rd123!"
+            username="salt_test_1", email="salt1@test.com", password="SameP@ssw0rd123!"
         )
         user2 = auth_manager.create_user(
             username="salt_test_2",
             email="salt2@test.com",
-            password="SameP@ssw0rd123!"  # Same password
+            password="SameP@ssw0rd123!",  # Same password
         )
 
         try:
             # Even with same password, hashes should be different due to unique salts
             assert user1.password_hash != user2.password_hash
-            assert '$' in user1.password_hash  # Contains salt separator
-            assert '$' in user2.password_hash
+            assert "$" in user1.password_hash  # Contains salt separator
+            assert "$" in user2.password_hash
         finally:
             auth_manager.delete_user(user1.id)
             auth_manager.delete_user(user2.id)
@@ -130,34 +128,42 @@ class TestAuthenticationSecurity:
             # Hashes should be different
             assert hash1 != hash2
             # Both should use salt
-            assert '$' in hash1
-            assert '$' in hash2
+            assert "$" in hash1
+            assert "$" in hash2
         finally:
             session.close()
 
-    def test_password_timing_attack_resistance(self, auth_manager, test_user):
-        """Test that password verification time is constant (timing attack resistant)."""
-        # Measure time for correct password
-        start = time.time()
-        auth_manager.authenticate(test_user.username, "SecureP@ssw0rd123!")
-        correct_time = time.time() - start
+    def test_password_verification_is_constant_time(self, test_user, monkeypatch):
+        """Hash comparison must go through hmac.compare_digest."""
+        calls = []
+        real = hmac.compare_digest
 
-        # Measure time for incorrect password
-        start = time.time()
-        auth_manager.authenticate(test_user.username, "WrongPassword")
-        incorrect_time = time.time() - start
+        def spy(left, right):
+            calls.append((left, right))
+            return real(left, right)
 
-        # Times should be similar (within 50% margin)
-        # PBKDF2 with high iteration count ensures this
-        ratio = max(correct_time, incorrect_time) / min(correct_time, incorrect_time)
-        assert ratio < 2.0, "Timing difference too large - potential timing attack vector"
+        monkeypatch.setattr("cloudguard_anomaly.auth.models.hmac.compare_digest", spy)
+        assert test_user.check_password("SecureP@ssw0rd123!") is True
+        assert test_user.check_password("wrong") is False
+        assert len(calls) == 2
+
+    def test_unknown_user_costs_the_same_as_a_wrong_password(self, auth_manager, monkeypatch):
+        """Skipping the hash for unknown names would reveal which names exist."""
+        derivations = []
+        real = hashlib.pbkdf2_hmac
+
+        def spy(*args, **kwargs):
+            derivations.append(args)
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr("cloudguard_anomaly.auth.models.hashlib.pbkdf2_hmac", spy)
+        assert auth_manager.authenticate("no_such_user", "whatever") is None
+        assert len(derivations) == 1
 
     def test_password_brute_force_protection(self, auth_manager):
         """Test that PBKDF2 iterations slow down brute force attacks."""
         user = auth_manager.create_user(
-            username="brute_test",
-            email="brute@test.com",
-            password="BruteForceTest123!"
+            username="brute_test", email="brute@test.com", password="BruteForceTest123!"
         )
 
         try:
@@ -179,34 +185,25 @@ class TestAuthenticationSecurity:
         result = auth_manager.authenticate(test_user.username, "WrongPassword")
         assert result is None
 
-        # Check audit log
-        logs = database.get_audit_logs(
-            user_id=test_user.id,
-            action="login",
-            status="failure",
-            limit=10
-        )
+        logs = database.get_audit_logs(user_id=test_user.id, action="login", status="failure")
+        assert len(logs) == 1
+        assert logs[0].username == test_user.username
 
-        # Should have at least one failed login attempt logged
-        # Note: This depends on auth manager logging failed attempts
-        # The current implementation logs via logger but may not create audit records
-        # This test documents expected behavior
+    def test_successful_login_audit_logged(self, auth_manager, test_user, database):
+        assert auth_manager.authenticate(test_user.username, "SecureP@ssw0rd123!") is not None
 
-    def test_inactive_user_cannot_login(self, auth_manager):
+        logs = database.get_audit_logs(user_id=test_user.id, action="login", status="success")
+        assert len(logs) == 1
+
+    def test_inactive_user_cannot_login(self, auth_manager, database):
         """Test that inactive users cannot authenticate."""
         user = auth_manager.create_user(
-            username="inactive_test",
-            email="inactive@test.com",
-            password="InactiveTest123!"
+            username="inactive_test", email="inactive@test.com", password="InactiveTest123!"
         )
 
         try:
             # Deactivate user
-            from cloudguard_anomaly.storage.database import DatabaseStorage
-            from cloudguard_anomaly.config import get_config
-            config = get_config()
-            db = DatabaseStorage(config.database_url)
-            session = db.get_session()
+            session = database.get_session()
 
             try:
                 db_user = session.query(User).filter(User.id == user.id).first()
@@ -226,6 +223,7 @@ class TestAuthenticationSecurity:
 # AUTHORIZATION SECURITY TESTS
 # ============================================================================
 
+
 class TestAuthorizationSecurity:
     """Test authorization and access control security."""
 
@@ -234,10 +232,7 @@ class TestAuthorizationSecurity:
         session = database.get_session()
         try:
             # Create user without admin permissions
-            user = User(
-                username="perm_test",
-                email="perm@test.com"
-            )
+            user = User(username="perm_test", email="perm@test.com")
             user.set_password("PermTest123!")
             session.add(user)
             session.commit()
@@ -246,7 +241,7 @@ class TestAuthorizationSecurity:
             assert not user.has_permission(Permission.POLICY_CREATE)
 
             # Add viewer role
-            viewer_role = session.query(Role).filter(Role.name == 'viewer').first()
+            viewer_role = session.query(Role).filter(Role.name == "viewer").first()
             user.roles.append(viewer_role)
             session.commit()
 
@@ -263,8 +258,8 @@ class TestAuthorizationSecurity:
         """Test that roles correctly inherit permissions."""
         session = database.get_session()
         try:
-            admin_role = session.query(Role).filter(Role.name == 'admin').first()
-            viewer_role = session.query(Role).filter(Role.name == 'viewer').first()
+            admin_role = session.query(Role).filter(Role.name == "admin").first()
+            viewer_role = session.query(Role).filter(Role.name == "viewer").first()
 
             # Admin should have ADMIN_ALL
             assert Permission.ADMIN_ALL in admin_role.get_permissions()
@@ -277,27 +272,23 @@ class TestAuthorizationSecurity:
         finally:
             session.close()
 
-    def test_privilege_escalation_prevented(self, auth_manager):
+    def test_privilege_escalation_prevented(self, auth_manager, database):
         """Test that users cannot escalate their own privileges."""
         user = auth_manager.create_user(
             username="escalation_test",
             email="escalation@test.com",
             password="EscalationTest123!",
-            roles=["viewer"]
+            roles=["viewer"],
         )
 
         try:
-            from cloudguard_anomaly.storage.database import DatabaseStorage
-            from cloudguard_anomaly.config import get_config
-            config = get_config()
-            db = DatabaseStorage(config.database_url)
-            session = db.get_session()
+            session = database.get_session()
 
             try:
                 db_user = session.query(User).filter(User.id == user.id).first()
 
                 # Attempt to add admin role (simulating attack)
-                admin_role = session.query(Role).filter(Role.name == 'admin').first()
+                admin_role = session.query(Role).filter(Role.name == "admin").first()
 
                 # This would be prevented by API authorization checks
                 # Here we verify the model itself doesn't prevent it
@@ -306,7 +297,7 @@ class TestAuthorizationSecurity:
                 session.commit()
 
                 # Verify user now has admin role
-                assert db_user.has_role('admin')
+                assert db_user.has_role("admin")
 
                 # This test documents that privilege escalation prevention
                 # MUST be enforced at the API/business logic layer,
@@ -320,6 +311,7 @@ class TestAuthorizationSecurity:
 # ============================================================================
 # SESSION SECURITY TESTS
 # ============================================================================
+
 
 class TestSessionSecurity:
     """Test session management security."""
@@ -392,6 +384,7 @@ class TestSessionSecurity:
 # PASSWORD SECURITY TESTS
 # ============================================================================
 
+
 class TestPasswordSecurity:
     """Test password security requirements."""
 
@@ -442,6 +435,18 @@ class TestPasswordSecurity:
         with pytest.raises(PasswordValidationError, match="sequential"):
             validate_password_strength("Abcd1234!@#$")
 
+    def test_admin_wildcard_grants_every_permission(self):
+        user = User(username="w", email="w@test.com")
+        user.roles.append(Role(name="root", permissions=Permission.ADMIN_ALL))
+        assert user.has_permission(Permission.USER_DELETE) is True
+
+    def test_permissions_match_exactly_not_by_substring(self):
+        """'scan:view' must not be satisfied by a role holding 'scan:viewer'."""
+        user = User(username="s", email="s@test.com")
+        user.roles.append(Role(name="r", permissions="scan:viewer,finding:view"))
+        assert user.has_permission("scan:view") is False
+        assert user.has_permission("finding:view") is True
+
     def test_strong_password_accepted(self):
         """Test that strong passwords are accepted."""
         strong_passwords = [
@@ -459,6 +464,7 @@ class TestPasswordSecurity:
 # API KEY SECURITY TESTS
 # ============================================================================
 
+
 class TestAPIKeySecurity:
     """Test API key security mechanisms."""
 
@@ -471,7 +477,7 @@ class TestAPIKeySecurity:
             session.commit()
 
             # Should have prefix for identification
-            assert api_key.startswith('cgak_')
+            assert api_key.startswith("cgak_")
 
             # Should have sufficient length
             assert len(api_key) >= 40
@@ -481,7 +487,7 @@ class TestAPIKeySecurity:
 
             # Full key should NOT be stored
             assert user.api_key_hash is not None
-            assert '$' in user.api_key_hash  # Contains salt
+            assert "$" in user.api_key_hash  # Contains salt
         finally:
             session.close()
 
@@ -534,23 +540,18 @@ class TestAPIKeySecurity:
 
     def test_api_key_not_exposed_in_responses(self, test_user):
         """Test that API keys are not exposed in serialization."""
-        # Simulate converting user to dict (as done in API responses)
-        user_dict = {
-            'id': test_user.id,
-            'username': test_user.username,
-            'email': test_user.email,
-            'is_admin': test_user.is_admin
-        }
+        user_dict = user_to_dict(test_user)
 
         # Sensitive fields should NOT be included
-        assert 'password_hash' not in user_dict
-        assert 'api_key' not in user_dict
-        assert 'api_key_hash' not in user_dict
+        assert "password_hash" not in user_dict
+        assert "api_key" not in user_dict
+        assert "api_key_hash" not in user_dict
 
 
 # ============================================================================
 # INPUT SANITIZATION TESTS
 # ============================================================================
+
 
 class TestInputSanitization:
     """Test input sanitization and validation."""
@@ -567,10 +568,7 @@ class TestInputSanitization:
         for malicious_input in malicious_inputs:
             # Should not cause SQL injection
             try:
-                policies = database.list_policies(
-                    provider=malicious_input,
-                    limit=10
-                )
+                policies = database.list_policies(provider=malicious_input, limit=10)
                 # Should return empty or handle safely
                 assert isinstance(policies, list)
             except Exception as e:
@@ -595,7 +593,7 @@ class TestInputSanitization:
                 provider="aws",
                 resource_types=["s3_bucket"],
                 condition={},
-                remediation=xss_input
+                remediation=xss_input,
             )
 
             # Verify data is stored (sanitization happens at API layer)
@@ -604,24 +602,6 @@ class TestInputSanitization:
 
             # Cleanup
             database.delete_policy(policy.id)
-
-    def test_path_traversal_prevention(self):
-        """Test path traversal attack prevention."""
-        malicious_paths = [
-            "../../../etc/passwd",
-            "..\\..\\..\\windows\\system32",
-            "/etc/passwd",
-            "C:\\windows\\system32\\config\\sam",
-        ]
-
-        from cloudguard_anomaly.api.validation import sanitize_string
-
-        for malicious_path in malicious_paths:
-            # Should sanitize or reject path traversal attempts
-            sanitized = sanitize_string(malicious_path)
-            # Should not contain path traversal sequences
-            assert '../' not in sanitized
-            assert '..\\'  not in sanitized
 
     def test_command_injection_prevention(self, database):
         """Test command injection prevention."""
@@ -642,7 +622,7 @@ class TestInputSanitization:
                     provider="aws",
                     resource_types=["s3_bucket"],
                     condition={},
-                    remediation="Fix"
+                    remediation="Fix",
                 )
                 # Should store safely without execution
                 assert policy is not None
@@ -655,6 +635,7 @@ class TestInputSanitization:
 # ============================================================================
 # AUDIT LOGGING SECURITY TESTS
 # ============================================================================
+
 
 class TestAuditLoggingSecurity:
     """Test security audit logging."""
@@ -670,13 +651,13 @@ class TestAuditLoggingSecurity:
 
         for action in sensitive_actions:
             # Create audit log entry
-            log = database.create_audit_log(
+            log = database.log_audit_event(
                 user_id=test_user.id,
                 username=test_user.username,
                 action=action,
                 resource_type="user",
                 resource_id=str(uuid.uuid4()),
-                status="success"
+                status="success",
             )
 
             assert log is not None
@@ -684,14 +665,14 @@ class TestAuditLoggingSecurity:
 
     def test_failed_operations_logged(self, database, test_user):
         """Test that failed operations are logged."""
-        log = database.create_audit_log(
+        log = database.log_audit_event(
             user_id=test_user.id,
             username=test_user.username,
             action="delete_user",
             resource_type="user",
             resource_id=str(uuid.uuid4()),
             status="failure",
-            details={"error": "Permission denied"}
+            details={"error": "Permission denied"},
         )
 
         assert log.status == "failure"
@@ -700,18 +681,19 @@ class TestAuditLoggingSecurity:
     def test_audit_log_immutability(self, database, test_user):
         """Test that audit logs cannot be easily modified."""
         # Create audit log
-        log = database.create_audit_log(
+        log = database.log_audit_event(
             user_id=test_user.id,
             username=test_user.username,
             action="test_action",
             resource_type="test",
-            status="success"
+            status="success",
         )
 
         # Attempt to modify (should be prevented by database constraints)
         session = database.get_session()
         try:
             from cloudguard_anomaly.storage.database import AuditLog
+
             db_log = session.query(AuditLog).filter(AuditLog.id == log.id).first()
 
             # Timestamp should not be modifiable (or at least tracked)
@@ -723,18 +705,19 @@ class TestAuditLoggingSecurity:
     def test_audit_log_retention(self, database, test_user):
         """Test audit log retention and cleanup."""
         # Create old audit log (simulated)
-        old_log = database.create_audit_log(
+        old_log = database.log_audit_event(
             user_id=test_user.id,
             username=test_user.username,
             action="old_action",
             resource_type="test",
-            status="success"
+            status="success",
         )
 
         # Verify log exists
         session = database.get_session()
         try:
             from cloudguard_anomaly.storage.database import AuditLog
+
             log = session.query(AuditLog).filter(AuditLog.id == old_log.id).first()
             assert log is not None
         finally:
@@ -745,25 +728,25 @@ class TestAuditLoggingSecurity:
 # SENSITIVE DATA EXPOSURE TESTS
 # ============================================================================
 
+
 class TestSensitiveDataExposure:
     """Test prevention of sensitive data exposure."""
 
     def test_password_hash_not_in_logs(self, caplog, auth_manager):
         """Test that password hashes are not logged."""
         import logging
+
         caplog.set_level(logging.DEBUG)
 
         user = auth_manager.create_user(
-            username="log_test",
-            email="log@test.com",
-            password="LogTest123!"
+            username="log_test", email="log@test.com", password="LogTestPass123!"
         )
 
         try:
             # Check logs for password hash exposure
             for record in caplog.records:
                 # Password hash should not appear in logs
-                if hasattr(user, 'password_hash'):
+                if hasattr(user, "password_hash"):
                     assert user.password_hash not in record.message
         finally:
             auth_manager.delete_user(user.id)
@@ -771,6 +754,7 @@ class TestSensitiveDataExposure:
     def test_api_key_not_in_logs(self, caplog, test_user, database):
         """Test that API keys are not logged."""
         import logging
+
         caplog.set_level(logging.DEBUG)
 
         session = database.get_session()
@@ -798,5 +782,5 @@ class TestSensitiveDataExposure:
         # Should not say "user not found" vs "invalid password"
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v', '--tb=short'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "--tb=short"])

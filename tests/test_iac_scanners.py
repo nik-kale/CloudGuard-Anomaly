@@ -2,14 +2,15 @@
 Tests for Infrastructure-as-Code scanners.
 """
 
-import tempfile
 import os
+import tempfile
 from pathlib import Path
+
 import pytest
 
-from cloudguard_anomaly.iac.terraform_scanner import TerraformScanner
+from cloudguard_anomaly.core.models import ResourceType
 from cloudguard_anomaly.iac.cloudformation_scanner import CloudFormationScanner
-from cloudguard_anomaly.core.models import ResourceType, CloudProvider
+from cloudguard_anomaly.iac.terraform_scanner import TerraformScanner
 
 
 class TestTerraformScanner:
@@ -129,7 +130,7 @@ resource "aws_security_group" "allow_ssh" {
             scanner = TerraformScanner()
             env = scanner.scan_file(temp_path)
 
-            sg_resources = [r for r in env.resources if r.type == ResourceType.NETWORK]
+            sg_resources = [r for r in env.resources if r.type == ResourceType.SECURITY_GROUP]
             assert len(sg_resources) >= 1
 
             sg = sg_resources[0]
@@ -317,7 +318,7 @@ Resources:
             scanner = CloudFormationScanner()
             env = scanner.scan_template(temp_path)
 
-            sg_resources = [r for r in env.resources if r.type == ResourceType.NETWORK]
+            sg_resources = [r for r in env.resources if r.type == ResourceType.SECURITY_GROUP]
             assert len(sg_resources) >= 1
 
         finally:
@@ -350,7 +351,7 @@ Resources:
             scanner = CloudFormationScanner()
             env = scanner.scan_template(temp_path)
 
-            iam_resources = [r for r in env.resources if r.type == ResourceType.IDENTITY]
+            iam_resources = [r for r in env.resources if r.type == ResourceType.IAM_ROLE]
             assert len(iam_resources) >= 1
 
         finally:
@@ -365,10 +366,9 @@ Resources:
             temp_path = f.name
 
         try:
-            scanner = CloudFormationScanner()
-            # Should handle gracefully
-            env = scanner.scan_template(temp_path)
-            assert env is not None
+            # A template that cannot be parsed must not look like an empty, clean one
+            with pytest.raises(ValueError, match="Invalid CloudFormation template"):
+                CloudFormationScanner().scan_template(temp_path)
 
         finally:
             os.unlink(temp_path)
@@ -407,6 +407,83 @@ Resources:
 
         finally:
             os.unlink(temp_path)
+
+
+class TestIaCRegressions:
+    def _write(self, directory, name, content):
+        path = Path(directory, name)
+        path.write_text(content)
+        return str(path)
+
+    def test_top_level_files_are_not_scanned_twice(self, tmp_path):
+        self._write(tmp_path, "main.tf", 'resource "aws_s3_bucket" "b" {\n  bucket = "b"\n}\n')
+        env = TerraformScanner().scan_directory(str(tmp_path))
+        assert len(env.resources) == 1
+
+    def test_rds_instances_are_databases(self):
+        """aws_db_instance contains 'instance' and was classified as compute."""
+        scanner = TerraformScanner()
+        assert scanner._map_terraform_type("aws_db_instance") is ResourceType.DATABASE
+        assert scanner._map_terraform_type("aws_instance") is ResourceType.COMPUTE
+
+    def test_values_are_plain_strings(self, tmp_path):
+        """python-hcl2 keeps the quotes around string values."""
+        path = self._write(
+            tmp_path,
+            "main.tf",
+            'resource "aws_s3_bucket" "b" {\n  tags = { Env = "prod" }\n}\n',
+        )
+        resource = TerraformScanner().scan_file(path).resources[0]
+        assert resource.id == "aws_s3_bucket.b"
+        assert resource.name == "b"
+        assert resource.tags == {"Env": "prod"}
+
+    def test_any_open_cidr_marks_the_group_open(self, tmp_path):
+        path = self._write(
+            tmp_path,
+            "main.tf",
+            'resource "aws_security_group" "g" {\n  ingress {\n    from_port = 22\n'
+            '    cidr_blocks = ["10.0.0.0/8", "0.0.0.0/0"]\n  }\n}\n',
+        )
+        assert TerraformScanner().scan_file(path).resources[0].properties["allows_all"] is True
+
+    def test_terraform_scanner_reports_findings(self, tmp_path):
+        path = self._write(
+            tmp_path, "main.tf", 'resource "aws_s3_bucket" "b" {\n  bucket = "b"\n}\n'
+        )
+        scanner = TerraformScanner()
+        findings = scanner.scan_for_security_issues(scanner.scan_file(path))
+        assert {f.policy_id for f in findings} == {"iac-tf-001", "iac-tf-002"}
+
+    def test_cloudformation_scanner_reports_findings(self, tmp_path):
+        path = self._write(
+            tmp_path,
+            "t.yaml",
+            "Resources:\n  B:\n    Type: AWS::S3::Bucket\n    Properties: {}\n",
+        )
+        scanner = CloudFormationScanner()
+        findings = scanner.scan_for_security_issues(scanner.scan_template(path))
+        assert {f.policy_id for f in findings} == {"iac-cfn-001", "iac-cfn-002"}
+
+    def test_cloudformation_intrinsic_tags_parse(self, tmp_path):
+        """Real templates use !Ref and !Sub, which yaml.safe_load refuses."""
+        path = self._write(
+            tmp_path,
+            "t.yaml",
+            "Resources:\n  B:\n    Type: AWS::S3::Bucket\n    Properties:\n"
+            "      BucketName: !Sub '${AWS::StackName}-data'\n      LoggingConfiguration:\n"
+            "        DestinationBucketName: !Ref Logs\n",
+        )
+        assert len(CloudFormationScanner().scan_template(path).resources) == 1
+
+    def test_cloudformation_tags_become_a_mapping(self, tmp_path):
+        path = self._write(
+            tmp_path,
+            "t.yaml",
+            "Resources:\n  B:\n    Type: AWS::S3::Bucket\n    Properties:\n      Tags:\n"
+            "        - Key: Env\n          Value: prod\n",
+        )
+        assert CloudFormationScanner().scan_template(path).resources[0].tags == {"Env": "prod"}
 
 
 class TestIaCIntegration:

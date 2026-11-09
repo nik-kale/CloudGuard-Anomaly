@@ -6,12 +6,17 @@ Provides user management, session handling, and RBAC.
 
 import logging
 from datetime import datetime
-from typing import Optional, List
-from sqlalchemy.orm import Session as DBSession
+from typing import cast
 
-from cloudguard_anomaly.auth.models import User, Role, Session, Permission, DEFAULT_ROLES
-from cloudguard_anomaly.auth.password import validate_password_strength, PasswordValidationError
-from cloudguard_anomaly.storage.database import DatabaseStorage
+from cloudguard_anomaly.auth.models import (
+    DEFAULT_ROLES,
+    Role,
+    Session,
+    User,
+    burn_password_hash,
+)
+from cloudguard_anomaly.auth.password import PasswordValidationError, validate_password_strength
+from cloudguard_anomaly.storage.database import DatabaseStorage, get_database
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +43,8 @@ class AuthenticationManager:
         username: str,
         email: str,
         password: str,
-        roles: Optional[List[str]] = None,
-        is_admin: bool = False
+        roles: list[str] | None = None,
+        is_admin: bool = False,
     ) -> User:
         """
         Create new user.
@@ -68,19 +73,19 @@ class AuthenticationManager:
                 raise ValueError(f"Password validation failed: {e}")
 
             # Check if user exists
-            existing = session.query(User).filter(
-                (User.username == username) | (User.email == email)
-            ).first()
+            existing = (
+                session.query(User)
+                .filter((User.username == username) | (User.email == email))
+                .first()
+            )
 
             if existing:
-                raise ValueError(f"User with username '{username}' or email '{email}' already exists")
+                raise ValueError(
+                    f"User with username '{username}' or email '{email}' already exists"
+                )
 
             # Create user
-            user = User(
-                username=username,
-                email=email,
-                is_admin=is_admin
-            )
+            user = User(username=username, email=email, is_admin=is_admin)
             user.set_password(password)
             user.generate_api_key()
 
@@ -95,6 +100,7 @@ class AuthenticationManager:
 
             session.add(user)
             session.commit()
+            session.refresh(user)
 
             logger.info(f"Created user: {username}")
             return user
@@ -106,13 +112,21 @@ class AuthenticationManager:
         finally:
             session.close()
 
-    def authenticate(self, username: str, password: str) -> Optional[User]:
+    def authenticate(
+        self,
+        username: str,
+        password: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> User | None:
         """
         Authenticate user with username and password.
 
         Args:
             username: Username or email
             password: Password
+            ip_address: Client address, recorded in the audit log
+            user_agent: Client user agent, recorded in the audit log
 
         Returns:
             User if authentication successful, None otherwise
@@ -120,33 +134,47 @@ class AuthenticationManager:
         session = self.database.get_session()
 
         try:
-            user = session.query(User).filter(
-                (User.username == username) | (User.email == username)
-            ).first()
+            user = (
+                session.query(User)
+                .filter((User.username == username) | (User.email == username))
+                .first()
+            )
 
+            failure = None
             if not user:
-                logger.warning(f"Authentication failed: user '{username}' not found")
-                return None
+                burn_password_hash(password)
+                failure = "unknown user"
+            elif not user.check_password(password):
+                failure = "invalid password"
+            elif not user.is_active:
+                failure = "inactive user"
 
-            if not user.is_active:
-                logger.warning(f"Authentication failed: user '{username}' is inactive")
-                return None
+            if failure is None:
+                user.last_login = datetime.utcnow()
+                session.commit()
 
-            if not user.check_password(password):
-                logger.warning(f"Authentication failed: invalid password for '{username}'")
-                return None
+            self.database.log_audit_event(
+                action="login",
+                resource_type="session",
+                user_id=user.id if user else None,
+                username=username[:128],
+                status="failure" if failure else "success",
+                ip_address=ip_address,
+                user_agent=user_agent,
+                details={"reason": failure} if failure else None,
+            )
 
-            # Update last login
-            user.last_login = datetime.utcnow()
-            session.commit()
+            if failure:
+                logger.warning(f"Authentication failed for {username[:128]!r}: {failure}")
+                return None
 
             logger.info(f"User authenticated: {username}")
-            return user
+            return cast("User | None", user)
 
         finally:
             session.close()
 
-    def authenticate_api_key(self, api_key: str) -> Optional[User]:
+    def authenticate_api_key(self, api_key: str) -> User | None:
         """
         Authenticate using API key.
 
@@ -173,7 +201,7 @@ class AuthenticationManager:
                         return None
 
                     logger.info(f"API key authenticated: {user.username}")
-                    return user
+                    return cast("User | None", user)
 
             logger.warning("Authentication failed: invalid API key")
             return None
@@ -209,7 +237,7 @@ class AuthenticationManager:
         finally:
             db_session.close()
 
-    def validate_session(self, token: str) -> Optional[User]:
+    def validate_session(self, token: str) -> User | None:
         """
         Validate session token and return user.
 
@@ -243,7 +271,7 @@ class AuthenticationManager:
             session.extend()
             db_session.commit()
 
-            return user
+            return cast("User | None", user)
 
         finally:
             db_session.close()
@@ -282,8 +310,8 @@ class AuthenticationManager:
                 if not existing:
                     role = Role(
                         name=role_name,
-                        description=role_data['description'],
-                        permissions=','.join(role_data['permissions'])
+                        description=role_data["description"],
+                        permissions=",".join(role_data["permissions"]),
                     )
                     db_session.add(role)
                     logger.info(f"Created default role: {role_name}")
@@ -310,26 +338,22 @@ class AuthenticationManager:
             Created admin user
         """
         return self.create_user(
-            username=username,
-            email=email,
-            password=password,
-            roles=['admin'],
-            is_admin=True
+            username=username, email=email, password=password, roles=["admin"], is_admin=True
         )
 
-    def get_user(self, user_id: str) -> Optional[User]:
+    def get_user(self, user_id: str) -> User | None:
         """Get user by ID."""
         session = self.database.get_session()
         try:
-            return session.query(User).filter(User.id == user_id).first()
+            return cast("User | None", session.query(User).filter(User.id == user_id).first())
         finally:
             session.close()
 
-    def list_users(self) -> List[User]:
+    def list_users(self) -> list[User]:
         """List all users."""
         session = self.database.get_session()
         try:
-            return session.query(User).all()
+            return cast("list[User]", session.query(User).all())
         finally:
             session.close()
 
@@ -351,19 +375,15 @@ class AuthenticationManager:
 
 
 # Global authentication manager instance
-_auth_manager: Optional[AuthenticationManager] = None
+_auth_manager: AuthenticationManager | None = None
 
 
-def get_auth_manager(database: Optional[DatabaseStorage] = None) -> AuthenticationManager:
-    """Get global authentication manager instance."""
+def get_auth_manager(database: DatabaseStorage | None = None) -> AuthenticationManager:
+    """Get the authentication manager bound to ``database`` or the shared handle."""
     global _auth_manager
 
-    if _auth_manager is None:
-        if database is None:
-            from cloudguard_anomaly.config import get_config
-            config = get_config()
-            database = DatabaseStorage(config.database_url)
-
+    database = database or get_database()
+    if _auth_manager is None or _auth_manager.database is not database:
         _auth_manager = AuthenticationManager(database)
         _auth_manager.create_default_roles()
 

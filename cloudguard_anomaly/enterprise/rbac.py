@@ -4,11 +4,11 @@ Role-Based Access Control (RBAC) for CloudGuard-Anomaly.
 Provides multi-tenancy and access control for enterprise deployments.
 """
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import List, Set, Dict, Any, Optional
-import uuid
+from typing import Any
 
 
 class Role(Enum):
@@ -62,7 +62,7 @@ class Permission(Enum):
 
 
 # Role to permissions mapping
-ROLE_PERMISSIONS: Dict[Role, Set[Permission]] = {
+ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
     Role.ADMIN: {
         # Full access
         Permission.SCAN_RUN,
@@ -141,11 +141,11 @@ class User:
     username: str = ""
     email: str = ""
     role: Role = Role.VIEWER
-    organizations: List[str] = field(default_factory=list)
-    custom_permissions: Set[Permission] = field(default_factory=set)
+    organizations: list[str] = field(default_factory=list)
+    custom_permissions: set[Permission] = field(default_factory=set)
     is_active: bool = True
     created_at: datetime = field(default_factory=datetime.utcnow)
-    last_login: Optional[datetime] = None
+    last_login: datetime | None = None
 
     def has_permission(self, permission: Permission) -> bool:
         """Check if user has a specific permission."""
@@ -159,7 +159,7 @@ class User:
         # Check role-based permissions
         return permission in ROLE_PERMISSIONS.get(self.role, set())
 
-    def get_all_permissions(self) -> Set[Permission]:
+    def get_all_permissions(self) -> set[Permission]:
         """Get all permissions for this user."""
         if not self.is_active:
             return set()
@@ -176,8 +176,8 @@ class Organization:
     name: str = ""
     description: str = ""
     is_active: bool = True
-    environment_ids: List[str] = field(default_factory=list)
-    settings: Dict[str, Any] = field(default_factory=dict)
+    environment_ids: list[str] = field(default_factory=list)
+    settings: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.utcnow)
 
 
@@ -185,11 +185,11 @@ class RBACManager:
     """Manages RBAC and multi-tenancy."""
 
     def __init__(self):
-        self.users: Dict[str, User] = {}
-        self.organizations: Dict[str, Organization] = {}
+        self.users: dict[str, User] = {}
+        self.organizations: dict[str, Organization] = {}
 
     def create_user(
-        self, username: str, email: str, role: Role, organizations: List[str] = None
+        self, username: str, email: str, role: Role, organizations: list[str] = None
     ) -> User:
         """Create a new user."""
         user = User(
@@ -201,7 +201,7 @@ class RBACManager:
         self.users[user.id] = user
         return user
 
-    def get_user(self, user_id: str) -> Optional[User]:
+    def get_user(self, user_id: str) -> User | None:
         """Get user by ID."""
         return self.users.get(user_id)
 
@@ -235,7 +235,7 @@ class RBACManager:
         self.organizations[org.id] = org
         return org
 
-    def get_organization(self, org_id: str) -> Optional[Organization]:
+    def get_organization(self, org_id: str) -> Organization | None:
         """Get organization by ID."""
         return self.organizations.get(org_id)
 
@@ -258,9 +258,7 @@ class RBACManager:
             return True
         return False
 
-    def check_access(
-        self, user_id: str, permission: Permission, org_id: Optional[str] = None
-    ) -> bool:
+    def check_access(self, user_id: str, permission: Permission, org_id: str | None = None) -> bool:
         """
         Check if user has permission.
 
@@ -282,7 +280,7 @@ class RBACManager:
 
         return user.has_permission(permission)
 
-    def get_user_environments(self, user_id: str) -> List[str]:
+    def get_user_environments(self, user_id: str) -> list[str]:
         """Get all environment IDs accessible to user."""
         user = self.users.get(user_id)
         if not user:
@@ -298,7 +296,7 @@ class RBACManager:
 
     def audit_log(
         self, user_id: str, action: str, resource_type: str, resource_id: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Log user action for audit trail."""
         user = self.users.get(user_id)
 

@@ -7,7 +7,7 @@ them into Policy objects for evaluation.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import yaml
 
@@ -21,9 +21,9 @@ class PolicyEngine:
 
     def __init__(self):
         """Initialize the policy engine."""
-        self.policies: List[Policy] = []
+        self.policies: list[Policy] = []
 
-    def load_policies(self, policy_file: Path) -> List[Policy]:
+    def load_policies(self, policy_file: Path) -> list[Policy]:
         """
         Load policies from a YAML or JSON file.
 
@@ -36,7 +36,7 @@ class PolicyEngine:
         logger.info(f"Loading policies from {policy_file}")
 
         try:
-            with open(policy_file, "r") as f:
+            with open(policy_file) as f:
                 if policy_file.suffix in [".yaml", ".yml"]:
                     policy_data = yaml.safe_load(f)
                 else:
@@ -53,7 +53,7 @@ class PolicyEngine:
             logger.error(f"Failed to load policies from {policy_file}: {e}")
             raise
 
-    def _parse_policies(self, policy_data: Dict[str, Any]) -> List[Policy]:
+    def _parse_policies(self, policy_data: dict[str, Any]) -> list[Policy]:
         """Parse policy data into Policy objects."""
         policies = []
 
@@ -68,7 +68,7 @@ class PolicyEngine:
 
         return policies
 
-    def _parse_policy(self, policy_dict: Dict[str, Any]) -> Policy:
+    def _parse_policy(self, policy_dict: dict[str, Any]) -> Policy:
         """Parse a single policy dictionary into a Policy object."""
         return Policy(
             id=policy_dict["id"],
@@ -76,16 +76,14 @@ class PolicyEngine:
             description=policy_dict["description"],
             severity=Severity(policy_dict.get("severity", "medium")),
             provider=Provider(policy_dict.get("provider", "multi")),
-            resource_types=[
-                ResourceType(rt) for rt in policy_dict.get("resource_types", [])
-            ],
+            resource_types=[ResourceType(rt) for rt in policy_dict.get("resource_types", [])],
             condition=policy_dict.get("condition", {}),
             remediation=policy_dict.get("remediation", ""),
             references=policy_dict.get("references", []),
             enabled=policy_dict.get("enabled", True),
         )
 
-    def load_policy_directory(self, policy_dir: Path) -> List[Policy]:
+    def load_policy_directory(self, policy_dir: Path) -> list[Policy]:
         """
         Load all policies from a directory.
 

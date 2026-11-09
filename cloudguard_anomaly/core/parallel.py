@@ -5,13 +5,13 @@ Provides async/parallel scanning capabilities for dramatic performance improveme
 """
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Callable, Any, Dict, Optional
-from datetime import datetime
 import time
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any
 
-from cloudguard_anomaly.core.models import Resource, Policy, Finding, Environment
 from cloudguard_anomaly.config import get_config
+from cloudguard_anomaly.core.models import Environment, Finding, Policy, Resource
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class ParallelScanner:
     """Parallel resource scanner using ThreadPoolExecutor."""
 
-    def __init__(self, max_workers: Optional[int] = None):
+    def __init__(self, max_workers: int | None = None):
         """
         Initialize parallel scanner.
 
@@ -32,10 +32,10 @@ class ParallelScanner:
 
     def scan_resources_parallel(
         self,
-        resources: List[Resource],
-        scan_func: Callable[[Resource], List[Finding]],
-        progress_callback: Optional[Callable[[int, int], None]] = None
-    ) -> List[Finding]:
+        resources: list[Resource],
+        scan_func: Callable[[Resource], list[Finding]],
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> list[Finding]:
         """
         Scan resources in parallel.
 
@@ -57,8 +57,7 @@ class ParallelScanner:
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # Submit all tasks
             future_to_resource = {
-                executor.submit(scan_func, resource): resource
-                for resource in resources
+                executor.submit(scan_func, resource): resource for resource in resources
             }
 
             # Process completed tasks
@@ -79,18 +78,18 @@ class ParallelScanner:
         elapsed = time.time() - start_time
         logger.info(
             f"Parallel scan completed: {total} resources in {elapsed:.2f}s "
-            f"({total/elapsed:.1f} resources/sec), {len(all_findings)} findings"
+            f"({total / max(elapsed, 1e-9):.1f} resources/sec), {len(all_findings)} findings"
         )
 
         return all_findings
 
     def evaluate_policies_parallel(
         self,
-        resources: List[Resource],
-        policies: List[Policy],
+        resources: list[Resource],
+        policies: list[Policy],
         evaluator: Any,
-        progress_callback: Optional[Callable[[int, int], None]] = None
-    ) -> List[Finding]:
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> list[Finding]:
         """
         Evaluate policies against resources in parallel.
 
@@ -103,57 +102,49 @@ class ParallelScanner:
         Returns:
             List of findings
         """
-        all_findings = []
+        all_findings: list[Finding] = []
 
-        # Create task list: (resource, policy) pairs
-        tasks = [(resource, policy) for resource in resources for policy in policies]
-        total = len(tasks)
+        # Check each resource against the policies that apply to it
+        total = len(resources)
         completed = 0
 
         start_time = time.time()
-        logger.info(f"Starting parallel policy evaluation: {len(resources)} resources × {len(policies)} policies = {total} checks")
+        logger.info(
+            f"Starting parallel policy evaluation: {total} resources, {len(policies)} policies"
+        )
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Submit all policy evaluation tasks
-            future_to_task = {
-                executor.submit(evaluator.evaluate_policy, resource, policy): (resource, policy)
-                for resource, policy in tasks
+            future_to_resource = {
+                executor.submit(evaluator.evaluate_resource, resource): resource
+                for resource in resources
             }
 
-            # Process completed evaluations
-            for future in as_completed(future_to_task):
-                resource, policy = future_to_task[future]
+            for future in as_completed(future_to_resource):
+                resource = future_to_resource[future]
                 try:
-                    finding = future.result()
-                    if finding:
-                        all_findings.append(finding)
-                    completed += 1
-
-                    if progress_callback:
-                        progress_callback(completed, total)
-
+                    all_findings.extend(future.result())
                 except Exception as e:
-                    logger.error(
-                        f"Error evaluating policy {policy.id} on resource {resource.id}: {e}",
-                        exc_info=True
-                    )
-                    completed += 1
+                    logger.error(f"Error evaluating resource {resource.id}: {e}", exc_info=True)
+                completed += 1
+
+                if progress_callback:
+                    progress_callback(completed, total)
 
         elapsed = time.time() - start_time
         logger.info(
             f"Parallel evaluation completed: {total} checks in {elapsed:.2f}s "
-            f"({total/elapsed:.1f} checks/sec), {len(all_findings)} findings"
+            f"({total / max(elapsed, 1e-9):.1f} checks/sec), {len(all_findings)} findings"
         )
 
         return all_findings
 
     def run_detectors_parallel(
         self,
-        detectors: List[Any],
+        detectors: list[Any],
         environment: Environment,
-        baseline: Optional[Environment] = None,
-        progress_callback: Optional[Callable[[int, int], None]] = None
-    ) -> Dict[str, List[Any]]:
+        baseline: Environment | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> dict[str, list[Any]]:
         """
         Run multiple detectors in parallel.
 
@@ -166,9 +157,12 @@ class ParallelScanner:
         Returns:
             Dictionary mapping detector names to their results
         """
-        results = {}
+        results: dict[str, list[Any]] = {}
         total = len(detectors)
         completed = 0
+
+        if not detectors:
+            return results
 
         start_time = time.time()
         logger.info(f"Running {total} detectors in parallel")
@@ -177,10 +171,15 @@ class ParallelScanner:
             # Submit detector tasks
             future_to_detector = {}
             for detector in detectors:
-                if hasattr(detector, 'detect_drift') and baseline:
-                    future = executor.submit(detector.detect_drift, environment, baseline)
-                elif hasattr(detector, 'detect'):
-                    future = executor.submit(detector.detect, environment)
+                if hasattr(detector, "detect_drift"):
+                    if not baseline:
+                        logger.debug(f"Skipping {type(detector).__name__}: no baseline")
+                        continue
+                    future = executor.submit(
+                        detector.detect_drift, baseline.resources, environment.resources
+                    )
+                elif hasattr(detector, "detect"):
+                    future = executor.submit(detector.detect, environment.resources)
                 else:
                     logger.warning(f"Detector {type(detector).__name__} has no detect method")
                     continue
@@ -214,11 +213,11 @@ class ParallelScanner:
 
     def batch_process(
         self,
-        items: List[Any],
+        items: list[Any],
         process_func: Callable[[Any], Any],
         batch_size: int = 100,
-        progress_callback: Optional[Callable[[int, int], None]] = None
-    ) -> List[Any]:
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> list[Any]:
         """
         Process items in batches with parallel execution.
 
@@ -241,17 +240,14 @@ class ParallelScanner:
 
         # Split into batches
         for i in range(0, total, batch_size):
-            batch = items[i:i + batch_size]
+            batch = items[i : i + batch_size]
             batch_num = i // batch_size + 1
             total_batches = (total + batch_size - 1) // batch_size
 
             logger.debug(f"Processing batch {batch_num}/{total_batches} ({len(batch)} items)")
 
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                future_to_item = {
-                    executor.submit(process_func, item): item
-                    for item in batch
-                }
+                future_to_item = {executor.submit(process_func, item): item for item in batch}
 
                 for future in as_completed(future_to_item):
                     try:
@@ -271,10 +267,10 @@ class ParallelScanner:
 
 
 # Global parallel scanner instance
-_parallel_scanner: Optional[ParallelScanner] = None
+_parallel_scanner: ParallelScanner | None = None
 
 
-def get_parallel_scanner(max_workers: Optional[int] = None) -> ParallelScanner:
+def get_parallel_scanner(max_workers: int | None = None) -> ParallelScanner:
     """Get global parallel scanner instance."""
     global _parallel_scanner
     if _parallel_scanner is None:

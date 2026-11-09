@@ -5,50 +5,54 @@ Provides request validation, sanitization, and security checks.
 """
 
 import re
-from typing import Optional, List, Any, Dict
-from enum import Enum
-
-from flask import request, jsonify
+from enum import StrEnum
 from functools import wraps
+from typing import Any
+
+from flask import jsonify, request
 
 
-class ValidSeverity(str, Enum):
+class ValidSeverity(StrEnum):
     """Valid severity levels."""
-    CRITICAL = 'critical'
-    HIGH = 'high'
-    MEDIUM = 'medium'
-    LOW = 'low'
-    INFO = 'info'
+
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    INFO = "info"
 
 
-class ValidStatus(str, Enum):
+class ValidStatus(StrEnum):
     """Valid finding status."""
-    OPEN = 'open'
-    RESOLVED = 'resolved'
-    ALL = 'all'
+
+    OPEN = "open"
+    RESOLVED = "resolved"
+    ALL = "all"
 
 
-class ValidFramework(str, Enum):
+class ValidFramework(StrEnum):
     """Valid compliance frameworks."""
-    SOC2 = 'soc2'
-    PCI_DSS = 'pci-dss'
-    HIPAA = 'hipaa'
-    GDPR = 'gdpr'
-    ISO27001 = 'iso27001'
-    NIST = 'nist'
+
+    SOC2 = "soc2"
+    PCI_DSS = "pci-dss"
+    HIPAA = "hipaa"
+    GDPR = "gdpr"
+    ISO27001 = "iso27001"
+    NIST = "nist"
 
 
-class ValidProvider(str, Enum):
+class ValidProvider(StrEnum):
     """Valid cloud providers."""
-    AWS = 'aws'
-    AZURE = 'azure'
-    GCP = 'gcp'
-    MULTI = 'multi'
+
+    AWS = "aws"
+    AZURE = "azure"
+    GCP = "gcp"
+    MULTI = "multi"
 
 
-def validate_severity(severity: Optional[str]) -> Optional[str]:
+def validate_severity(severity: str | None) -> str | None:
     """Validate severity parameter."""
-    if severity is None:
+    if not isinstance(severity, str):
         return None
 
     severity = severity.lower().strip()
@@ -60,9 +64,9 @@ def validate_severity(severity: Optional[str]) -> Optional[str]:
         return None
 
 
-def validate_status(status: Optional[str]) -> Optional[str]:
+def validate_status(status: str | None) -> str | None:
     """Validate status parameter."""
-    if status is None:
+    if not isinstance(status, str):
         return None
 
     status = status.lower().strip()
@@ -74,9 +78,9 @@ def validate_status(status: Optional[str]) -> Optional[str]:
         return None
 
 
-def validate_framework(framework: Optional[str]) -> Optional[str]:
+def validate_framework(framework: str | None) -> str | None:
     """Validate framework parameter."""
-    if framework is None:
+    if not isinstance(framework, str):
         return None
 
     framework = framework.lower().strip()
@@ -88,9 +92,9 @@ def validate_framework(framework: Optional[str]) -> Optional[str]:
         return None
 
 
-def validate_provider(provider: Optional[str]) -> Optional[str]:
+def validate_provider(provider: str | None) -> str | None:
     """Validate cloud provider parameter."""
-    if provider is None:
+    if not isinstance(provider, str):
         return None
 
     provider = provider.lower().strip()
@@ -102,7 +106,7 @@ def validate_provider(provider: Optional[str]) -> Optional[str]:
         return None
 
 
-def validate_limit(limit: Optional[int], max_limit: int = 1000) -> int:
+def validate_limit(limit: int | None, max_limit: int = 1000) -> int:
     """Validate and cap limit parameter."""
     if limit is None:
         return 100  # Default
@@ -122,7 +126,7 @@ def validate_limit(limit: Optional[int], max_limit: int = 1000) -> int:
     return limit
 
 
-def validate_days(days: Optional[int], max_days: int = 365) -> int:
+def validate_days(days: int | None, max_days: int = 365) -> int:
     """Validate days parameter."""
     if days is None:
         return 30  # Default
@@ -141,37 +145,37 @@ def validate_days(days: Optional[int], max_days: int = 365) -> int:
     return days
 
 
-def validate_environment_name(env_name: Optional[str]) -> Optional[str]:
+def validate_environment_name(env_name: str | None) -> str | None:
     """Validate environment name (alphanumeric, hyphens, underscores only)."""
-    if env_name is None:
+    if not isinstance(env_name, str):
         return None
 
     env_name = env_name.strip()
 
     # Must be alphanumeric with hyphens/underscores, 1-64 chars
-    if not re.match(r'^[a-zA-Z0-9_-]{1,64}$', env_name):
+    if not re.match(r"^[a-zA-Z0-9_-]{1,64}$", env_name):
         return None
 
     return env_name
 
 
-def validate_scan_id(scan_id: Optional[str]) -> Optional[str]:
+def validate_scan_id(scan_id: str | None) -> str | None:
     """Validate scan ID format."""
-    if scan_id is None:
+    if not isinstance(scan_id, str):
         return None
 
     scan_id = scan_id.strip()
 
     # UUID or alphanumeric with hyphens, 1-128 chars
-    if not re.match(r'^[a-zA-Z0-9_-]{1,128}$', scan_id):
+    if not re.match(r"^[a-zA-Z0-9_-]{1,128}$", scan_id):
         return None
 
     return scan_id
 
 
-def sanitize_string(value: Optional[str], max_length: int = 256) -> Optional[str]:
+def sanitize_string(value: str | None, max_length: int = 256) -> str | None:
     """Sanitize string input."""
-    if value is None:
+    if not isinstance(value, str):
         return None
 
     # Strip whitespace
@@ -182,12 +186,12 @@ def sanitize_string(value: Optional[str], max_length: int = 256) -> Optional[str
         value = value[:max_length]
 
     # Remove control characters
-    value = ''.join(char for char in value if char.isprintable() or char in '\n\r\t')
+    value = "".join(char for char in value if char.isprintable() or char in "\n\r\t")
 
     return value if value else None
 
 
-def validate_request_json(required_fields: List[str]):
+def validate_request_json(required_fields: list[str]):
     """
     Decorator to validate JSON request has required fields.
 
@@ -196,29 +200,28 @@ def validate_request_json(required_fields: List[str]):
         def my_endpoint():
             ...
     """
+
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not request.is_json:
-                return jsonify({'error': 'Request must be JSON'}), 400
+                return jsonify({"error": "Request must be JSON"}), 400
 
             data = request.get_json()
 
             missing_fields = [field for field in required_fields if field not in data]
 
             if missing_fields:
-                return jsonify({
-                    'error': 'Missing required fields',
-                    'missing': missing_fields
-                }), 400
+                return jsonify({"error": "Missing required fields", "missing": missing_fields}), 400
 
             return f(*args, **kwargs)
 
         return decorated_function
+
     return decorator
 
 
-def safe_error_message(exception: Exception, user_facing: str = 'An error occurred') -> str:
+def safe_error_message(exception: Exception, user_facing: str = "An error occurred") -> str:
     """
     Generate safe error message that doesn't leak sensitive data.
 
@@ -238,28 +241,22 @@ class PaginationParams:
     """Pagination parameters with cursor support."""
 
     def __init__(
-        self,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
-        cursor: Optional[str] = None
+        self, limit: int | None = None, offset: int | None = None, cursor: str | None = None
     ):
         self.limit = validate_limit(limit, max_limit=1000)
         self.offset = max(0, offset or 0)
         self.cursor = cursor  # For future cursor-based pagination
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        return {
-            'limit': self.limit,
-            'offset': self.offset,
-            'cursor': self.cursor
-        }
+        return {"limit": self.limit, "offset": self.offset, "cursor": self.cursor}
 
 
-def get_pagination_params() -> PaginationParams:
-    """Extract and validate pagination parameters from request."""
-    limit = request.args.get('limit', type=int)
-    offset = request.args.get('offset', type=int, default=0)
-    cursor = request.args.get('cursor')
-
-    return PaginationParams(limit=limit, offset=offset, cursor=cursor)
+def get_pagination_params() -> tuple[int, int]:
+    """Return the validated (limit, offset) pair from the current request."""
+    params = PaginationParams(
+        limit=request.args.get("limit", type=int),
+        offset=request.args.get("offset", type=int, default=0),
+        cursor=request.args.get("cursor"),
+    )
+    return params.limit, params.offset

@@ -3,12 +3,13 @@ OpenAPI/Swagger configuration for CloudGuard-Anomaly API.
 """
 
 SWAGGER_CONFIG = {
-    'title': 'CloudGuard-Anomaly API',
-    'version': '3.0',
-    'description': '''
+    "title": "CloudGuard-Anomaly API",
+    "version": "3.0",
+    "description": """
 # CloudGuard-Anomaly API Documentation
 
-CloudGuard-Anomaly is a comprehensive cloud security posture management and anomaly detection platform.
+CloudGuard-Anomaly is a comprehensive cloud security posture management and anomaly
+detection platform.
 
 ## Features
 
@@ -80,84 +81,53 @@ Different endpoints require different permissions:
 - Documentation: https://docs.cloudguard.example.com
 - GitHub: https://github.com/YOUR-ORG/CloudGuard-Anomaly
 - Issues: https://github.com/YOUR-ORG/CloudGuard-Anomaly/issues
-    ''',
-    'termsOfService': 'https://cloudguard.example.com/terms',
-    'contact': {
-        'name': 'CloudGuard Support',
-        'email': 'support@cloudguard.example.com',
-        'url': 'https://cloudguard.example.com/support'
+    """,
+    "termsOfService": "https://cloudguard.example.com/terms",
+    "contact": {
+        "name": "CloudGuard Support",
+        "email": "support@cloudguard.example.com",
+        "url": "https://cloudguard.example.com/support",
     },
-    'license': {
-        'name': 'MIT',
-        'url': 'https://opensource.org/licenses/MIT'
-    },
-    'specs_route': '/api/docs/',
-    'openapi': '3.0.3',
-    'headers': [],
-    'specs': [
+    "license": {"name": "MIT", "url": "https://opensource.org/licenses/MIT"},
+    "specs_route": "/api/docs/",
+    "openapi": "3.0.3",
+    "headers": [],
+    "specs": [
         {
-            'endpoint': 'apispec',
-            'route': '/api/docs/apispec.json',
-            'rule_filter': lambda rule: True,
-            'model_filter': lambda tag: True,
+            "endpoint": "apispec",
+            "route": "/api/docs/apispec.json",
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
         }
     ],
-    'static_url_path': '/flasgger_static',
-    'swagger_ui': True,
-    'specs_route': '/api/docs/'
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
 }
 
 SWAGGER_TEMPLATE = {
-    'securityDefinitions': {
-        'Bearer': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header',
-            'description': 'API Key authentication. Format: "Bearer <api-key>"'
+    "securityDefinitions": {
+        "Bearer": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": 'API Key authentication. Format: "Bearer <api-key>"',
         },
-        'ApiKey': {
-            'type': 'apiKey',
-            'name': 'X-API-Key',
-            'in': 'header',
-            'description': 'API Key authentication via X-API-Key header'
-        }
+        "ApiKey": {
+            "type": "apiKey",
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key authentication via X-API-Key header",
+        },
     },
-    'security': [
-        {'Bearer': []},
-        {'ApiKey': []}
+    "security": [{"Bearer": []}, {"ApiKey": []}],
+    "tags": [
+        {"name": "Authentication", "description": "User authentication and session management"},
+        {"name": "Policies", "description": "Security policy management"},
+        {"name": "Users", "description": "User account management"},
+        {"name": "Roles", "description": "Role and permission management"},
+        {"name": "Audit Logs", "description": "Audit trail and compliance logging"},
+        {"name": "Scans", "description": "Security scan management"},
+        {"name": "Findings", "description": "Security finding management"},
+        {"name": "Compliance", "description": "Compliance framework assessment"},
     ],
-    'tags': [
-        {
-            'name': 'Authentication',
-            'description': 'User authentication and session management'
-        },
-        {
-            'name': 'Policies',
-            'description': 'Security policy management'
-        },
-        {
-            'name': 'Users',
-            'description': 'User account management'
-        },
-        {
-            'name': 'Roles',
-            'description': 'Role and permission management'
-        },
-        {
-            'name': 'Audit Logs',
-            'description': 'Audit trail and compliance logging'
-        },
-        {
-            'name': 'Scans',
-            'description': 'Security scan management'
-        },
-        {
-            'name': 'Findings',
-            'description': 'Security finding management'
-        },
-        {
-            'name': 'Compliance',
-            'description': 'Compliance framework assessment'
-        }
-    ]
 }

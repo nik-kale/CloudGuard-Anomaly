@@ -1,5 +1,9 @@
 # CloudGuard-Anomaly - Batch 1: Critical Security Fixes
 
+> **Status note (November 2026):** this is a historical planning snapshot. Its checklists
+> are out of date; several items marked as remaining have since shipped, and some marked
+> complete did not work until later fixes. See `CHANGELOG.md` for what has changed.
+
 ## Summary of Changes
 
 This document tracks the critical security fixes implemented in Batch 1.
@@ -17,7 +21,7 @@ This document tracks the critical security fixes implemented in Batch 1.
    - New file: `cloudguard_anomaly/api/validation.py`
    - Enum-based validation for severity, status, framework
    - Parameter validators for limit, days, environment names, scan IDs
-   - String sanitization to prevent XSS
+   - String sanitization (strips control characters and enforces length; XSS is handled by escaping at output)
    - Pagination parameter extraction
    - Safe error message generation (no data leaks)
 

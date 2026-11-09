@@ -5,11 +5,10 @@ Analyzes the cost impact of security findings and provides cost optimization rec
 """
 
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Dict, List, Any, Optional
 from enum import Enum
+from typing import Any, cast
 
-from cloudguard_anomaly.core.models import Resource, Finding, Environment, Provider
+from cloudguard_anomaly.core.models import Environment, Finding, Provider, Resource
 
 
 class CostCategory(Enum):
@@ -34,7 +33,7 @@ class CostEstimate:
     currency: str = "USD"
     provider: str = ""
     region: str = ""
-    breakdown: Dict[str, float] = None
+    breakdown: dict[str, float] = None
 
     def __post_init__(self):
         if self.breakdown is None:
@@ -51,7 +50,7 @@ class CostImpact:
     potential_savings: float
     implementation_cost: float
     roi_months: float
-    recommendations: List[str] = None
+    recommendations: list[str] = None
 
     def __post_init__(self):
         if self.recommendations is None:
@@ -82,13 +81,13 @@ class CostAnalyzer:
         "vm.d2s_v3": 96.0,
         "sql.basic": 5.0,
         "sql.s0": 15.0,
-        "storage.standard": 0.018,  # per GB
+        "blob.standard": 0.018,  # per GB
         # GCP
         "compute.e2-micro": 6.0,
         "compute.e2-small": 12.0,
         "compute.n1-standard-1": 25.0,
         "sql.db-f1-micro": 7.0,
-        "storage.standard": 0.020,  # per GB
+        "gcs.standard": 0.020,  # per GB
     }
 
     def __init__(self):
@@ -140,11 +139,7 @@ class CostAnalyzer:
             return CostCategory.DATABASE
         elif "network" in type_str or "vpc" in type_str or "subnet" in type_str:
             return CostCategory.NETWORK
-        elif (
-            "security_group" in type_str
-            or "firewall" in type_str
-            or "waf" in type_str
-        ):
+        elif "security_group" in type_str or "firewall" in type_str or "waf" in type_str:
             return CostCategory.SECURITY
         else:
             return CostCategory.OTHER
@@ -169,12 +164,10 @@ class CostAnalyzer:
         # AWS S3
         if resource.provider == Provider.AWS and "storage" in str(resource.type).lower():
             size_gb = props.get("size_gb", 100)
-            return size_gb * self.BASE_COSTS.get("s3.standard", 0.023)
+            return cast("float", size_gb * self.BASE_COSTS.get("s3.standard", 0.023))
 
         # Azure VM
-        if resource.provider == Provider.AZURE and "compute" in str(
-            resource.type
-        ).lower():
+        if resource.provider == Provider.AZURE and "compute" in str(resource.type).lower():
             vm_size = props.get("vm_size", "b1s")
             cost_key = f"vm.{vm_size}"
             return self.BASE_COSTS.get(cost_key, 10.0)
@@ -188,7 +181,7 @@ class CostAnalyzer:
         # Default
         return 10.0
 
-    def _calculate_additional_costs(self, resource: Resource) -> Dict[str, float]:
+    def _calculate_additional_costs(self, resource: Resource) -> dict[str, float]:
         """Calculate additional costs (network, storage, etc.)."""
         costs = {}
         props = resource.properties
@@ -236,17 +229,13 @@ class CostAnalyzer:
             # Public resources may have unnecessary egress costs
             savings = 5.0  # Estimated monthly savings
             implementation_cost = 0.0  # No cost to restrict access
-            recommendations.append(
-                "Restrict public access to reduce data transfer costs"
-            )
+            recommendations.append("Restrict public access to reduce data transfer costs")
 
         elif "unencrypted" in finding_type or "encryption" in finding_type:
             # Enabling encryption has minimal cost
             savings = 0.0
             implementation_cost = 1.0  # Monthly KMS cost
-            recommendations.append(
-                "Enable encryption (minimal cost increase: ~$1/month)"
-            )
+            recommendations.append("Enable encryption (minimal cost increase: ~$1/month)")
 
         elif "unused" in finding_type or "idle" in finding_type:
             # Unused resources can be deleted
@@ -275,9 +264,7 @@ class CostAnalyzer:
             recommendations.append("Enable logging (cost increase: ~$5/month)")
 
         # Calculate ROI
-        roi_months = (
-            implementation_cost / savings if savings > 0 else float("inf")
-        )
+        roi_months = implementation_cost / savings if savings > 0 else float("inf")
 
         return CostImpact(
             finding_id=finding.id,
@@ -290,8 +277,8 @@ class CostAnalyzer:
         )
 
     def analyze_environment_costs(
-        self, environment: Environment, findings: List[Finding] = None
-    ) -> Dict[str, Any]:
+        self, environment: Environment, findings: list[Finding] = None
+    ) -> dict[str, Any]:
         """
         Analyze total costs for an environment.
 
@@ -331,9 +318,7 @@ class CostAnalyzer:
         return {
             "environment_name": environment.name,
             "total_monthly_cost": total_cost,
-            "category_breakdown": {
-                cat.value: cost for cat, cost in category_costs.items()
-            },
+            "category_breakdown": {cat.value: cost for cat, cost in category_costs.items()},
             "resource_count": len(environment.resources),
             "resource_costs": [
                 {
@@ -360,7 +345,7 @@ class CostAnalyzer:
         }
 
     def generate_cost_optimization_report(
-        self, environment: Environment, findings: List[Finding]
+        self, environment: Environment, findings: list[Finding]
     ) -> str:
         """Generate human-readable cost optimization report."""
         analysis = self.analyze_environment_costs(environment, findings)
@@ -371,18 +356,16 @@ class CostAnalyzer:
         report.append("=" * 80)
         report.append(f"\nEnvironment: {analysis['environment_name']}")
         report.append(f"Current Monthly Cost: ${analysis['total_monthly_cost']:.2f}")
-        report.append(
-            f"Potential Savings: ${analysis['total_potential_savings']:.2f}"
-        )
+        report.append(f"Potential Savings: ${analysis['total_potential_savings']:.2f}")
         report.append(f"Optimized Cost: ${analysis['optimized_cost']:.2f}")
-        report.append(f"\nCost Breakdown by Category:")
+        report.append("\nCost Breakdown by Category:")
 
         for category, cost in analysis["category_breakdown"].items():
             if cost > 0:
                 report.append(f"  {category.upper()}: ${cost:.2f}")
 
         if analysis["finding_impacts"]:
-            report.append(f"\nCost Optimization Opportunities:")
+            report.append("\nCost Optimization Opportunities:")
             for impact in analysis["finding_impacts"]:
                 if impact["potential_savings"] > 0:
                     report.append(f"\n  • {impact['title']}")

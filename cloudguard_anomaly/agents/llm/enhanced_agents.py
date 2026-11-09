@@ -7,11 +7,11 @@ fallback to deterministic implementations.
 
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, cast
 
 from cloudguard_anomaly.agents.base_agent import BaseAgent
 from cloudguard_anomaly.agents.llm.providers import LLMProvider
-from cloudguard_anomaly.core.models import Finding, Anomaly
+from cloudguard_anomaly.core.models import Anomaly, Finding
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class EnhancedMisconfigExplainerAgent(BaseAgent):
     """LLM-powered misconfiguration explainer with intelligent analysis."""
 
-    def __init__(self, llm_provider: Optional[LLMProvider] = None):
+    def __init__(self, llm_provider: LLMProvider | None = None):
         """
         Initialize enhanced agent.
 
@@ -30,7 +30,7 @@ class EnhancedMisconfigExplainerAgent(BaseAgent):
         self.llm = llm_provider
         self.use_llm = llm_provider is not None
 
-    def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    def process(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Generate intelligent explanation for misconfiguration."""
         finding: Finding = input_data.get("finding")
 
@@ -50,7 +50,7 @@ class EnhancedMisconfigExplainerAgent(BaseAgent):
         fallback_agent = MisconfigExplainerAgent()
         return fallback_agent.process(input_data)
 
-    def _llm_process(self, finding: Finding) -> Dict[str, Any]:
+    def _llm_process(self, finding: Finding) -> dict[str, Any]:
         """Use LLM for intelligent explanation."""
         prompt = f"""
 Analyze this cloud security finding and provide a comprehensive assessment:
@@ -90,9 +90,13 @@ Format your response as JSON with these exact keys:
 - prevention_strategy
 """
 
-        system = """You are an elite cloud security architect with deep expertise in AWS, Azure, and GCP.
-You specialize in identifying security vulnerabilities, analyzing attack vectors, and providing actionable remediation guidance.
-Always provide specific, technical, and actionable advice. Consider compliance frameworks (SOC2, PCI-DSS, HIPAA) in your analysis."""
+        system = (
+            "You are an elite cloud security architect with deep expertise in AWS, Azure, and "
+            "GCP.\nYou specialize in identifying security vulnerabilities, analyzing attack "
+            "vectors, and providing actionable remediation guidance.\nAlways provide specific, "
+            "technical, and actionable advice. Consider compliance frameworks (SOC2, PCI-DSS, "
+            "HIPAA) in your analysis."
+        )
 
         response = self.llm.generate(prompt, system, max_tokens=3000)
 
@@ -116,12 +120,12 @@ Always provide specific, technical, and actionable advice. Consider compliance f
 class EnhancedDriftExplainerAgent(BaseAgent):
     """LLM-powered drift explainer with intelligent timeline analysis."""
 
-    def __init__(self, llm_provider: Optional[LLMProvider] = None):
+    def __init__(self, llm_provider: LLMProvider | None = None):
         super().__init__("enhanced_drift_explainer")
         self.llm = llm_provider
         self.use_llm = llm_provider is not None
 
-    def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    def process(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Generate intelligent drift explanation."""
         anomaly: Anomaly = input_data.get("anomaly")
 
@@ -139,7 +143,7 @@ class EnhancedDriftExplainerAgent(BaseAgent):
         fallback_agent = DriftExplainerAgent()
         return fallback_agent.process(input_data)
 
-    def _llm_process(self, anomaly: Anomaly) -> Dict[str, Any]:
+    def _llm_process(self, anomaly: Anomaly) -> dict[str, Any]:
         """Use LLM for drift analysis."""
         prompt = f"""
 Analyze this configuration drift and provide detailed insights:
@@ -168,13 +172,16 @@ Format as JSON with keys: summary, security_implications, potential_causes,
 investigation_steps, recommended_actions
 """
 
-        system = "You are a cloud security analyst specializing in configuration drift detection and incident response."
+        system = (
+            "You are a cloud security analyst specializing in configuration drift detection "
+            "and incident response."
+        )
 
         response = self.llm.generate(prompt, system, max_tokens=2500)
 
         try:
             result = json.loads(response)
-            return result
+            return cast("dict[str, Any]", result)
         except json.JSONDecodeError:
             return {"explanation": response}
 
@@ -182,12 +189,12 @@ investigation_steps, recommended_actions
 class EnhancedRemediationPlannerAgent(BaseAgent):
     """LLM-powered remediation planner with context-aware guidance."""
 
-    def __init__(self, llm_provider: Optional[LLMProvider] = None):
+    def __init__(self, llm_provider: LLMProvider | None = None):
         super().__init__("enhanced_remediation_planner")
         self.llm = llm_provider
         self.use_llm = llm_provider is not None
 
-    def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    def process(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Generate intelligent remediation plan."""
         finding: Finding = input_data.get("finding")
 
@@ -205,7 +212,7 @@ class EnhancedRemediationPlannerAgent(BaseAgent):
         fallback_agent = RemediationPlannerAgent()
         return fallback_agent.process(input_data)
 
-    def _llm_process(self, finding: Finding) -> Dict[str, Any]:
+    def _llm_process(self, finding: Finding) -> dict[str, Any]:
         """Use LLM for remediation planning."""
         prompt = f"""
 Create a detailed remediation plan for this security finding:
@@ -232,12 +239,15 @@ Format as JSON with keys: prerequisites, steps (array of objects with 'action' a
 validation, rollback, side_effects, estimated_time, complexity
 """
 
-        system = "You are a senior DevOps/SRE engineer specializing in cloud security remediation. Provide production-ready, tested procedures."
+        system = (
+            "You are a senior DevOps/SRE engineer specializing in cloud security remediation. "
+            "Provide production-ready, tested procedures."
+        )
 
         response = self.llm.generate(prompt, system, max_tokens=3000)
 
         try:
             result = json.loads(response)
-            return result
+            return cast("dict[str, Any]", result)
         except json.JSONDecodeError:
             return {"remediation_plan": response}

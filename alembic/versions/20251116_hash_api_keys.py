@@ -26,14 +26,16 @@ def upgrade():
     # Add new columns
     op.add_column('users', sa.Column('api_key_hash', sa.String(), nullable=True))
     op.add_column('users', sa.Column('api_key_prefix', sa.String(), nullable=True))
-    
+
     # Create unique index on api_key_hash
     op.create_index('ix_users_api_key_hash', 'users', ['api_key_hash'], unique=True)
-    
+
     # Drop old api_key column (this will invalidate existing keys)
-    # Users must regenerate their API keys after this migration
+    # Users must regenerate their API keys after this migration.
+    # Batch mode rebuilds the table on SQLite, which cannot drop a UNIQUE column.
     op.drop_index('ix_users_api_key', table_name='users')
-    op.drop_column('users', 'api_key')
+    with op.batch_alter_table('users') as batch_op:
+        batch_op.drop_column('api_key')
 
 
 def downgrade():

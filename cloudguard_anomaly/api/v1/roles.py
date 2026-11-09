@@ -5,39 +5,35 @@ Provides RESTful CRUD operations for user roles and permissions.
 """
 
 import logging
-from typing import Dict, Any
+from typing import Any
 
-from flask import request, jsonify
+from flask import jsonify, request
 
+from cloudguard_anomaly.api.audit_trail import record_audit_event
 from cloudguard_anomaly.api.v1 import api_v1
-from cloudguard_anomaly.auth.decorators import login_required, admin_required
 from cloudguard_anomaly.api.validation import (
-    validate_scan_id,
-    sanitize_string,
     safe_error_message,
+    sanitize_string,
+    validate_scan_id,
 )
-from cloudguard_anomaly.storage.database import DatabaseStorage
-from cloudguard_anomaly.config import get_config
+from cloudguard_anomaly.auth.decorators import admin_required, login_required
+from cloudguard_anomaly.storage.database import get_database
 
 logger = logging.getLogger(__name__)
 
-# Initialize database
-config = get_config()
-db = DatabaseStorage(config.database_url)
 
-
-def role_to_dict(role) -> Dict[str, Any]:
+def role_to_dict(role) -> dict[str, Any]:
     """Convert Role model to API response dictionary."""
     return {
-        'id': role.id,
-        'name': role.name,
-        'description': role.description,
-        'permissions': role.permissions.split(',') if role.permissions else [],
-        'created_at': role.created_at.isoformat() if role.created_at else None,
+        "id": role.id,
+        "name": role.name,
+        "description": role.description,
+        "permissions": role.permissions.split(",") if role.permissions else [],
+        "created_at": role.created_at.isoformat() if role.created_at else None,
     }
 
 
-@api_v1.route('/roles', methods=['GET'])
+@api_v1.route("/roles", methods=["GET"])
 @login_required
 @admin_required
 def list_roles():
@@ -48,26 +44,24 @@ def list_roles():
         JSON array of role objects
     """
     try:
-        session = db.get_session()
+        session = get_database().get_session()
         try:
             from cloudguard_anomaly.auth.models import Role
+
             roles = session.query(Role).all()
             result = [role_to_dict(r) for r in roles]
 
-            return jsonify({
-                'roles': result,
-                'count': len(result)
-            }), 200
+            return jsonify({"roles": result, "count": len(result)}), 200
 
         finally:
             session.close()
 
     except Exception as e:
         logger.error(f"Error listing roles: {e}", exc_info=True)
-        return jsonify({'error': safe_error_message(e, 'Failed to list roles')}), 500
+        return jsonify({"error": safe_error_message(e, "Failed to list roles")}), 500
 
 
-@api_v1.route('/roles/<role_id>', methods=['GET'])
+@api_v1.route("/roles/<role_id>", methods=["GET"])
 @login_required
 @admin_required
 def get_role(role_id: str):
@@ -83,16 +77,17 @@ def get_role(role_id: str):
     # Validate role ID
     role_id = validate_scan_id(role_id)
     if not role_id:
-        return jsonify({'error': 'Invalid role ID'}), 400
+        return jsonify({"error": "Invalid role ID"}), 400
 
     try:
-        session = db.get_session()
+        session = get_database().get_session()
         try:
             from cloudguard_anomaly.auth.models import Role
+
             role = session.query(Role).filter(Role.id == role_id).first()
 
             if not role:
-                return jsonify({'error': 'Role not found'}), 404
+                return jsonify({"error": "Role not found"}), 404
 
             return jsonify(role_to_dict(role)), 200
 
@@ -101,10 +96,10 @@ def get_role(role_id: str):
 
     except Exception as e:
         logger.error(f"Error getting role {role_id}: {e}", exc_info=True)
-        return jsonify({'error': safe_error_message(e, 'Failed to retrieve role')}), 500
+        return jsonify({"error": safe_error_message(e, "Failed to retrieve role")}), 500
 
 
-@api_v1.route('/roles', methods=['POST'])
+@api_v1.route("/roles", methods=["POST"])
 @login_required
 @admin_required
 def create_role():
@@ -122,66 +117,73 @@ def create_role():
         JSON role object with 201 status or error
     """
     if not request.is_json:
-        return jsonify({'error': 'Content-Type must be application/json'}), 400
+        return jsonify({"error": "Content-Type must be application/json"}), 400
 
     try:
         data = request.get_json()
 
         # Validate required fields
-        required_fields = ['name', 'description', 'permissions']
+        required_fields = ["name", "description", "permissions"]
         missing_fields = [f for f in required_fields if f not in data]
         if missing_fields:
-            return jsonify({'error': f'Missing required fields: {", ".join(missing_fields)}'}), 400
+            return jsonify({"error": f'Missing required fields: {", ".join(missing_fields)}'}), 400
 
         # Validate and sanitize inputs
-        name = sanitize_string(data['name'], max_length=128)
-        description = sanitize_string(data['description'], max_length=512)
-        permissions = data['permissions'] if isinstance(data['permissions'], list) else []
+        name = sanitize_string(data["name"], max_length=128)
+        description = sanitize_string(data["description"], max_length=512)
+        permissions = data["permissions"] if isinstance(data["permissions"], list) else []
 
         if not all([name, description]):
-            return jsonify({'error': 'Invalid input values'}), 400
+            return jsonify({"error": "Invalid input values"}), 400
 
         # Validate role name format (lowercase, underscores only)
         import re
-        if not re.match(r'^[a-z_]+$', name):
-            return jsonify({'error': 'Role name must be lowercase with underscores only'}), 400
 
-        session = db.get_session()
+        if not re.match(r"^[a-z_]+$", name):
+            return jsonify({"error": "Role name must be lowercase with underscores only"}), 400
+
+        session = get_database().get_session()
         try:
-            from cloudguard_anomaly.auth.models import Role, Permission
             import uuid
+
+            from cloudguard_anomaly.auth.models import Permission, Role
 
             # Check if role already exists
             existing = session.query(Role).filter(Role.name == name).first()
             if existing:
-                return jsonify({'error': f'Role with name "{name}" already exists'}), 400
+                return jsonify({"error": f'Role with name "{name}" already exists'}), 400
 
             # Validate permissions
-            valid_permissions = {p for p in dir(Permission) if not p.startswith('_')}
-            permission_values = [getattr(Permission, p) for p in dir(Permission) if not p.startswith('_') and isinstance(getattr(Permission, p), str)]
-            
+            {p for p in dir(Permission) if not p.startswith("_")}
+            permission_values = [
+                getattr(Permission, p)
+                for p in dir(Permission)
+                if not p.startswith("_") and isinstance(getattr(Permission, p), str)
+            ]
+
             for perm in permissions:
                 if perm not in permission_values:
-                    return jsonify({'error': f'Invalid permission: {perm}'}), 400
+                    return jsonify({"error": f"Invalid permission: {perm}"}), 400
 
             # Create role
             role = Role(
                 id=str(uuid.uuid4()),
                 name=name,
                 description=description,
-                permissions=','.join(permissions)
+                permissions=",".join(permissions),
             )
 
             session.add(role)
             session.commit()
 
-            current_user = getattr(request, 'current_user', None)
-            current_user_id = current_user.id if current_user else 'unknown'
+            current_user = getattr(request, "current_user", None)
+            current_user_id = current_user.id if current_user else "unknown"
+            record_audit_event("create", "role", role.id)
             logger.info(f"Role created: {role.id} ({name}) by {current_user_id}")
 
             return jsonify(role_to_dict(role)), 201
 
-        except Exception as e:
+        except Exception:
             session.rollback()
             raise
         finally:
@@ -189,10 +191,10 @@ def create_role():
 
     except Exception as e:
         logger.error(f"Error creating role: {e}", exc_info=True)
-        return jsonify({'error': safe_error_message(e, 'Failed to create role')}), 500
+        return jsonify({"error": safe_error_message(e, "Failed to create role")}), 500
 
 
-@api_v1.route('/roles/<role_id>', methods=['PUT'])
+@api_v1.route("/roles/<role_id>", methods=["PUT"])
 @login_required
 @admin_required
 def update_role(role_id: str):
@@ -211,50 +213,56 @@ def update_role(role_id: str):
     # Validate role ID
     role_id = validate_scan_id(role_id)
     if not role_id:
-        return jsonify({'error': 'Invalid role ID'}), 400
+        return jsonify({"error": "Invalid role ID"}), 400
 
     if not request.is_json:
-        return jsonify({'error': 'Content-Type must be application/json'}), 400
+        return jsonify({"error": "Content-Type must be application/json"}), 400
 
     try:
         data = request.get_json()
 
-        session = db.get_session()
+        session = get_database().get_session()
         try:
-            from cloudguard_anomaly.auth.models import Role, Permission
+            from cloudguard_anomaly.auth.models import Permission, Role
+
             role = session.query(Role).filter(Role.id == role_id).first()
 
             if not role:
-                return jsonify({'error': 'Role not found'}), 404
+                return jsonify({"error": "Role not found"}), 404
 
             # Update description
-            if 'description' in data:
-                description = sanitize_string(data['description'], max_length=512)
+            if "description" in data:
+                description = sanitize_string(data["description"], max_length=512)
                 if description:
                     role.description = description
 
             # Update permissions
-            if 'permissions' in data:
-                permissions = data['permissions'] if isinstance(data['permissions'], list) else []
-                
+            if "permissions" in data:
+                permissions = data["permissions"] if isinstance(data["permissions"], list) else []
+
                 # Validate permissions
-                permission_values = [getattr(Permission, p) for p in dir(Permission) if not p.startswith('_') and isinstance(getattr(Permission, p), str)]
-                
+                permission_values = [
+                    getattr(Permission, p)
+                    for p in dir(Permission)
+                    if not p.startswith("_") and isinstance(getattr(Permission, p), str)
+                ]
+
                 for perm in permissions:
                     if perm not in permission_values:
-                        return jsonify({'error': f'Invalid permission: {perm}'}), 400
+                        return jsonify({"error": f"Invalid permission: {perm}"}), 400
 
-                role.permissions = ','.join(permissions)
+                role.permissions = ",".join(permissions)
 
             session.commit()
 
-            current_user = getattr(request, 'current_user', None)
-            current_user_id = current_user.id if current_user else 'unknown'
+            current_user = getattr(request, "current_user", None)
+            current_user_id = current_user.id if current_user else "unknown"
+            record_audit_event("update", "role", role_id)
             logger.info(f"Role updated: {role_id} by {current_user_id}")
 
             return jsonify(role_to_dict(role)), 200
 
-        except Exception as e:
+        except Exception:
             session.rollback()
             raise
         finally:
@@ -262,10 +270,10 @@ def update_role(role_id: str):
 
     except Exception as e:
         logger.error(f"Error updating role {role_id}: {e}", exc_info=True)
-        return jsonify({'error': safe_error_message(e, 'Failed to update role')}), 500
+        return jsonify({"error": safe_error_message(e, "Failed to update role")}), 500
 
 
-@api_v1.route('/roles/<role_id>', methods=['DELETE'])
+@api_v1.route("/roles/<role_id>", methods=["DELETE"])
 @login_required
 @admin_required
 def delete_role(role_id: str):
@@ -283,32 +291,34 @@ def delete_role(role_id: str):
     # Validate role ID
     role_id = validate_scan_id(role_id)
     if not role_id:
-        return jsonify({'error': 'Invalid role ID'}), 400
+        return jsonify({"error": "Invalid role ID"}), 400
 
     try:
-        session = db.get_session()
+        session = get_database().get_session()
         try:
             from cloudguard_anomaly.auth.models import Role
+
             role = session.query(Role).filter(Role.id == role_id).first()
 
             if not role:
-                return jsonify({'error': 'Role not found'}), 404
+                return jsonify({"error": "Role not found"}), 404
 
             # Prevent deletion of default roles
-            default_roles = ['admin', 'security_analyst', 'viewer', 'auditor']
+            default_roles = ["admin", "security_analyst", "viewer", "auditor"]
             if role.name in default_roles:
-                return jsonify({'error': f'Cannot delete default role: {role.name}'}), 400
+                return jsonify({"error": f"Cannot delete default role: {role.name}"}), 400
 
             session.delete(role)
             session.commit()
 
-            current_user = getattr(request, 'current_user', None)
-            current_user_id = current_user.id if current_user else 'unknown'
+            current_user = getattr(request, "current_user", None)
+            current_user_id = current_user.id if current_user else "unknown"
+            record_audit_event("delete", "role", role_id)
             logger.info(f"Role deleted: {role_id} ({role.name}) by {current_user_id}")
 
-            return '', 204
+            return "", 204
 
-        except Exception as e:
+        except Exception:
             session.rollback()
             raise
         finally:
@@ -316,10 +326,10 @@ def delete_role(role_id: str):
 
     except Exception as e:
         logger.error(f"Error deleting role {role_id}: {e}", exc_info=True)
-        return jsonify({'error': safe_error_message(e, 'Failed to delete role')}), 500
+        return jsonify({"error": safe_error_message(e, "Failed to delete role")}), 500
 
 
-@api_v1.route('/roles/permissions', methods=['GET'])
+@api_v1.route("/roles/permissions", methods=["GET"])
 @login_required
 @admin_required
 def list_permissions():
@@ -331,19 +341,16 @@ def list_permissions():
     """
     try:
         from cloudguard_anomaly.auth.models import Permission
-        
+
         # Get all permission constants
         permissions = [
-            getattr(Permission, p) 
-            for p in dir(Permission) 
-            if not p.startswith('_') and isinstance(getattr(Permission, p), str)
+            getattr(Permission, p)
+            for p in dir(Permission)
+            if not p.startswith("_") and isinstance(getattr(Permission, p), str)
         ]
 
-        return jsonify({
-            'permissions': sorted(permissions),
-            'count': len(permissions)
-        }), 200
+        return jsonify({"permissions": sorted(permissions), "count": len(permissions)}), 200
 
     except Exception as e:
         logger.error(f"Error listing permissions: {e}", exc_info=True)
-        return jsonify({'error': safe_error_message(e, 'Failed to list permissions')}), 500
+        return jsonify({"error": safe_error_message(e, "Failed to list permissions")}), 500

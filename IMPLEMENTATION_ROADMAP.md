@@ -1,5 +1,9 @@
 # CloudGuard-Anomaly v4.0 - Complete Implementation Roadmap
 
+> **Status note (November 2026):** this is a historical planning snapshot. Its checklists
+> are out of date; several items marked as remaining have since shipped, and some marked
+> complete did not work until later fixes. See `CHANGELOG.md` for what has changed.
+
 ## Executive Summary
 
 Comprehensive codebase analysis identified **57 critical issues** across 9 categories.

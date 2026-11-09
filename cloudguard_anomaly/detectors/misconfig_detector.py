@@ -8,7 +8,6 @@ and heuristic analysis.
 import logging
 import uuid
 from datetime import datetime
-from typing import List
 
 from cloudguard_anomaly.core.models import (
     Finding,
@@ -28,7 +27,7 @@ class MisconfigDetector:
         """Initialize the misconfiguration detector."""
         self.detection_rules = self._build_detection_rules()
 
-    def detect(self, resources: List[Resource]) -> List[Finding]:
+    def detect(self, resources: list[Resource]) -> list[Finding]:
         """
         Detect misconfigurations across resources.
 
@@ -47,7 +46,7 @@ class MisconfigDetector:
         logger.info(f"Misconfiguration detector found {len(findings)} issues")
         return findings
 
-    def _detect_resource_misconfigs(self, resource: Resource) -> List[Finding]:
+    def _detect_resource_misconfigs(self, resource: Resource) -> list[Finding]:
         """Detect misconfigurations for a single resource."""
         findings = []
 
@@ -161,7 +160,7 @@ class MisconfigDetector:
         # Check various public access indicators
         public_patterns = [
             props.get("acl") in ["public-read", "public-read-write"],
-            props.get("public_access_block_configuration", {}).get("block_public_acls") == False,
+            props.get("public_access_block_configuration", {}).get("block_public_acls") is False,
             props.get("public_access_prevention") != "enforced",
             "AllUsers" in str(props.get("iam_members", [])),
             "allUsers" in str(props.get("iam_members", [])),
@@ -176,7 +175,7 @@ class MisconfigDetector:
         encryption_patterns = [
             props.get("encryption") is None,
             props.get("server_side_encryption_configuration") is None,
-            props.get("encrypted") == False,
+            props.get("encrypted") is False,
         ]
 
         return any(encryption_patterns)
@@ -187,7 +186,7 @@ class MisconfigDetector:
 
         versioning = props.get("versioning", {})
         if isinstance(versioning, dict):
-            return versioning.get("enabled") != True
+            return versioning.get("enabled") is not True
 
         return True
 
@@ -196,15 +195,15 @@ class MisconfigDetector:
         """Check if database is publicly accessible."""
         props = resource.properties
 
-        return props.get("publicly_accessible") == True or props.get("public_ip") == True
+        return props.get("publicly_accessible") is True or props.get("public_ip") is True
 
     def _check_database_encryption(self, resource: Resource) -> bool:
         """Check if database lacks encryption."""
         props = resource.properties
 
         encryption_patterns = [
-            props.get("encrypted") == False,
-            props.get("storage_encrypted") == False,
+            props.get("encrypted") is False,
+            props.get("storage_encrypted") is False,
             props.get("transparent_data_encryption", {}).get("status") != "Enabled",
         ]
 
@@ -218,7 +217,7 @@ class MisconfigDetector:
         if isinstance(backup_retention, int):
             return backup_retention < 1
 
-        return props.get("backup_configuration", {}).get("enabled") != True
+        return props.get("backup_configuration", {}).get("enabled") is not True
 
     # Security group checks
     def _check_sg_permissive(self, resource: Resource) -> bool:
@@ -294,7 +293,7 @@ class MisconfigDetector:
         return (
             props.get("public_ip") is not None
             or props.get("public_ip_address") is not None
-            or props.get("associate_public_ip_address") == True
+            or props.get("associate_public_ip_address") is True
         )
 
     def _create_finding(self, resource: Resource, rule: dict) -> Finding:

@@ -4,183 +4,159 @@ Prometheus metrics for CloudGuard-Anomaly.
 Provides application-level metrics for monitoring and alerting.
 """
 
-import time
 import functools
-from typing import Callable, Optional
+import time
+from collections.abc import Callable
+
 from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    REGISTRY,
     Counter,
-    Histogram,
     Gauge,
+    Histogram,
     Info,
     generate_latest,
-    REGISTRY,
-    CONTENT_TYPE_LATEST
 )
 
-
 # Application info
-app_info = Info('cloudguard_anomaly_app', 'CloudGuard-Anomaly application information')
-app_info.info({
-    'version': '3.0',
-    'service': 'cloudguard-anomaly'
-})
+app_info = Info("cloudguard_anomaly_app", "CloudGuard-Anomaly application information")
+app_info.info({"version": "3.0", "service": "cloudguard-anomaly"})
 
 # HTTP request metrics
 http_requests_total = Counter(
-    'cloudguard_http_requests_total',
-    'Total HTTP requests',
-    ['method', 'endpoint', 'status']
+    "cloudguard_http_requests_total", "Total HTTP requests", ["method", "endpoint", "status"]
 )
 
 http_request_duration_seconds = Histogram(
-    'cloudguard_http_request_duration_seconds',
-    'HTTP request duration in seconds',
-    ['method', 'endpoint'],
-    buckets=[0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+    "cloudguard_http_request_duration_seconds",
+    "HTTP request duration in seconds",
+    ["method", "endpoint"],
+    buckets=[0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0],
 )
 
 http_requests_in_progress = Gauge(
-    'cloudguard_http_requests_in_progress',
-    'HTTP requests currently being processed',
-    ['method', 'endpoint']
+    "cloudguard_http_requests_in_progress",
+    "HTTP requests currently being processed",
+    ["method", "endpoint"],
 )
 
 # Authentication metrics
 auth_attempts_total = Counter(
-    'cloudguard_auth_attempts_total',
-    'Total authentication attempts',
-    ['method', 'status']  # method: password/api_key, status: success/failure
+    "cloudguard_auth_attempts_total",
+    "Total authentication attempts",
+    ["method", "status"],  # method: password/api_key, status: success/failure
 )
 
-active_sessions = Gauge(
-    'cloudguard_active_sessions',
-    'Number of active user sessions'
-)
+active_sessions = Gauge("cloudguard_active_sessions", "Number of active user sessions")
 
 # Scan metrics
 scans_total = Counter(
-    'cloudguard_scans_total',
-    'Total number of scans performed',
-    ['provider', 'status']  # status: success/failure/error
+    "cloudguard_scans_total",
+    "Total number of scans performed",
+    ["provider", "status"],  # status: success/failure/error
 )
 
 scan_duration_seconds = Histogram(
-    'cloudguard_scan_duration_seconds',
-    'Scan duration in seconds',
-    ['provider'],
-    buckets=[10, 30, 60, 120, 300, 600, 1800, 3600]
+    "cloudguard_scan_duration_seconds",
+    "Scan duration in seconds",
+    ["provider"],
+    buckets=[10, 30, 60, 120, 300, 600, 1800, 3600],
 )
 
 scans_in_progress = Gauge(
-    'cloudguard_scans_in_progress',
-    'Number of scans currently running',
-    ['provider']
+    "cloudguard_scans_in_progress", "Number of scans currently running", ["provider"]
 )
 
 # Finding metrics
 findings_total = Counter(
-    'cloudguard_findings_total',
-    'Total number of findings discovered',
-    ['severity', 'provider', 'finding_type']
+    "cloudguard_findings_total",
+    "Total number of findings discovered",
+    ["severity", "provider", "finding_type"],
 )
 
 findings_open = Gauge(
-    'cloudguard_findings_open',
-    'Number of open findings',
-    ['severity', 'provider']
+    "cloudguard_findings_open", "Number of open findings", ["severity", "provider"]
 )
 
 findings_resolved = Counter(
-    'cloudguard_findings_resolved_total',
-    'Total number of findings resolved',
-    ['severity', 'provider']
+    "cloudguard_findings_resolved_total",
+    "Total number of findings resolved",
+    ["severity", "provider"],
 )
 
 # Anomaly detection metrics
 anomalies_detected_total = Counter(
-    'cloudguard_anomalies_detected_total',
-    'Total number of anomalies detected',
-    ['type', 'severity']
+    "cloudguard_anomalies_detected_total",
+    "Total number of anomalies detected",
+    ["type", "severity"],
 )
 
 ml_model_predictions_total = Counter(
-    'cloudguard_ml_predictions_total',
-    'Total number of ML model predictions',
-    ['model', 'result']  # result: anomaly/normal
+    "cloudguard_ml_predictions_total",
+    "Total number of ML model predictions",
+    ["model", "result"],  # result: anomaly/normal
 )
 
-ml_model_accuracy = Gauge(
-    'cloudguard_ml_model_accuracy',
-    'ML model accuracy score',
-    ['model']
-)
+ml_model_accuracy = Gauge("cloudguard_ml_model_accuracy", "ML model accuracy score", ["model"])
 
 # Policy metrics
 policies_evaluated_total = Counter(
-    'cloudguard_policies_evaluated_total',
-    'Total number of policy evaluations',
-    ['policy_id', 'result']  # result: pass/fail
+    "cloudguard_policies_evaluated_total",
+    "Total number of policy evaluations",
+    ["policy_id", "result"],  # result: pass/fail
 )
 
 policies_total = Gauge(
-    'cloudguard_policies_total',
-    'Total number of policies',
-    ['provider', 'enabled']
+    "cloudguard_policies_total", "Total number of policies", ["provider", "enabled"]
 )
 
 # Database metrics
 db_connections_total = Gauge(
-    'cloudguard_db_connections_total',
-    'Total number of database connections',
-    ['state']  # state: active/idle
+    "cloudguard_db_connections_total",
+    "Total number of database connections",
+    ["state"],  # state: active/idle
 )
 
 db_query_duration_seconds = Histogram(
-    'cloudguard_db_query_duration_seconds',
-    'Database query duration in seconds',
-    ['operation'],
-    buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0]
+    "cloudguard_db_query_duration_seconds",
+    "Database query duration in seconds",
+    ["operation"],
+    buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0],
 )
 
 # Cache metrics
 cache_hits_total = Counter(
-    'cloudguard_cache_hits_total',
-    'Total number of cache hits',
-    ['cache_name']
+    "cloudguard_cache_hits_total", "Total number of cache hits", ["cache_name"]
 )
 
 cache_misses_total = Counter(
-    'cloudguard_cache_misses_total',
-    'Total number of cache misses',
-    ['cache_name']
+    "cloudguard_cache_misses_total", "Total number of cache misses", ["cache_name"]
 )
 
 # Audit log metrics
 audit_events_total = Counter(
-    'cloudguard_audit_events_total',
-    'Total number of audit events',
-    ['action', 'resource_type', 'status']
+    "cloudguard_audit_events_total",
+    "Total number of audit events",
+    ["action", "resource_type", "status"],
 )
 
 # Error metrics
 errors_total = Counter(
-    'cloudguard_errors_total',
-    'Total number of errors',
-    ['error_type', 'component']
+    "cloudguard_errors_total", "Total number of errors", ["error_type", "component"]
 )
 
 # API metrics
 api_calls_total = Counter(
-    'cloudguard_api_calls_total',
-    'Total API calls to external services',
-    ['service', 'status']  # service: aws/azure/gcp/anthropic/openai
+    "cloudguard_api_calls_total",
+    "Total API calls to external services",
+    ["service", "status"],  # service: aws/azure/gcp/anthropic/openai
 )
 
 api_call_duration_seconds = Histogram(
-    'cloudguard_api_call_duration_seconds',
-    'External API call duration in seconds',
-    ['service'],
-    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0]
+    "cloudguard_api_call_duration_seconds",
+    "External API call duration in seconds",
+    ["service"],
+    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
 )
 
 
@@ -196,22 +172,18 @@ class MetricsCollector:
 
     def track_auth_attempt(self, method: str, success: bool):
         """Track authentication attempt."""
-        status = 'success' if success else 'failure'
+        status = "success" if success else "failure"
         auth_attempts_total.labels(method=method, status=status).inc()
 
     def track_scan(self, provider: str, duration: float, success: bool):
         """Track scan completion."""
-        status = 'success' if success else 'failure'
+        status = "success" if success else "failure"
         scans_total.labels(provider=provider, status=status).inc()
         scan_duration_seconds.labels(provider=provider).observe(duration)
 
     def track_finding(self, severity: str, provider: str, finding_type: str):
         """Track finding discovery."""
-        findings_total.labels(
-            severity=severity,
-            provider=provider,
-            finding_type=finding_type
-        ).inc()
+        findings_total.labels(severity=severity, provider=provider, finding_type=finding_type).inc()
 
     def track_anomaly(self, anomaly_type: str, severity: str):
         """Track anomaly detection."""
@@ -219,16 +191,12 @@ class MetricsCollector:
 
     def track_policy_evaluation(self, policy_id: str, passed: bool):
         """Track policy evaluation."""
-        result = 'pass' if passed else 'fail'
+        result = "pass" if passed else "fail"
         policies_evaluated_total.labels(policy_id=policy_id, result=result).inc()
 
     def track_audit_event(self, action: str, resource_type: str, status: str):
         """Track audit event."""
-        audit_events_total.labels(
-            action=action,
-            resource_type=resource_type,
-            status=status
-        ).inc()
+        audit_events_total.labels(action=action, resource_type=resource_type, status=status).inc()
 
     def track_error(self, error_type: str, component: str):
         """Track error occurrence."""
@@ -244,7 +212,7 @@ class MetricsCollector:
 metrics = MetricsCollector()
 
 
-def track_request(endpoint: Optional[str] = None):
+def track_request(endpoint: str | None = None):
     """
     Decorator to track HTTP request metrics.
 
@@ -256,6 +224,7 @@ def track_request(endpoint: Optional[str] = None):
         def create_policy():
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -282,7 +251,7 @@ def track_request(endpoint: Optional[str] = None):
 
                 return result
 
-            except Exception as e:
+            except Exception:
                 duration = time.time() - start_time
                 metrics.track_http_request(method, endpoint_name, 500, duration)
                 raise
@@ -291,6 +260,7 @@ def track_request(endpoint: Optional[str] = None):
                 http_requests_in_progress.labels(method=method, endpoint=endpoint_name).dec()
 
         return wrapper
+
     return decorator
 
 
@@ -306,6 +276,7 @@ def track_scan(provider: str):
         def scan_aws_environment():
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -318,7 +289,7 @@ def track_scan(provider: str):
                 metrics.track_scan(provider, duration, True)
                 return result
 
-            except Exception as e:
+            except Exception:
                 duration = time.time() - start_time
                 metrics.track_scan(provider, duration, False)
                 raise
@@ -327,6 +298,7 @@ def track_scan(provider: str):
                 scans_in_progress.labels(provider=provider).dec()
 
         return wrapper
+
     return decorator
 
 

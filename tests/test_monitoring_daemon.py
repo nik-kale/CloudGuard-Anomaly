@@ -2,13 +2,20 @@
 Tests for continuous monitoring daemon.
 """
 
-import time
-import pytest
-from datetime import datetime
 from unittest.mock import Mock, patch
 
+from cloudguard_anomaly.core.models import Environment, Provider, ResourceType
 from cloudguard_anomaly.monitoring.daemon import MonitoringDaemon
-from cloudguard_anomaly.core.models import Environment, CloudProvider
+from cloudguard_anomaly.notifications.webhooks import SlackNotifier
+
+
+class TestSlackNotifierMessages:
+    def test_send_message_posts_text_with_a_timeout(self):
+        with patch("cloudguard_anomaly.notifications.webhooks.requests.post") as post:
+            post.return_value.raise_for_status.return_value = None
+            assert SlackNotifier("https://hooks.slack.test/x").send_message("hello") is True
+        assert post.call_args.kwargs["json"] == {"text": "hello"}
+        assert post.call_args.kwargs["timeout"] > 0
 
 
 class TestMonitoringDaemon:
@@ -25,10 +32,10 @@ class TestMonitoringDaemon:
         assert daemon.scan_count == 0
         assert daemon.database is not None
 
-    def test_daemon_initialization_requires_schedule(self):
+    def test_daemon_initialization_requires_schedule(self, test_database_url):
         """Test daemon requires schedule library."""
         # This test verifies the import check works
-        daemon = MonitoringDaemon(scan_interval=3600)
+        daemon = MonitoringDaemon(scan_interval=3600, database_url=test_database_url)
         assert daemon is not None
 
     def test_add_scan_target(self, test_database_url):
@@ -36,9 +43,7 @@ class TestMonitoringDaemon:
         daemon = MonitoringDaemon(scan_interval=60, database_url=test_database_url)
 
         def mock_scan_func():
-            return Environment(
-                name="test", provider=CloudProvider.AWS, region="us-east-1", resources=[]
-            )
+            return Environment(name="test", provider=Provider.AWS, resources=[])
 
         daemon.add_target("test-target", mock_scan_func)
 
@@ -50,7 +55,7 @@ class TestMonitoringDaemon:
         daemon = MonitoringDaemon(scan_interval=60, database_url=test_database_url)
 
         # Mock AWS integration to avoid actual AWS calls
-        with patch("cloudguard_anomaly.monitoring.daemon.AWSLiveIntegration"):
+        with patch("cloudguard_anomaly.integrations.aws_live.AWSLiveIntegration"):
             daemon.add_aws_target("aws-prod", profile="production", region="us-west-2")
 
         assert "aws-prod" in daemon.scan_targets
@@ -91,9 +96,7 @@ class TestMonitoringDaemon:
         daemon = MonitoringDaemon(scan_interval=60, database_url=test_database_url)
 
         def mock_scan_func():
-            return Environment(
-                name="test", provider=CloudProvider.AWS, region="us-east-1", resources=[]
-            )
+            return Environment(name="test", provider=Provider.AWS, resources=[])
 
         daemon.add_target("status-test", mock_scan_func)
 
@@ -105,19 +108,35 @@ class TestMonitoringDaemon:
         assert "status-test" in status["targets"]
         assert "target_details" in status
 
-    def test_change_detection(self, test_database_url, sample_scan_result, database):
-        """Test detecting changes between scans."""
+    def test_change_detection_alerts_on_new_critical(
+        self, test_database_url, sample_scan_result, database
+    ):
+        """Alerts go through send_message, which SlackNotifier never had."""
         daemon = MonitoringDaemon(scan_interval=60, database_url=test_database_url)
+        daemon.slack_notifier = Mock()
+        database.save_scan(sample_scan_result)
+        database.save_scan(sample_scan_result)
 
-        # Save initial scan
-        scan_id = database.save_scan(sample_scan_result)
+        sample_scan_result.summary["severity_counts"]["critical"] = 2
+        daemon._check_for_changes("target", sample_scan_result)
 
-        # Simulate change detection
-        # This requires previous scans in database
-        daemon._check_for_changes("test-env", sample_scan_result)
+        daemon.slack_notifier.send_message.assert_called_once()
 
-        # Should not crash
-        assert True
+    def test_change_detection_compares_the_same_environment(
+        self, test_database_url, sample_scan_result, database
+    ):
+        """Another target's history must not count as this target's baseline."""
+        daemon = MonitoringDaemon(scan_interval=60, database_url=test_database_url)
+        daemon.slack_notifier = Mock()
+        sample_scan_result.environment.name = "other-target"
+        database.save_scan(sample_scan_result)
+        database.save_scan(sample_scan_result)
+
+        sample_scan_result.environment.name = "brand-new-target"
+        sample_scan_result.summary["severity_counts"]["critical"] = 2
+        daemon._check_for_changes("target", sample_scan_result)
+
+        daemon.slack_notifier.send_message.assert_not_called()
 
     def test_signal_handler(self, test_database_url):
         """Test signal handler for graceful shutdown."""
@@ -137,9 +156,7 @@ class TestMonitoringDaemon:
         daemon = MonitoringDaemon(scan_interval=60, database_url=test_database_url)
 
         def mock_scan_func():
-            return Environment(
-                name="test", provider=CloudProvider.AWS, region="us-east-1", resources=[]
-            )
+            return Environment(name="test", provider=Provider.AWS, resources=[])
 
         daemon.add_target("stats-test", mock_scan_func)
 
@@ -157,10 +174,10 @@ class TestMonitoringDaemon:
         daemon = MonitoringDaemon(scan_interval=60, database_url=test_database_url)
 
         def mock_scan_1():
-            return Environment(name="env1", provider=CloudProvider.AWS, region="us-east-1", resources=[])
+            return Environment(name="env1", provider=Provider.AWS, resources=[])
 
         def mock_scan_2():
-            return Environment(name="env2", provider=CloudProvider.AWS, region="us-west-2", resources=[])
+            return Environment(name="env2", provider=Provider.AWS, resources=[])
 
         daemon.add_target("target-1", mock_scan_1)
         daemon.add_target("target-2", mock_scan_2)
@@ -196,32 +213,15 @@ class TestMonitoringDaemon:
             name="Test",
             description="Test policy",
             severity=Severity.HIGH,
-            resource_types=["*"],
-            conditions=[],
+            provider=Provider.AWS,
+            resource_types=[ResourceType.STORAGE],
+            condition={},
+            remediation="",
         )
 
         def mock_scan_func():
-            return Environment(name="test", provider=CloudProvider.AWS, region="us-east-1", resources=[])
+            return Environment(name="test", provider=Provider.AWS, resources=[])
 
         daemon.add_target("policy-test", mock_scan_func, policies=[policy])
 
         assert daemon.scan_targets["policy-test"]["policies"] == [policy]
-
-
-class TestDaemonIntegration:
-    """Test daemon integration with full system."""
-
-    @pytest.mark.skip(reason="Long-running test, requires schedule library")
-    def test_daemon_full_run(self, test_database_url):
-        """Test daemon running for a short period."""
-        daemon = MonitoringDaemon(scan_interval=1, database_url=test_database_url)
-
-        def mock_scan_func():
-            return Environment(name="test", provider=CloudProvider.AWS, region="us-east-1", resources=[])
-
-        daemon.add_target("integration-test", mock_scan_func)
-
-        # Start daemon in background (would normally block)
-        # For testing, we'll just verify it can be started
-        assert daemon.running is False
-        assert len(daemon.scan_targets) == 1

@@ -3,13 +3,14 @@ Unit tests for the analysis engine.
 """
 
 import pytest
+
+from cloudguard_anomaly.core.engine import AnalysisEngine
 from cloudguard_anomaly.core.models import (
     Environment,
     Provider,
     Resource,
     ResourceType,
 )
-from cloudguard_anomaly.core.engine import AnalysisEngine
 
 
 class TestAnalysisEngine:
@@ -19,8 +20,8 @@ class TestAnalysisEngine:
         """Test engine can be initialized."""
         engine = AnalysisEngine(policies=[], enable_drift_detection=True, enable_agents=True)
         assert engine is not None
-        assert engine.enable_drift_detection == True
-        assert engine.enable_agents == True
+        assert engine.enable_drift_detection is True
+        assert engine.enable_agents is True
 
     def test_scan_empty_environment(self):
         """Test scanning an empty environment."""

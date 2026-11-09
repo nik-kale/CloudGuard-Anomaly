@@ -3,14 +3,16 @@
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 import click
 
 from cloudguard_anomaly.core.engine import AnalysisEngine
-from cloudguard_anomaly.storage.database import DatabaseStorage
 from cloudguard_anomaly.notifications.webhooks import SlackNotifier
+from cloudguard_anomaly.reports.common import safe_report_name
 from cloudguard_anomaly.reports.json_reporter import JSONReporter
 from cloudguard_anomaly.reports.markdown_reporter import MarkdownReporter
+from cloudguard_anomaly.storage.database import DatabaseStorage
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,7 @@ def execute_live_scan(
     logger.info(f"Starting live {provider.upper()} scan...")
 
     # Initialize integration based on provider
+    integration: Any
     if provider == "aws":
         from cloudguard_anomaly.integrations.aws_live import AWSLiveIntegration
 
@@ -113,7 +116,7 @@ def execute_live_scan(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    env_name = environment.name.replace(" ", "_").lower()
+    env_name = safe_report_name(environment.name)
 
     json_reporter = JSONReporter()
     json_path = output_dir / f"{env_name}_report.json"

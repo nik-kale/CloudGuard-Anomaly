@@ -7,10 +7,9 @@ policy evaluation, anomaly detection, and agentic explanation.
 
 import logging
 from datetime import datetime
-from typing import List, Optional
+from typing import cast
 
 from cloudguard_anomaly.core.evaluator import PolicyEvaluator
-from cloudguard_anomaly.core.loader import ConfigLoader
 from cloudguard_anomaly.core.models import (
     Anomaly,
     Environment,
@@ -33,7 +32,7 @@ class AnalysisEngine:
 
     def __init__(
         self,
-        policies: Optional[List[Policy]] = None,
+        policies: list[Policy] | None = None,
         enable_drift_detection: bool = True,
         enable_agents: bool = True,
     ):
@@ -68,8 +67,8 @@ class AnalysisEngine:
         """
         logger.info(f"Starting scan of environment: {environment.name}")
 
-        findings: List[Finding] = []
-        anomalies: List[Anomaly] = []
+        findings: list[Finding] = []
+        anomalies: list[Anomaly] = []
 
         # Step 1: Run policy evaluation
         if self.policy_evaluator:
@@ -143,26 +142,13 @@ class AnalysisEngine:
         return result
 
     def _generate_narratives(
-        self, findings: List[Finding], anomalies: List[Anomaly], environment: Environment
-    ) -> List[str]:
+        self, findings: list[Finding], anomalies: list[Anomaly], environment: Environment
+    ) -> list[str]:
         """Generate human-readable narratives using agentic explainers."""
         from cloudguard_anomaly.agents.risk_summarizer_agent import RiskSummarizerAgent
         from cloudguard_anomaly.explainers.narrative_builder import NarrativeBuilder
 
-        # Try to use LLM-enhanced agents if available
-        try:
-            from cloudguard_anomaly.agents.llm.providers import get_llm_provider
-            from cloudguard_anomaly.agents.llm.enhanced_agents import EnhancedRiskSummarizerAgent
-
-            llm_provider = get_llm_provider()
-            if llm_provider:
-                logger.info("Using LLM-enhanced agents for narratives")
-                summarizer = EnhancedRiskSummarizerAgent(llm_provider)
-            else:
-                summarizer = RiskSummarizerAgent()
-        except Exception as e:
-            logger.warning(f"Could not initialize LLM agents, using deterministic: {e}")
-            summarizer = RiskSummarizerAgent()
+        summarizer = RiskSummarizerAgent()
 
         narratives = []
 
@@ -190,7 +176,7 @@ class AnalysisEngine:
 
         return narratives
 
-    def _compute_summary(self, findings: List[Finding], anomalies: List[Anomaly]) -> dict:
+    def _compute_summary(self, findings: list[Finding], anomalies: list[Anomaly]) -> dict:
         """Compute summary statistics for the scan results."""
         severity_counts = {
             "critical": len([f for f in findings if f.severity == Severity.CRITICAL]),
@@ -200,7 +186,7 @@ class AnalysisEngine:
             "info": len([f for f in findings if f.severity == Severity.INFO]),
         }
 
-        finding_types = {}
+        finding_types: dict[str, int] = {}
         for finding in findings:
             finding_type = finding.type.value
             finding_types[finding_type] = finding_types.get(finding_type, 0) + 1
@@ -230,9 +216,9 @@ class AnalysisEngine:
         score = sum(severity_counts.get(sev, 0) * weight for sev, weight in weights.items())
 
         # Normalize to 0-100 range
-        return min(100, score)
+        return cast("int", min(100, score))
 
-    def add_policies(self, policies: List[Policy]) -> None:
+    def add_policies(self, policies: list[Policy]) -> None:
         """Add additional policies to the engine."""
         self.policies.extend(policies)
         self.policy_evaluator = PolicyEvaluator(self.policies)

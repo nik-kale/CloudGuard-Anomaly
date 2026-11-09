@@ -8,7 +8,6 @@ unused credentials, and risky permission patterns.
 import logging
 import uuid
 from datetime import datetime
-from typing import List
 
 from cloudguard_anomaly.core.models import (
     Finding,
@@ -28,7 +27,7 @@ class IdentityDetector:
         """Initialize the identity detector."""
         pass
 
-    def detect(self, resources: List[Resource]) -> List[Finding]:
+    def detect(self, resources: list[Resource]) -> list[Finding]:
         """
         Detect IAM-related security issues.
 
@@ -59,7 +58,7 @@ class IdentityDetector:
         logger.info(f"Identity detector found {len(findings)} issues")
         return findings
 
-    def _check_wildcard_permissions(self, resource: Resource) -> List[Finding]:
+    def _check_wildcard_permissions(self, resource: Resource) -> list[Finding]:
         """Check for wildcard (*) permissions."""
         findings = []
         props = resource.properties
@@ -110,7 +109,7 @@ class IdentityDetector:
 
         return findings
 
-    def _check_privilege_escalation(self, resource: Resource) -> List[Finding]:
+    def _check_privilege_escalation(self, resource: Resource) -> list[Finding]:
         """Check for privilege escalation risks."""
         findings = []
         props = resource.properties
@@ -148,7 +147,8 @@ class IdentityDetector:
                         type=FindingType.IDENTITY_RISK,
                         severity=Severity.CRITICAL,
                         title="IAM Privilege Escalation Risk",
-                        description=f"IAM role {resource.name} has permissions that could allow privilege escalation",
+                        description=f"IAM role {resource.name} has permissions that could allow "
+                        "privilege escalation",
                         resource=resource,
                         policy=None,
                         evidence={
@@ -156,7 +156,8 @@ class IdentityDetector:
                             "dangerous_permissions": dangerous_combo,
                             "all_actions": all_actions,
                         },
-                        remediation="Remove or restrict permissions that allow privilege escalation. "
+                        remediation="Remove or restrict permissions that allow privilege "
+                        "escalation. "
                         "Separate administrative functions into different roles.",
                         timestamp=datetime.utcnow(),
                     )
@@ -165,7 +166,7 @@ class IdentityDetector:
 
         return findings
 
-    def _check_cross_account_access(self, resource: Resource) -> List[Finding]:
+    def _check_cross_account_access(self, resource: Resource) -> list[Finding]:
         """Check for cross-account access risks."""
         findings = []
         props = resource.properties
@@ -186,14 +187,16 @@ class IdentityDetector:
                         type=FindingType.IDENTITY_RISK,
                         severity=Severity.CRITICAL,
                         title="IAM Role Allows Any AWS Account",
-                        description=f"IAM role {resource.name} trust policy allows any AWS account to assume it",
+                        description=f"IAM role {resource.name} trust policy allows any AWS account "
+                        "to assume it",
                         resource=resource,
                         policy=None,
                         evidence={
                             "resource_id": resource.id,
                             "trust_policy": assume_role_policy,
                         },
-                        remediation="Restrict assume role policy to specific AWS accounts or services. "
+                        remediation="Restrict assume role policy to specific AWS accounts or "
+                        "services. "
                         "Add external ID for additional security.",
                         timestamp=datetime.utcnow(),
                     )
@@ -201,7 +204,7 @@ class IdentityDetector:
 
         return findings
 
-    def _check_unused_credentials(self, resource: Resource) -> List[Finding]:
+    def _check_unused_credentials(self, resource: Resource) -> list[Finding]:
         """Check for unused or stale credentials."""
         findings = []
         props = resource.properties
@@ -223,7 +226,8 @@ class IdentityDetector:
                     type=FindingType.IDENTITY_RISK,
                     severity=Severity.LOW,
                     title="Inactive Access Key",
-                    description=f"IAM role {resource.name} has inactive access keys that should be removed",
+                    description=f"IAM role {resource.name} has inactive access keys that should be "
+                    "removed",
                     resource=resource,
                     policy=None,
                     evidence={
@@ -237,7 +241,7 @@ class IdentityDetector:
 
         return findings
 
-    def _check_resource_iam_issues(self, resource: Resource) -> List[Finding]:
+    def _check_resource_iam_issues(self, resource: Resource) -> list[Finding]:
         """Check non-IAM resources for IAM-related issues."""
         findings = []
         props = resource.properties
@@ -260,14 +264,16 @@ class IdentityDetector:
                             type=FindingType.IDENTITY_RISK,
                             severity=Severity.HIGH,
                             title="Resource Policy Allows Public Access",
-                            description=f"Resource {resource.name} has a policy allowing access from any principal",
+                            description=f"Resource {resource.name} has a policy allowing access "
+                            "from any principal",
                             resource=resource,
                             policy=None,
                             evidence={
                                 "resource_id": resource.id,
                                 "resource_policy": policy,
                             },
-                            remediation="Restrict resource policy to specific principals or AWS accounts.",
+                            remediation="Restrict resource policy to specific principals or AWS "
+                            "accounts.",
                             timestamp=datetime.utcnow(),
                         )
                         findings.append(finding)

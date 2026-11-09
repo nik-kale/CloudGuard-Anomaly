@@ -6,10 +6,10 @@ Provides programmatic access to Alembic migrations.
 
 import logging
 from pathlib import Path
-from typing import Optional
 
-from alembic import command
 from alembic.config import Config as AlembicConfig
+
+from alembic import command  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
 
@@ -22,14 +22,14 @@ class MigrationManager:
     database schema migrations.
     """
 
-    def __init__(self, database_url: Optional[str] = None):
+    def __init__(self, database_url: str | None = None):
         """
         Initialize migration manager.
 
         Args:
             database_url: Database URL (uses config default if not provided)
         """
-        from cloudguard_anomaly.config import get_config
+        from cloudguard_anomaly.config import get_config, redact_database_url
 
         config = get_config()
         self.database_url = database_url or config.database_url
@@ -47,7 +47,7 @@ class MigrationManager:
         self.alembic_cfg = AlembicConfig(str(alembic_ini_path))
         self.alembic_cfg.set_main_option("sqlalchemy.url", self.database_url)
 
-        logger.info(f"Migration manager initialized for: {self.database_url}")
+        logger.info(f"Migration manager initialized for: {redact_database_url(self.database_url)}")
 
     def upgrade(self, revision: str = "head"):
         """
@@ -97,9 +97,7 @@ class MigrationManager:
         logger.info(f"Stamping database with revision: {revision}")
         command.stamp(self.alembic_cfg, revision)
 
-    def create_migration(
-        self, message: str, autogenerate: bool = True
-    ) -> str:
+    def create_migration(self, message: str, autogenerate: bool = True) -> str:
         """
         Create a new migration script.
 
@@ -134,8 +132,8 @@ class MigrationManager:
         Returns:
             True if migrations are pending, False otherwise
         """
-        from alembic.script import ScriptDirectory
         from alembic.runtime.migration import MigrationContext
+        from alembic.script import ScriptDirectory
         from sqlalchemy import create_engine
 
         # Get current database revision
@@ -149,16 +147,14 @@ class MigrationManager:
         head_rev = script.get_current_head()
 
         if current_rev != head_rev:
-            logger.warning(
-                f"Pending migrations detected. Current: {current_rev}, Head: {head_rev}"
-            )
+            logger.warning(f"Pending migrations detected. Current: {current_rev}, Head: {head_rev}")
             return True
 
         logger.info("Database is up to date")
         return False
 
 
-def upgrade_database(database_url: Optional[str] = None, revision: str = "head"):
+def upgrade_database(database_url: str | None = None, revision: str = "head"):
     """
     Convenience function to upgrade database.
 
@@ -170,7 +166,7 @@ def upgrade_database(database_url: Optional[str] = None, revision: str = "head")
     manager.upgrade(revision)
 
 
-def check_migrations(database_url: Optional[str] = None) -> bool:
+def check_migrations(database_url: str | None = None) -> bool:
     """
     Check if migrations are pending.
 
@@ -184,7 +180,7 @@ def check_migrations(database_url: Optional[str] = None) -> bool:
     return manager.check_pending_migrations()
 
 
-def create_migration(message: str, database_url: Optional[str] = None):
+def create_migration(message: str, database_url: str | None = None):
     """
     Create a new migration.
 

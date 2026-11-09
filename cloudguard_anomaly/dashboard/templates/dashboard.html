@@ -373,7 +373,7 @@
                 trendChart.destroy();
             }
 
-            const dates = trends.map(t => new Date(t.date).toLocaleDateString());
+            const dates = trends.map(t => new Date(t.timestamp).toLocaleDateString());
             const riskScores = trends.map(t => t.risk_score);
             const findingCounts = trends.map(t => t.findings_count);
 
@@ -454,16 +454,26 @@
 
             findings.forEach(finding => {
                 const row = document.createElement('tr');
-                const severityClass = `badge-${finding.severity}`;
-                const timeAgo = getTimeAgo(new Date(finding.created_at));
 
-                row.innerHTML = `
-                    <td><span class="badge ${severityClass}">${finding.severity}</span></td>
-                    <td>${finding.title}</td>
-                    <td>${finding.resource_id || 'N/A'}</td>
-                    <td>${finding.scan_id.split('-')[0]}...</td>
-                    <td>${timeAgo}</td>
-                `;
+                const severityCell = document.createElement('td');
+                const badge = document.createElement('span');
+                badge.className = `badge badge-${finding.severity}`;
+                badge.textContent = finding.severity;
+                severityCell.appendChild(badge);
+                row.appendChild(severityCell);
+
+                // Finding text comes from scanned resources, so it never goes through HTML
+                [
+                    finding.title,
+                    finding.resource_id || 'N/A',
+                    `${finding.scan_id.split('-')[0]}...`,
+                    getTimeAgo(new Date(finding.created_at))
+                ].forEach(text => {
+                    const cell = document.createElement('td');
+                    cell.textContent = text;
+                    row.appendChild(cell);
+                });
+
                 tbody.appendChild(row);
             });
         }

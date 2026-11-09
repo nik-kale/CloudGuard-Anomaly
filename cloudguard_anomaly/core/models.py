@@ -5,23 +5,31 @@ This module defines the fundamental data structures used throughout the framewor
 for representing cloud resources, policies, findings, and anomalies.
 """
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from enum import StrEnum
+from typing import Any
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     """Severity levels for findings and anomalies."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
     INFO = "info"
 
+    @property
+    def rank(self) -> int:
+        """Numeric order of the level; higher is more severe."""
+        return ["info", "low", "medium", "high", "critical"].index(self.value)
 
-class ResourceType(str, Enum):
+
+class ResourceType(StrEnum):
     """Common cloud resource types across providers."""
+
     COMPUTE = "compute"
     STORAGE = "storage"
     DATABASE = "database"
@@ -39,16 +47,18 @@ class ResourceType(str, Enum):
     UNKNOWN = "unknown"
 
 
-class Provider(str, Enum):
+class Provider(StrEnum):
     """Supported cloud providers."""
+
     AWS = "aws"
     AZURE = "azure"
     GCP = "gcp"
     MULTI = "multi"
 
 
-class FindingType(str, Enum):
+class FindingType(StrEnum):
     """Types of security findings."""
+
     MISCONFIGURATION = "misconfiguration"
     DRIFT = "drift"
     IDENTITY_RISK = "identity_risk"
@@ -72,16 +82,17 @@ class Resource:
         tags: Resource tags/labels
         metadata: Additional metadata
     """
+
     id: str
     name: str
     type: ResourceType
     provider: Provider
     region: str
-    properties: Dict[str, Any] = field(default_factory=dict)
-    tags: Dict[str, str] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    properties: dict[str, Any] = field(default_factory=dict)
+    tags: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert resource to dictionary representation."""
         return {
             "id": self.id,
@@ -93,6 +104,20 @@ class Resource:
             "tags": self.tags,
             "metadata": self.metadata,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Resource":
+        """Rebuild a resource from its :meth:`to_dict` form."""
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            type=ResourceType(data["type"]),
+            provider=Provider(data["provider"]),
+            region=data.get("region", "global"),
+            properties=data.get("properties", {}),
+            tags=data.get("tags", {}),
+            metadata=data.get("metadata", {}),
+        )
 
 
 @dataclass
@@ -111,18 +136,19 @@ class Policy:
         remediation: Remediation guidance
         references: External references (CIS benchmarks, etc.)
     """
+
     id: str
     name: str
     description: str
     severity: Severity
     provider: Provider
-    resource_types: List[ResourceType]
-    condition: Dict[str, Any]
+    resource_types: list[ResourceType]
+    condition: dict[str, Any]
     remediation: str
-    references: List[str] = field(default_factory=list)
+    references: list[str] = field(default_factory=list)
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert policy to dictionary representation."""
         return {
             "id": self.id,
@@ -138,35 +164,42 @@ class Policy:
         }
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Finding:
     """
     Represents a security finding discovered during analysis.
 
     Attributes:
-        id: Unique finding identifier
-        type: Type of finding
         severity: Severity level
         title: Short title/summary
         description: Detailed description
         resource: Affected resource
-        policy: Policy that triggered the finding
+        id: Unique finding identifier (generated if omitted)
+        type: Type of finding
+        policy: Policy that triggered the finding, when one is loaded
+        policy_id: Identifier of that policy; taken from ``policy`` if omitted
         evidence: Supporting evidence
         remediation: Remediation steps
         timestamp: When finding was detected
     """
-    id: str
-    type: FindingType
+
     severity: Severity
     title: str
     description: str
     resource: Resource
-    policy: Optional[Policy]
-    evidence: Dict[str, Any] = field(default_factory=dict)
+    id: str = field(default_factory=lambda: f"finding-{uuid.uuid4()}")
+    type: FindingType = FindingType.MISCONFIGURATION
+    policy: Policy | None = None
+    policy_id: str | None = None
+    evidence: dict[str, Any] = field(default_factory=dict)
     remediation: str = ""
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def __post_init__(self) -> None:
+        if self.policy_id is None and self.policy is not None:
+            self.policy_id = self.policy.id
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert finding to dictionary representation."""
         return {
             "id": self.id,
@@ -176,10 +209,27 @@ class Finding:
             "description": self.description,
             "resource": self.resource.to_dict(),
             "policy": self.policy.to_dict() if self.policy else None,
+            "policy_id": self.policy_id,
             "evidence": self.evidence,
             "remediation": self.remediation,
             "timestamp": self.timestamp.isoformat(),
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Finding":
+        """Rebuild a finding from its :meth:`to_dict` form, without its policy object."""
+        return cls(
+            id=data["id"],
+            type=FindingType(data["type"]),
+            severity=Severity(data["severity"]),
+            title=data["title"],
+            description=data["description"],
+            resource=Resource.from_dict(data["resource"]),
+            policy_id=data.get("policy_id"),
+            evidence=data.get("evidence", {}),
+            remediation=data.get("remediation", ""),
+            timestamp=datetime.fromisoformat(data["timestamp"]),
+        )
 
 
 @dataclass
@@ -198,17 +248,18 @@ class Anomaly:
         impact: Impact assessment
         timestamp: When anomaly was detected
     """
+
     id: str
     type: str
     severity: Severity
     resource: Resource
-    baseline: Dict[str, Any]
-    current: Dict[str, Any]
-    changes: List[Dict[str, Any]]
+    baseline: dict[str, Any]
+    current: dict[str, Any]
+    changes: list[dict[str, Any]]
     impact: str = ""
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert anomaly to dictionary representation."""
         return {
             "id": self.id,
@@ -235,22 +286,21 @@ class Environment:
         baseline_resources: Baseline resource configurations
         metadata: Environment metadata
     """
+
     name: str
     provider: Provider
-    resources: List[Resource] = field(default_factory=list)
-    baseline_resources: Optional[List[Resource]] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    resources: list[Resource] = field(default_factory=list)
+    baseline_resources: list[Resource] | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert environment to dictionary representation."""
         return {
             "name": self.name,
             "provider": self.provider.value,
             "resources": [r.to_dict() for r in self.resources],
             "baseline_resources": (
-                [r.to_dict() for r in self.baseline_resources]
-                if self.baseline_resources
-                else None
+                [r.to_dict() for r in self.baseline_resources] if self.baseline_resources else None
             ),
             "metadata": self.metadata,
         }
@@ -269,14 +319,15 @@ class ScanResult:
         narratives: Human-readable narratives
         timestamp: Scan timestamp
     """
+
     environment: Environment
-    findings: List[Finding] = field(default_factory=list)
-    anomalies: List[Anomaly] = field(default_factory=list)
-    summary: Dict[str, Any] = field(default_factory=dict)
-    narratives: List[str] = field(default_factory=list)
+    findings: list[Finding] = field(default_factory=list)
+    anomalies: list[Anomaly] = field(default_factory=list)
+    summary: dict[str, Any] = field(default_factory=dict)
+    narratives: list[str] = field(default_factory=list)
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert scan result to dictionary representation."""
         return {
             "environment": self.environment.to_dict(),
@@ -287,14 +338,14 @@ class ScanResult:
             "timestamp": self.timestamp.isoformat(),
         }
 
-    def get_findings_by_severity(self, severity: Severity) -> List[Finding]:
+    def get_findings_by_severity(self, severity: Severity) -> list[Finding]:
         """Get all findings of a specific severity."""
         return [f for f in self.findings if f.severity == severity]
 
-    def get_critical_findings(self) -> List[Finding]:
+    def get_critical_findings(self) -> list[Finding]:
         """Get all critical findings."""
         return self.get_findings_by_severity(Severity.CRITICAL)
 
-    def get_high_findings(self) -> List[Finding]:
+    def get_high_findings(self) -> list[Finding]:
         """Get all high severity findings."""
         return self.get_findings_by_severity(Severity.HIGH)

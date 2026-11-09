@@ -7,13 +7,12 @@ Only scans resources that have changed since last scan for 70-90% performance im
 import hashlib
 import json
 import logging
-from datetime import datetime
-from typing import List, Dict, Optional, Set, Tuple
 from dataclasses import dataclass, field
+from datetime import datetime
 
-from cloudguard_anomaly.core.models import Resource, Environment
-from cloudguard_anomaly.storage.database import DatabaseStorage
 from cloudguard_anomaly.config import get_config
+from cloudguard_anomaly.core.models import Resource
+from cloudguard_anomaly.storage.database import DatabaseStorage
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +27,7 @@ class ResourceSnapshot:
     last_scanned: datetime
     provider: str
     region: str
-    properties_snapshot: Dict = field(default_factory=dict)
+    properties_snapshot: dict = field(default_factory=dict)
 
 
 class IncrementalScanTracker:
@@ -38,7 +37,7 @@ class IncrementalScanTracker:
     Uses SHA-256 hashing to detect configuration changes.
     """
 
-    def __init__(self, database: Optional[DatabaseStorage] = None):
+    def __init__(self, database: DatabaseStorage | None = None):
         """
         Initialize incremental scan tracker.
 
@@ -47,7 +46,7 @@ class IncrementalScanTracker:
         """
         self.config = get_config()
         self.database = database
-        self.snapshots: Dict[str, ResourceSnapshot] = {}
+        self.snapshots: dict[str, ResourceSnapshot] = {}
         self.enabled = self.config.enable_incremental_scan
 
         if self.enabled:
@@ -67,16 +66,16 @@ class IncrementalScanTracker:
         """
         # Create canonical representation of resource configuration
         config_dict = {
-            'type': str(resource.type),
-            'provider': str(resource.provider),
-            'region': resource.region,
-            'properties': resource.properties,
-            'tags': resource.tags,
-            'metadata': resource.metadata
+            "type": str(resource.type),
+            "provider": str(resource.provider),
+            "region": resource.region,
+            "properties": resource.properties,
+            "tags": resource.tags,
+            "metadata": resource.metadata,
         }
 
         # Sort dict keys for consistent hashing
-        canonical_json = json.dumps(config_dict, sort_keys=True)
+        canonical_json = json.dumps(config_dict, sort_keys=True, default=str)
         config_hash = hashlib.sha256(canonical_json.encode()).hexdigest()
 
         return config_hash
@@ -98,21 +97,21 @@ class IncrementalScanTracker:
         try:
             # In production, add ResourceSnapshot table to database schema
             # For now, store in scan metadata
-            recent_scans = self.database.get_scans(limit=1)
+            recent_scans = self.database.get_scans(environment_name=environment_name, limit=1)
 
             if recent_scans:
                 last_scan = recent_scans[0]
-                snapshots_data = last_scan.data.get('resource_snapshots', {})
+                snapshots_data = last_scan.data.get("resource_snapshots", {})
 
                 for resource_id, snapshot_data in snapshots_data.items():
                     self.snapshots[resource_id] = ResourceSnapshot(
-                        resource_id=snapshot_data['resource_id'],
-                        resource_type=snapshot_data['resource_type'],
-                        config_hash=snapshot_data['config_hash'],
-                        last_scanned=datetime.fromisoformat(snapshot_data['last_scanned']),
-                        provider=snapshot_data['provider'],
-                        region=snapshot_data['region'],
-                        properties_snapshot=snapshot_data.get('properties_snapshot', {})
+                        resource_id=snapshot_data["resource_id"],
+                        resource_type=snapshot_data["resource_type"],
+                        config_hash=snapshot_data["config_hash"],
+                        last_scanned=datetime.fromisoformat(snapshot_data["last_scanned"]),
+                        provider=snapshot_data["provider"],
+                        region=snapshot_data["region"],
+                        properties_snapshot=snapshot_data.get("properties_snapshot", {}),
                     )
 
                 logger.info(f"Loaded {len(self.snapshots)} resource snapshots")
@@ -123,7 +122,7 @@ class IncrementalScanTracker:
 
         return 0
 
-    def save_snapshots(self, resources: List[Resource]) -> int:
+    def save_snapshots(self, resources: list[Resource]) -> int:
         """
         Save resource snapshots for future incremental scans.
 
@@ -143,7 +142,7 @@ class IncrementalScanTracker:
                 last_scanned=datetime.utcnow(),
                 provider=str(resource.provider),
                 region=resource.region,
-                properties_snapshot=resource.properties
+                properties_snapshot=resource.properties,
             )
 
             self.snapshots[resource.id] = snapshot
@@ -151,7 +150,7 @@ class IncrementalScanTracker:
         logger.info(f"Saved {len(resources)} resource snapshots")
         return len(resources)
 
-    def get_snapshot_metadata(self) -> Dict:
+    def get_snapshot_metadata(self) -> dict:
         """
         Get snapshot metadata for database storage.
 
@@ -160,20 +159,20 @@ class IncrementalScanTracker:
         """
         return {
             resource_id: {
-                'resource_id': snapshot.resource_id,
-                'resource_type': snapshot.resource_type,
-                'config_hash': snapshot.config_hash,
-                'last_scanned': snapshot.last_scanned.isoformat(),
-                'provider': snapshot.provider,
-                'region': snapshot.region,
-                'properties_snapshot': snapshot.properties_snapshot
+                "resource_id": snapshot.resource_id,
+                "resource_type": snapshot.resource_type,
+                "config_hash": snapshot.config_hash,
+                "last_scanned": snapshot.last_scanned.isoformat(),
+                "provider": snapshot.provider,
+                "region": snapshot.region,
+                "properties_snapshot": snapshot.properties_snapshot,
             }
             for resource_id, snapshot in self.snapshots.items()
         }
 
     def identify_changes(
-        self, resources: List[Resource]
-    ) -> Tuple[List[Resource], List[Resource], List[Resource]]:
+        self, resources: list[Resource]
+    ) -> tuple[list[Resource], list[Resource], list[Resource]]:
         """
         Identify new, modified, and unchanged resources.
 
@@ -216,7 +215,9 @@ class IncrementalScanTracker:
         # Identify deleted resources
         deleted_ids = previous_ids - current_ids
         if deleted_ids:
-            logger.info(f"Detected {len(deleted_ids)} deleted resources: {list(deleted_ids)[:5]}...")
+            logger.info(
+                f"Detected {len(deleted_ids)} deleted resources: {list(deleted_ids)[:5]}..."
+            )
 
         logger.info(
             f"Change detection: {len(new_resources)} new, "
@@ -228,8 +229,8 @@ class IncrementalScanTracker:
         return new_resources, modified_resources, unchanged_resources
 
     def get_scan_scope(
-        self, resources: List[Resource], scan_unchanged: bool = False
-    ) -> List[Resource]:
+        self, resources: list[Resource], scan_unchanged: bool = False
+    ) -> list[Resource]:
         """
         Get resources that need to be scanned.
 
@@ -250,7 +251,9 @@ class IncrementalScanTracker:
         else:
             scan_scope = new + modified
 
-        reduction_pct = ((len(resources) - len(scan_scope)) / len(resources) * 100) if resources else 0
+        reduction_pct = (
+            ((len(resources) - len(scan_scope)) / len(resources) * 100) if resources else 0
+        )
 
         logger.info(
             f"Incremental scan scope: {len(scan_scope)}/{len(resources)} resources "
@@ -259,7 +262,7 @@ class IncrementalScanTracker:
 
         return scan_scope
 
-    def get_change_summary(self, resources: List[Resource]) -> Dict:
+    def get_change_summary(self, resources: list[Resource]) -> dict:
         """
         Get summary of changes.
 
@@ -272,19 +275,17 @@ class IncrementalScanTracker:
         new, modified, unchanged = self.identify_changes(resources)
 
         return {
-            'total_resources': len(resources),
-            'new_count': len(new),
-            'modified_count': len(modified),
-            'unchanged_count': len(unchanged),
-            'scan_required': len(new) + len(modified),
-            'reduction_percentage': (
-                (len(unchanged) / len(resources) * 100) if resources else 0
-            ),
-            'new_resource_ids': [r.id for r in new[:10]],  # Sample
-            'modified_resource_ids': [r.id for r in modified[:10]],  # Sample
+            "total_resources": len(resources),
+            "new_count": len(new),
+            "modified_count": len(modified),
+            "unchanged_count": len(unchanged),
+            "scan_required": len(new) + len(modified),
+            "reduction_percentage": ((len(unchanged) / len(resources) * 100) if resources else 0),
+            "new_resource_ids": [r.id for r in new[:10]],  # Sample
+            "modified_resource_ids": [r.id for r in modified[:10]],  # Sample
         }
 
-    def force_rescan(self, resource_ids: Optional[List[str]] = None):
+    def force_rescan(self, resource_ids: list[str] | None = None):
         """
         Force rescan of specific resources by removing their snapshots.
 
@@ -304,7 +305,7 @@ class IncrementalScanTracker:
 
             logger.info(f"Cleared {count} snapshots - these resources will be rescanned")
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """
         Get statistics about tracked resources.
 
@@ -313,42 +314,34 @@ class IncrementalScanTracker:
         """
         if not self.snapshots:
             return {
-                'enabled': self.enabled,
-                'tracked_resources': 0,
-                'providers': {},
-                'regions': {},
+                "enabled": self.enabled,
+                "tracked_resources": 0,
+                "providers": {},
+                "regions": {},
             }
 
-        providers = {}
-        regions = {}
+        providers: dict[str, int] = {}
+        regions: dict[str, int] = {}
 
         for snapshot in self.snapshots.values():
             providers[snapshot.provider] = providers.get(snapshot.provider, 0) + 1
             regions[snapshot.region] = regions.get(snapshot.region, 0) + 1
 
         return {
-            'enabled': self.enabled,
-            'tracked_resources': len(self.snapshots),
-            'providers': providers,
-            'regions': regions,
-            'oldest_snapshot': min(
-                (s.last_scanned for s in self.snapshots.values()),
-                default=None
-            ),
-            'newest_snapshot': max(
-                (s.last_scanned for s in self.snapshots.values()),
-                default=None
-            ),
+            "enabled": self.enabled,
+            "tracked_resources": len(self.snapshots),
+            "providers": providers,
+            "regions": regions,
+            "oldest_snapshot": min((s.last_scanned for s in self.snapshots.values()), default=None),
+            "newest_snapshot": max((s.last_scanned for s in self.snapshots.values()), default=None),
         }
 
 
 # Global incremental scanner instance
-_incremental_tracker: Optional[IncrementalScanTracker] = None
+_incremental_tracker: IncrementalScanTracker | None = None
 
 
-def get_incremental_tracker(
-    database: Optional[DatabaseStorage] = None
-) -> IncrementalScanTracker:
+def get_incremental_tracker(database: DatabaseStorage | None = None) -> IncrementalScanTracker:
     """Get global incremental tracker instance."""
     global _incremental_tracker
     if _incremental_tracker is None:

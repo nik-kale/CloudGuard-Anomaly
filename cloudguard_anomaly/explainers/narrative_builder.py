@@ -5,7 +5,7 @@ Converts findings and anomalies into human-readable narratives
 suitable for reports and dashboards.
 """
 
-from typing import List
+from typing import cast
 
 from cloudguard_anomaly.agents.drift_explainer_agent import DriftExplainerAgent
 from cloudguard_anomaly.agents.misconfig_explainer_agent import MisconfigExplainerAgent
@@ -40,7 +40,7 @@ class NarrativeBuilder:
             narrative += "\n\n---\n\n"
             narrative += self.remediation_agent.create_remediation_plan(finding)
 
-        return narrative
+        return cast("str", narrative)
 
     def build_anomaly_narrative(self, anomaly: Anomaly) -> str:
         """
@@ -52,9 +52,9 @@ class NarrativeBuilder:
         Returns:
             Human-readable narrative
         """
-        return self.drift_agent.explain_anomaly(anomaly)
+        return cast("str", self.drift_agent.explain_anomaly(anomaly))
 
-    def build_grouped_narrative(self, findings: List[Finding]) -> str:
+    def build_grouped_narrative(self, findings: list[Finding]) -> str:
         """
         Build narrative for a group of related findings.
 
@@ -83,9 +83,7 @@ class NarrativeBuilder:
 
         return narrative
 
-    def build_summary_narrative(
-        self, findings: List[Finding], anomalies: List[Anomaly]
-    ) -> str:
+    def build_summary_narrative(self, findings: list[Finding], anomalies: list[Anomaly]) -> str:
         """
         Build high-level summary narrative.
 
@@ -98,7 +96,7 @@ class NarrativeBuilder:
         """
         total_issues = len(findings) + len(anomalies)
 
-        narrative = f"# Security Analysis Summary\n\n"
+        narrative = "# Security Analysis Summary\n\n"
         narrative += f"Total issues detected: {total_issues}\n\n"
 
         if findings:

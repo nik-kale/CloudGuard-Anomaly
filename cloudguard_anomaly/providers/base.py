@@ -6,7 +6,7 @@ implementations must follow.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Any, cast
 
 from cloudguard_anomaly.core.models import Resource, ResourceType
 
@@ -24,7 +24,7 @@ class BaseProvider(ABC):
         self.provider_name = provider_name
 
     @abstractmethod
-    def normalize_resource(self, raw_resource: Dict[str, Any]) -> Resource:
+    def normalize_resource(self, raw_resource: dict[str, Any]) -> Resource:
         """
         Normalize a provider-specific resource into standard Resource model.
 
@@ -37,7 +37,7 @@ class BaseProvider(ABC):
         pass
 
     @abstractmethod
-    def get_resource_type_mapping(self) -> Dict[str, ResourceType]:
+    def get_resource_type_mapping(self) -> dict[str, ResourceType]:
         """
         Get mapping from provider-specific resource types to standard types.
 
@@ -47,7 +47,7 @@ class BaseProvider(ABC):
         pass
 
     @abstractmethod
-    def validate_resource(self, resource: Resource) -> List[str]:
+    def validate_resource(self, resource: Resource) -> list[str]:
         """
         Validate resource configuration against provider-specific requirements.
 
@@ -59,7 +59,7 @@ class BaseProvider(ABC):
         """
         pass
 
-    def detect_resource_type(self, raw_resource: Dict[str, Any]) -> ResourceType:
+    def detect_resource_type(self, raw_resource: dict[str, Any]) -> ResourceType:
         """
         Detect the standard resource type from provider-specific configuration.
 
@@ -74,7 +74,7 @@ class BaseProvider(ABC):
 
         return mapping.get(provider_type, ResourceType.UNKNOWN)
 
-    def extract_tags(self, raw_resource: Dict[str, Any]) -> Dict[str, str]:
+    def extract_tags(self, raw_resource: dict[str, Any]) -> dict[str, str]:
         """
         Extract tags/labels from provider-specific format.
 
@@ -85,9 +85,9 @@ class BaseProvider(ABC):
             Normalized tags dictionary
         """
         # Default implementation
-        return raw_resource.get("tags", {})
+        return cast("dict[str, str]", raw_resource.get("tags", {}))
 
-    def extract_region(self, raw_resource: Dict[str, Any]) -> str:
+    def extract_region(self, raw_resource: dict[str, Any]) -> str:
         """
         Extract region/location from provider-specific format.
 
@@ -97,4 +97,4 @@ class BaseProvider(ABC):
         Returns:
             Region identifier
         """
-        return raw_resource.get("region", "global")
+        return cast("str", raw_resource.get("region", "global"))

@@ -8,6 +8,7 @@ from pathlib import Path
 from cloudguard_anomaly.core.engine import AnalysisEngine
 from cloudguard_anomaly.core.loader import ConfigLoader
 from cloudguard_anomaly.policies.policy_engine import PolicyEngine
+from cloudguard_anomaly.reports.common import safe_report_name
 from cloudguard_anomaly.reports.html_report_stub import HTMLReporter
 from cloudguard_anomaly.reports.json_reporter import JSONReporter
 from cloudguard_anomaly.reports.markdown_reporter import MarkdownReporter
@@ -41,7 +42,9 @@ def execute_scan(
     logger.info("Loading environment...")
     loader = ConfigLoader()
     environment = loader.load_environment(env_path)
-    logger.info(f"Loaded environment '{environment.name}' with {len(environment.resources)} resources")
+    logger.info(
+        f"Loaded environment '{environment.name}' with {len(environment.resources)} resources"
+    )
 
     # Load policies
     policies = []
@@ -58,7 +61,10 @@ def execute_scan(
         policy_engine = PolicyEngine()
         builtin_policies_dir = Path(__file__).parent.parent.parent / "policies"
 
-        for policy_file in ["baseline_policies.yaml", f"{environment.provider.value}_policies.yaml"]:
+        for policy_file in [
+            "baseline_policies.yaml",
+            f"{environment.provider.value}_policies.yaml",
+        ]:
             policy_path_file = builtin_policies_dir / policy_file
             if policy_path_file.exists():
                 try:
@@ -105,7 +111,7 @@ def execute_scan(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    env_name_safe = environment.name.replace(" ", "_").lower()
+    env_name_safe = safe_report_name(environment.name)
 
     if output_format in ["json", "all"]:
         logger.info("Generating JSON report...")
@@ -127,23 +133,23 @@ def execute_scan(
         html_path = output_dir / f"{env_name_safe}_report.html"
         html_reporter.save_report(scan_result, html_path)
         print(f"✓ HTML report saved to: {html_path}")
-    
+
     if output_format in ["pdf", "all"]:
         logger.info("Generating PDF report...")
         try:
-            pdf_reporter = PDFReporter(page_size='letter')
+            pdf_reporter = PDFReporter(page_size="letter")
             pdf_path = output_dir / f"{env_name_safe}_report.pdf"
             pdf_reporter.generate_report(
                 scan_results=scan_result,
                 output_path=str(pdf_path),
                 include_executive_summary=True,
                 include_detailed_findings=True,
-                include_compliance_mapping=True
+                include_compliance_mapping=True,
             )
             print(f"✓ PDF report saved to: {pdf_path}")
         except ImportError as e:
             logger.warning(f"PDF generation skipped: {e}")
-            print(f"⚠️  PDF generation requires reportlab (pip install reportlab)")
+            print("⚠️  PDF generation requires reportlab (pip install reportlab)")
 
     print(f"\nAll reports saved to: {output_dir}")
 
