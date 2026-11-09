@@ -157,16 +157,12 @@ class SlackNotifier:
         # Determine status emoji and text
         if critical > 0:
             status = "🚨 *CRITICAL SECURITY ISSUES DETECTED*"
-            color = "#d32f2f"
         elif high > 0:
             status = "⚠️ *HIGH SEVERITY ISSUES FOUND*"
-            color = "#f57c00"
         elif risk_score > 50:
             status = "⚡ *ELEVATED RISK LEVEL*"
-            color = "#fbc02d"
         else:
             status = "✅ *Security Scan Complete*"
-            color = "#388e3c"
 
         blocks = [
             {
@@ -224,7 +220,8 @@ class SlackNotifier:
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": f"• *{finding.title}*\n_{finding.resource.name}_ - {finding.description[:100]}...",
+                            "text": f"• *{finding.title}*\n_{finding.resource.name}_ - "
+                            f"{finding.description[:100]}...",
                         },
                     }
                 )
@@ -236,7 +233,8 @@ class SlackNotifier:
                 "elements": [
                     {
                         "type": "mrkdwn",
-                        "text": f"CloudGuard-Anomaly • {scan_result.timestamp.strftime('%Y-%m-%d %H:%M UTC')}",
+                        "text": f"CloudGuard-Anomaly • "
+                        f"{scan_result.timestamp.strftime('%Y-%m-%d %H:%M UTC')}",
                     }
                 ],
             }
@@ -374,7 +372,8 @@ class SlackNotifier:
                     "elements": [
                         {
                             "type": "mrkdwn",
-                            "text": f"Finding ID: {finding.id} • {finding.timestamp.strftime('%Y-%m-%d %H:%M UTC')}",
+                            "text": f"Finding ID: {finding.id} • "
+                            f"{finding.timestamp.strftime('%Y-%m-%d %H:%M UTC')}",
                         }
                     ],
                 }

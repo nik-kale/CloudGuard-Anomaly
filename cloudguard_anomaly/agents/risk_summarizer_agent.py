@@ -161,7 +161,7 @@ class RiskSummarizerAgent(BaseAgent):
 
         # Prioritize by severity and impact
         critical_findings = [f for f in findings if f.severity == Severity.CRITICAL]
-        high_findings = [f for f in findings if f.severity == Severity.HIGH]
+        [f for f in findings if f.severity == Severity.HIGH]
 
         # Group findings by type
         finding_types = {}

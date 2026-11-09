@@ -475,6 +475,7 @@ def example_check_s3_versioning(resource: Resource) -> Finding | None:
             severity=Severity.HIGH,
             title="S3 bucket versioning disabled",
             description="Bucket does not have versioning enabled, risking data loss",
-            remediation="Enable versioning: aws s3api put-bucket-versioning --bucket {bucket} --versioning-configuration Status=Enabled",
+            remediation="Enable versioning: aws s3api put-bucket-versioning --bucket {bucket} "
+            "--versioning-configuration Status=Enabled",
         )
     return None

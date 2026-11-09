@@ -33,7 +33,7 @@ def create_jira_tickets(
 ):
     """
     Create Jira tickets from scan results.
-    
+
     Examples:
         cloudguard-anomaly create-jira-tickets \\
             --scan-results report.json \\

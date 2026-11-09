@@ -13,9 +13,7 @@ try:
     from rich.console import Console
     from rich.markdown import Markdown
     from rich.panel import Panel
-    from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
     from rich.table import Table
-    from rich.tree import Tree
 
     RICH_AVAILABLE = True
 except ImportError:
@@ -23,7 +21,7 @@ except ImportError:
 
 # Try to import colorama for cross-platform colors
 try:
-    from colorama import Back, Fore, Style
+    from colorama import Fore, Style
     from colorama import init as colorama_init
 
     colorama_init(autoreset=True)

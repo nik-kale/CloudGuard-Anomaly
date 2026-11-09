@@ -4,8 +4,8 @@ JSON reporter for CloudGuard-Anomaly.
 
 import json
 import logging
-from typing import Dict, Any
 from pathlib import Path
+from typing import Any
 
 from cloudguard_anomaly.core.models import ScanResult
 from cloudguard_anomaly.reports.common import report_data
@@ -21,7 +21,7 @@ class JSONReporter:
         self.pretty = pretty
 
     def save_report(
-        self, scan_result: ScanResult | Dict[str, Any], output_path: str | Path
+        self, scan_result: ScanResult | dict[str, Any], output_path: str | Path
     ) -> None:
         """Save scan results as JSON."""
         logger.info(f"Generating JSON report: {output_path}")

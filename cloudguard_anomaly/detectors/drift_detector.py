@@ -182,12 +182,12 @@ class DriftDetector:
 
         # Encryption disabled
         if "encrypt" in prop.lower():
-            if baseline_value == True and current_value == False:
+            if baseline_value is True and current_value is False:
                 return True
 
         # Public access enabled
         if "public" in prop.lower():
-            if baseline_value == False and current_value == True:
+            if baseline_value is False and current_value is True:
                 return True
             if baseline_value == "private" and current_value == "public":
                 return True
@@ -196,7 +196,7 @@ class DriftDetector:
         if any(
             keyword in prop.lower() for keyword in ["logging", "monitoring", "backup", "versioning"]
         ):
-            if baseline_value == True and current_value == False:
+            if baseline_value is True and current_value is False:
                 return True
 
         # Network exposure widened
@@ -245,7 +245,8 @@ class DriftDetector:
             baseline=baseline_resource.properties,
             current={},
             changes=[{"change_type": "deleted", "resource_id": baseline_resource.id}],
-            impact=f"Resource {baseline_resource.name} ({baseline_resource.type.value}) was deleted",
+            impact=f"Resource {baseline_resource.name} ({baseline_resource.type.value}) was "
+            "deleted",
             timestamp=datetime.utcnow(),
         )
 
@@ -269,6 +270,7 @@ class DriftDetector:
             baseline={},
             current=current_resource.properties,
             changes=[{"change_type": "added", "resource_id": current_resource.id}],
-            impact=f"New resource {current_resource.name} ({current_resource.type.value}) was added",
+            impact=f"New resource {current_resource.name} ({current_resource.type.value}) was "
+            "added",
             timestamp=datetime.utcnow(),
         )

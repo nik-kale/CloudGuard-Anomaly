@@ -232,7 +232,8 @@ class SecretsManager:
             if self.backend == SecretsBackend.ENV:
                 # Can't set env vars at runtime, warn user
                 logger.warning(
-                    f"Cannot set env var '{path}' at runtime. Set it before starting the application."
+                    f"Cannot set env var '{path}' at runtime. Set it before starting the "
+                    "application."
                 )
                 return False
 

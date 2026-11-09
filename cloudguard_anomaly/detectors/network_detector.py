@@ -82,8 +82,10 @@ class NetworkDetector:
                     id=finding_id,
                     type=FindingType.NETWORK_EXPOSURE,
                     severity=severity,
-                    title=f"Security Group Allows Unrestricted Access on Ports {from_port}-{to_port}",
-                    description=f"Security group {sg.name} allows {protocol} traffic from 0.0.0.0/0 "
+                    title=f"Security Group Allows Unrestricted Access on Ports "
+                    f"{from_port}-{to_port}",
+                    description=f"Security group {sg.name} allows {protocol} traffic from "
+                    "0.0.0.0/0 "
                     f"on ports {from_port}-{to_port}",
                     resource=sg,
                     policy=None,
@@ -108,7 +110,8 @@ class NetworkDetector:
                         type=FindingType.NETWORK_EXPOSURE,
                         severity=Severity.MEDIUM,
                         title="Security Group with Overly Broad CIDR Range",
-                        description=f"Security group {sg.name} allows traffic from broad CIDR range {cidr}",
+                        description=f"Security group {sg.name} allows traffic from broad CIDR "
+                        f"range {cidr}",
                         resource=sg,
                         policy=None,
                         evidence={
@@ -116,7 +119,8 @@ class NetworkDetector:
                             "cidr": cidr,
                             "rule": rule,
                         },
-                        remediation="Restrict CIDR ranges to specific IP addresses or smaller subnets.",
+                        remediation="Restrict CIDR ranges to specific IP addresses or smaller "
+                        "subnets.",
                         timestamp=datetime.utcnow(),
                     )
                     findings.append(finding)
@@ -136,7 +140,8 @@ class NetworkDetector:
                 type=FindingType.NETWORK_EXPOSURE,
                 severity=Severity.MEDIUM,
                 title="VPC Flow Logs Not Enabled",
-                description=f"Network {net.name} does not have flow logs enabled for traffic monitoring",
+                description=f"Network {net.name} does not have flow logs enabled for traffic "
+                "monitoring",
                 resource=net,
                 policy=None,
                 evidence={
@@ -179,7 +184,8 @@ class NetworkDetector:
                 type=FindingType.NETWORK_EXPOSURE,
                 severity=severity,
                 title=f"{resource.type.value.title()} Resource with Public IP",
-                description=f"{resource.type.value.title()} {resource.name} has a public IP address",
+                description=f"{resource.type.value.title()} {resource.name} has a public IP "
+                "address",
                 resource=resource,
                 policy=None,
                 evidence={

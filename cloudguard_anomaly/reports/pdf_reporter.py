@@ -10,27 +10,25 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-from io import BytesIO
+from typing import Any
 from xml.sax.saxutils import escape
 
 try:
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import letter, A4
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
+    from reportlab.lib.pagesizes import A4, letter
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import inch
     from reportlab.platypus import (
-        SimpleDocTemplate,
-        Table,
-        TableStyle,
-        Paragraph,
-        Spacer,
-        PageBreak,
         Image,
         KeepTogether,
+        PageBreak,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
     )
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
-    from reportlab.pdfgen import canvas
 
     REPORTLAB_AVAILABLE = True
 except ImportError:
@@ -135,13 +133,13 @@ class PDFReporter:
 
     def generate_report(
         self,
-        scan_results: ScanResult | Dict[str, Any],
+        scan_results: ScanResult | dict[str, Any],
         output_path: str,
         include_executive_summary: bool = True,
         include_detailed_findings: bool = True,
         include_compliance_mapping: bool = True,
-        company_name: Optional[str] = None,
-        logo_path: Optional[str] = None,
+        company_name: str | None = None,
+        logo_path: str | None = None,
     ) -> str:
         """
         Generate comprehensive PDF report.
@@ -208,7 +206,7 @@ class PDFReporter:
         logger.info(f"PDF report generated: {output_path}")
         return output_path
 
-    def _prepare(self, scan_results: ScanResult | Dict[str, Any]) -> Dict[str, Any]:
+    def _prepare(self, scan_results: ScanResult | dict[str, Any]) -> dict[str, Any]:
         """Flatten a scan result into the per-finding fields the layout reads."""
         data = report_data(scan_results)
         for finding in data.get("findings", []):
@@ -219,10 +217,10 @@ class PDFReporter:
 
     def _create_cover_page(
         self,
-        scan_results: Dict[str, Any],
-        company_name: Optional[str] = None,
-        logo_path: Optional[str] = None,
-    ) -> List:
+        scan_results: dict[str, Any],
+        company_name: str | None = None,
+        logo_path: str | None = None,
+    ) -> list:
         """Create report cover page."""
         elements = []
 
@@ -291,7 +289,7 @@ class PDFReporter:
 
         return elements
 
-    def _create_executive_summary(self, scan_results: Dict[str, Any]) -> List:
+    def _create_executive_summary(self, scan_results: dict[str, Any]) -> list:
         """Create executive summary section."""
         elements = []
 
@@ -370,12 +368,15 @@ class PDFReporter:
             elements.append(Spacer(1, 8))
 
             for idx, finding in enumerate(top_issues, 1):
-                issue_text = f"<b>{idx}. [{finding.get('severity', 'N/A').upper()}]</b> {escape(str(finding.get('title', 'N/A')))}"
+                issue_text = (
+                    f"<b>{idx}. [{finding.get('severity', 'N/A').upper()}]</b> "
+                    f"{escape(str(finding.get('title', 'N/A')))}"
+                )
                 elements.append(Paragraph(issue_text, self.styles["BodyText"]))
 
         return elements
 
-    def _create_risk_dashboard(self, scan_results: Dict[str, Any]) -> List:
+    def _create_risk_dashboard(self, scan_results: dict[str, Any]) -> list:
         """Create risk dashboard with visualizations."""
         elements = []
 
@@ -459,7 +460,7 @@ class PDFReporter:
 
         return elements
 
-    def _create_detailed_findings(self, scan_results: Dict[str, Any]) -> List:
+    def _create_detailed_findings(self, scan_results: dict[str, Any]) -> list:
         """Create detailed findings section."""
         elements = []
 
@@ -501,7 +502,8 @@ class PDFReporter:
 
             if len(severity_findings) > 10:
                 more_text = Paragraph(
-                    f"<i>... and {len(severity_findings) - 10} more {severity} severity findings</i>",
+                    f"<i>... and {len(severity_findings) - 10} more {severity} severity "
+                    "findings</i>",
                     self.styles["BodyText"],
                 )
                 elements.append(more_text)
@@ -510,7 +512,7 @@ class PDFReporter:
 
         return elements
 
-    def _create_finding_detail(self, finding: Dict[str, Any], index: int) -> List:
+    def _create_finding_detail(self, finding: dict[str, Any], index: int) -> list:
         """Create detailed finding display."""
         elements = []
 
@@ -559,7 +561,7 @@ class PDFReporter:
 
         return elements
 
-    def _create_compliance_section(self, scan_results: Dict[str, Any]) -> List:
+    def _create_compliance_section(self, scan_results: dict[str, Any]) -> list:
         """Create compliance mapping section."""
         elements = []
 
@@ -593,7 +595,7 @@ class PDFReporter:
 
         return elements
 
-    def _create_recommendations(self, scan_results: Dict[str, Any]) -> List:
+    def _create_recommendations(self, scan_results: dict[str, Any]) -> list:
         """Create recommendations section."""
         elements = []
 
@@ -616,7 +618,7 @@ class PDFReporter:
 
         return elements
 
-    def _calculate_summary_stats(self, findings: List[Dict]) -> Dict[str, int]:
+    def _calculate_summary_stats(self, findings: list[dict]) -> dict[str, int]:
         """Calculate summary statistics for findings."""
         stats = {"critical": 0, "high": 0, "medium": 0, "low": 0}
 
@@ -627,7 +629,7 @@ class PDFReporter:
 
         return stats
 
-    def _calculate_risk_score(self, findings: List[Dict]) -> float:
+    def _calculate_risk_score(self, findings: list[dict]) -> float:
         """Calculate overall risk score (0-100)."""
         weights = {"critical": 10, "high": 5, "medium": 2, "low": 1}
 
@@ -667,7 +669,7 @@ class PDFReporter:
         }
         return severity_colors.get(severity.lower(), colors.black)
 
-    def _generate_risk_overview_text(self, stats: Dict[str, int]) -> str:
+    def _generate_risk_overview_text(self, stats: dict[str, int]) -> str:
         """Generate risk overview paragraph."""
         total = sum(stats.values())
         critical = stats.get("critical", 0)
@@ -684,15 +686,18 @@ class PDFReporter:
             priority = "should be reviewed and remediated"
 
         text = (
-            f"This security posture assessment identified <b>{total} findings</b> across your cloud infrastructure. "
-            f"Of these, <b>{critical} are critical severity</b> and <b>{high} are high severity</b>, "
+            f"This security posture assessment identified <b>{total} findings</b> across your "
+            "cloud infrastructure. "
+            f"Of these, <b>{critical} are critical severity</b> and <b>{high} are high "
+            "severity</b>, "
             f"indicating a <b>{risk_level}</b> risk level that {priority}. "
-            f"The following sections provide detailed information about each finding and recommended remediation steps."
+            f"The following sections provide detailed information about each finding and "
+            "recommended remediation steps."
         )
 
         return text
 
-    def _get_top_issues(self, findings: List[Dict], limit: int = 3) -> List[Dict]:
+    def _get_top_issues(self, findings: list[dict], limit: int = 3) -> list[dict]:
         """Get top priority issues."""
         # Sort by severity (critical > high > medium > low)
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
@@ -703,7 +708,7 @@ class PDFReporter:
 
         return sorted_findings[:limit]
 
-    def _categorize_findings(self, findings: List[Dict]) -> Dict[str, List[Dict]]:
+    def _categorize_findings(self, findings: list[dict]) -> dict[str, list[dict]]:
         """Categorize findings by type."""
         categories = {}
 

@@ -9,7 +9,7 @@ from typing import Any
 
 try:
     import boto3
-    from botocore.exceptions import ClientError, NoCredentialsError
+    from botocore.exceptions import ClientError
 
     BOTO3_AVAILABLE = True
 except ImportError:
@@ -218,7 +218,10 @@ class AWSLiveIntegration:
                             },
                             tags=tags,
                             metadata={
-                                "arn": f"arn:aws:ec2:{self.region}:{self.account_id}:instance/{instance['InstanceId']}"
+                                "arn": (
+                                    f"arn:aws:ec2:{self.region}:{self.account_id}:"
+                                    f"instance/{instance['InstanceId']}"
+                                )
                             },
                         )
 
@@ -308,7 +311,10 @@ class AWSLiveIntegration:
                         },
                         tags=tags,
                         metadata={
-                            "arn": f"arn:aws:ec2:{self.region}:{self.account_id}:security-group/{sg['GroupId']}"
+                            "arn": (
+                                f"arn:aws:ec2:{self.region}:{self.account_id}:"
+                                f"security-group/{sg['GroupId']}"
+                            )
                         },
                     )
 

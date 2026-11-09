@@ -33,7 +33,7 @@ class MisconfigExplainerAgent(BaseAgent):
                 - risk_level: Risk level assessment
         """
         finding: Finding = input_data.get("finding")
-        context: dict[str, Any] = input_data.get("context", {})
+        input_data.get("context", {})
 
         if not finding:
             return {"error": "No finding provided"}
@@ -82,7 +82,8 @@ class MisconfigExplainerAgent(BaseAgent):
 
         # Build explanation based on finding type and resource
         explanation_parts = [
-            f"The {resource_type} resource '{resource.name}' has a security misconfiguration: {finding.description}."
+            f"The {resource_type} resource '{resource.name}' has a security misconfiguration: "
+            f"{finding.description}."
         ]
 
         # Add specific details from evidence
@@ -118,14 +119,16 @@ class MisconfigExplainerAgent(BaseAgent):
                 "impacting data integrity and confidentiality.",
                 "security_group": "This significantly increases the attack surface, making it "
                 "easier for attackers to probe and potentially exploit the system.",
-                "default": "This creates a significant security risk that should be addressed promptly.",
+                "default": "This creates a significant security risk that should be addressed "
+                "promptly.",
             },
             "medium": {
                 "default": "This represents a security gap that could be exploited in combination "
                 "with other vulnerabilities."
             },
             "low": {
-                "default": "While not immediately critical, this represents a security best practice "
+                "default": "While not immediately critical, this represents a security best "
+                "practice "
                 "violation that should be addressed."
             },
         }

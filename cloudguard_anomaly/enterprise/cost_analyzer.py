@@ -81,13 +81,13 @@ class CostAnalyzer:
         "vm.d2s_v3": 96.0,
         "sql.basic": 5.0,
         "sql.s0": 15.0,
-        "storage.standard": 0.018,  # per GB
+        "blob.standard": 0.018,  # per GB
         # GCP
         "compute.e2-micro": 6.0,
         "compute.e2-small": 12.0,
         "compute.n1-standard-1": 25.0,
         "sql.db-f1-micro": 7.0,
-        "storage.standard": 0.020,  # per GB
+        "gcs.standard": 0.020,  # per GB
     }
 
     def __init__(self):

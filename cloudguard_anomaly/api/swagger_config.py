@@ -8,7 +8,8 @@ SWAGGER_CONFIG = {
     "description": """
 # CloudGuard-Anomaly API Documentation
 
-CloudGuard-Anomaly is a comprehensive cloud security posture management and anomaly detection platform.
+CloudGuard-Anomaly is a comprehensive cloud security posture management and anomaly
+detection platform.
 
 ## Features
 
@@ -101,7 +102,6 @@ Different endpoints require different permissions:
     ],
     "static_url_path": "/flasgger_static",
     "swagger_ui": True,
-    "specs_route": "/api/docs/",
 }
 
 SWAGGER_TEMPLATE = {

@@ -117,7 +117,8 @@ class AutoRemediator:
                 "action": "would_enable_encryption",
                 "resource": resource.name,
                 "resource_type": resource_type,
-                "note": "Enabling encryption may require creating a new encrypted resource and migrating data",
+                "note": "Enabling encryption may require creating a new encrypted resource and "
+                "migrating data",
             }
 
         # Real encryption enabling would require provider-specific logic

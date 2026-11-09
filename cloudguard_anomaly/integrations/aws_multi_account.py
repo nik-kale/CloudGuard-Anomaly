@@ -13,13 +13,13 @@ from typing import Any
 
 try:
     import boto3
-    from botocore.exceptions import BotoCoreError, ClientError
+    from botocore.exceptions import ClientError
 
     BOTO3_AVAILABLE = True
 except ImportError:
     BOTO3_AVAILABLE = False
 
-from cloudguard_anomaly.core.models import Environment, Provider
+from cloudguard_anomaly.core.models import Environment
 
 logger = logging.getLogger(__name__)
 

@@ -329,7 +329,8 @@ class TerraformScanner:
                             policy_id="iac-tf-001",
                             severity=Severity.HIGH,
                             title="Unencrypted storage in Terraform",
-                            description=f"Storage resource '{resource.id}' does not have encryption enabled",
+                            description=f"Storage resource '{resource.id}' does not have "
+                            "encryption enabled",
                             remediation="Add encryption configuration to your Terraform resource",
                         )
                     )
@@ -358,7 +359,8 @@ class TerraformScanner:
                             policy_id="iac-tf-003",
                             severity=Severity.HIGH,
                             title="Security group allows traffic from 0.0.0.0/0",
-                            description=f"Security group '{resource.id}' allows unrestricted access",
+                            description=f"Security group '{resource.id}' allows unrestricted "
+                            "access",
                             remediation="Restrict CIDR blocks to specific IP ranges",
                         )
                     )

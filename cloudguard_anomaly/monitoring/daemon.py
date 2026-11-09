@@ -174,7 +174,7 @@ class MonitoringDaemon:
             result = engine.scan_environment(environment)
 
             # Save to database
-            scan_id = self.database.save_scan(result)
+            self.database.save_scan(result)
 
             # Update target tracking
             target["last_result"] = result

@@ -90,9 +90,13 @@ Format your response as JSON with these exact keys:
 - prevention_strategy
 """
 
-        system = """You are an elite cloud security architect with deep expertise in AWS, Azure, and GCP.
-You specialize in identifying security vulnerabilities, analyzing attack vectors, and providing actionable remediation guidance.
-Always provide specific, technical, and actionable advice. Consider compliance frameworks (SOC2, PCI-DSS, HIPAA) in your analysis."""
+        system = (
+            "You are an elite cloud security architect with deep expertise in AWS, Azure, and "
+            "GCP.\nYou specialize in identifying security vulnerabilities, analyzing attack "
+            "vectors, and providing actionable remediation guidance.\nAlways provide specific, "
+            "technical, and actionable advice. Consider compliance frameworks (SOC2, PCI-DSS, "
+            "HIPAA) in your analysis."
+        )
 
         response = self.llm.generate(prompt, system, max_tokens=3000)
 
@@ -168,7 +172,10 @@ Format as JSON with keys: summary, security_implications, potential_causes,
 investigation_steps, recommended_actions
 """
 
-        system = "You are a cloud security analyst specializing in configuration drift detection and incident response."
+        system = (
+            "You are a cloud security analyst specializing in configuration drift detection "
+            "and incident response."
+        )
 
         response = self.llm.generate(prompt, system, max_tokens=2500)
 
@@ -232,7 +239,10 @@ Format as JSON with keys: prerequisites, steps (array of objects with 'action' a
 validation, rollback, side_effects, estimated_time, complexity
 """
 
-        system = "You are a senior DevOps/SRE engineer specializing in cloud security remediation. Provide production-ready, tested procedures."
+        system = (
+            "You are a senior DevOps/SRE engineer specializing in cloud security remediation. "
+            "Provide production-ready, tested procedures."
+        )
 
         response = self.llm.generate(prompt, system, max_tokens=3000)
 

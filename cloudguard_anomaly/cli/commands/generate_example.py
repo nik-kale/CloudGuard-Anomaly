@@ -238,7 +238,10 @@ def generate_azure_resources(count: int, with_issues: bool) -> list[dict[str, An
     # Storage Account
     if count > 0:
         storage = {
-            "id": "/subscriptions/12345/resourceGroups/rg1/providers/Microsoft.Storage/storageAccounts/examplestorage",
+            "id": (
+                "/subscriptions/12345/resourceGroups/rg1/providers/"
+                "Microsoft.Storage/storageAccounts/examplestorage"
+            ),
             "name": "examplestorage",
             "type": "azurerm_storage_account",
             "region": "eastus",
@@ -254,7 +257,10 @@ def generate_azure_resources(count: int, with_issues: bool) -> list[dict[str, An
     # SQL Database
     if count > 1:
         sql_db = {
-            "id": "/subscriptions/12345/resourceGroups/rg1/providers/Microsoft.Sql/servers/sqlserver1/databases/db1",
+            "id": (
+                "/subscriptions/12345/resourceGroups/rg1/providers/"
+                "Microsoft.Sql/servers/sqlserver1/databases/db1"
+            ),
             "name": "production-db",
             "type": "azurerm_sql_database",
             "region": "eastus",

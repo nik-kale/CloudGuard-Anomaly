@@ -13,7 +13,6 @@ Tests end-to-end workflows and component integration:
 
 import os
 import tempfile
-import uuid
 
 import pytest
 from sqlalchemy.exc import StatementError

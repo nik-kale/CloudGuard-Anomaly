@@ -33,17 +33,17 @@ def interactive_scan_wizard():
         )
 
         if provider == "aws":
-            profile = click.prompt("AWS profile name", default="default")
-            region = click.prompt("AWS region", default="us-east-1")
+            click.prompt("AWS profile name", default="default")
+            click.prompt("AWS region", default="us-east-1")
         elif provider == "azure":
-            subscription_id = click.prompt("Azure subscription ID")
+            click.prompt("Azure subscription ID")
         elif provider == "gcp":
-            project_id = click.prompt("GCP project ID")
+            click.prompt("GCP project ID")
     else:  # synthetic
         click.echo("Generating synthetic environment...")
-        env_name = click.prompt("Environment name", default="test-env")
-        num_resources = click.prompt("Number of resources", type=int, default=10)
-        with_issues = click.confirm("Include security issues?", default=True)
+        click.prompt("Environment name", default="test-env")
+        click.prompt("Number of resources", type=int, default=10)
+        click.confirm("Include security issues?", default=True)
 
     click.echo("")
 
@@ -208,8 +208,8 @@ def interactive_integration_wizard():
 
     elif integration_type == "jira":
         server = click.prompt("Jira server URL (e.g., https://company.atlassian.net)")
-        username = click.prompt("Jira username/email")
-        api_token = click.prompt("Jira API token", hide_input=True)
+        click.prompt("Jira username/email")
+        click.prompt("Jira API token", hide_input=True)
         project_key = click.prompt("Project key (e.g., SEC)")
 
         click.echo("\n✓ Jira integration configured")
@@ -218,9 +218,9 @@ def interactive_integration_wizard():
 
     elif integration_type == "servicenow":
         instance = click.prompt("ServiceNow instance (e.g., dev12345)")
-        username = click.prompt("ServiceNow username")
-        password = click.prompt("ServiceNow password", hide_input=True)
-        assignment_group = click.prompt("Assignment group (optional)", default="")
+        click.prompt("ServiceNow username")
+        click.prompt("ServiceNow password", hide_input=True)
+        click.prompt("Assignment group (optional)", default="")
 
         click.echo("\n✓ ServiceNow integration configured")
         click.echo(f"Instance: {instance}.service-now.com")
@@ -252,28 +252,28 @@ def show_quick_help():
 
   Quick scan:
     cloudguard-anomaly scan --env ./infrastructure
-    
+
   Live cloud scan:
     cloudguard-anomaly live-scan --provider aws --profile prod
 
 📋 COMPLIANCE
   Interactive compliance wizard:
     cloudguard-anomaly interactive compliance
-    
+
   Quick compliance check:
     cloudguard-anomaly compliance --env ./infra --framework soc2
 
 🐳 CONTAINER SCANNING
   Scan Docker image:
     cloudguard-anomaly container-scan --image nginx:latest
-    
+
   With Dockerfile analysis:
     cloudguard-anomaly container-scan --image myapp:1.0 --dockerfile Dockerfile
 
 🔧 INTEGRATIONS
   Setup wizard:
     cloudguard-anomaly interactive integrations
-    
+
   Create Jira tickets:
     cloudguard-anomaly create-jira-tickets --scan-results report.json
 
@@ -284,7 +284,7 @@ def show_quick_help():
 📚 MORE HELP
   Full command list:
     cloudguard-anomaly --help
-    
+
   Command-specific help:
     cloudguard-anomaly <command> --help
 

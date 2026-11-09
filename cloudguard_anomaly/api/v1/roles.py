@@ -154,7 +154,7 @@ def create_role():
                 return jsonify({"error": f'Role with name "{name}" already exists'}), 400
 
             # Validate permissions
-            valid_permissions = {p for p in dir(Permission) if not p.startswith("_")}
+            {p for p in dir(Permission) if not p.startswith("_")}
             permission_values = [
                 getattr(Permission, p)
                 for p in dir(Permission)

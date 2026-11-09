@@ -7,7 +7,7 @@ Implements SOC2, PCI-DSS, HIPAA, ISO 27001, and other compliance frameworks.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from cloudguard_anomaly.core.models import Finding, ScanResult, Severity
@@ -15,7 +15,7 @@ from cloudguard_anomaly.core.models import Finding, ScanResult, Severity
 logger = logging.getLogger(__name__)
 
 
-class ComplianceFramework(str, Enum):
+class ComplianceFramework(StrEnum):
     """Supported compliance frameworks."""
 
     SOC2 = "soc2"
@@ -133,7 +133,8 @@ class ComplianceEngine:
                 id="CC6.1",
                 framework=ComplianceFramework.SOC2,
                 title="Logical and Physical Access Controls",
-                description="The entity implements logical access security software, infrastructure, and architectures.",
+                description="The entity implements logical access security software, "
+                "infrastructure, and architectures.",
                 policies=[
                     "baseline-002",  # Public access prohibited
                     "baseline-004",  # SSH restrictions
@@ -172,7 +173,8 @@ class ComplianceEngine:
                 id="PCI-1.2.1",
                 framework=ComplianceFramework.PCI_DSS,
                 title="Restrict Inbound and Outbound Traffic",
-                description="Restrict inbound and outbound traffic to that which is necessary for the cardholder data environment.",
+                description="Restrict inbound and outbound traffic to that which is necessary for "
+                "the cardholder data environment.",
                 policies=["baseline-004", "baseline-005"],
                 evidence_required=["network_rules"],
                 severity=Severity.CRITICAL,
@@ -204,7 +206,8 @@ class ComplianceEngine:
                 id="HIPAA-164.312(a)(1)",
                 framework=ComplianceFramework.HIPAA,
                 title="Access Control",
-                description="Implement technical policies and procedures for electronic information systems.",
+                description="Implement technical policies and procedures for electronic "
+                "information systems.",
                 policies=["baseline-002", "baseline-004"],
                 evidence_required=["access_control"],
                 severity=Severity.CRITICAL,
@@ -213,7 +216,8 @@ class ComplianceEngine:
                 id="HIPAA-164.312(a)(2)(iv)",
                 framework=ComplianceFramework.HIPAA,
                 title="Encryption and Decryption",
-                description="Implement a mechanism to encrypt and decrypt electronic protected health information.",
+                description="Implement a mechanism to encrypt and decrypt electronic protected "
+                "health information.",
                 policies=["baseline-001", "baseline-010"],
                 evidence_required=["encryption_config"],
                 severity=Severity.CRITICAL,
@@ -222,7 +226,8 @@ class ComplianceEngine:
                 id="HIPAA-164.312(b)",
                 framework=ComplianceFramework.HIPAA,
                 title="Audit Controls",
-                description="Implement hardware, software, and/or procedural mechanisms that record and examine activity.",
+                description="Implement hardware, software, and/or procedural mechanisms that "
+                "record and examine activity.",
                 policies=["baseline-003"],
                 evidence_required=["audit_logs"],
                 severity=Severity.HIGH,

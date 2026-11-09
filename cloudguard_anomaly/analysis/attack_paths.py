@@ -352,7 +352,8 @@ class AttackPathAnalyzer:
         for i, path in enumerate(paths[:10], 1):  # Top 10
             report.append(f"\n{'='*80}")
             report.append(
-                f"PATH #{i} - Risk Score: {path.risk_score:.1f}/100 - Priority: {path.remediation_priority}/10"
+                f"PATH #{i} - Risk Score: {path.risk_score:.1f}/100 - Priority: "
+                f"{path.remediation_priority}/10"
             )
             report.append(f"{'='*80}")
             report.append(f"Entry Point: {path.entry_point}")

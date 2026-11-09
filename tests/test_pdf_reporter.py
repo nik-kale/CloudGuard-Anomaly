@@ -157,7 +157,7 @@ class TestPDFReporter:
 
         output_path = tmp_path / "test_report_company.pdf"
 
-        result_path = reporter.generate_report(
+        reporter.generate_report(
             scan_results=sample_scan_results,
             output_path=str(output_path),
             company_name="Acme Corporation",
@@ -175,7 +175,7 @@ class TestPDFReporter:
 
         output_path = tmp_path / "test_report_minimal.pdf"
 
-        result_path = reporter.generate_report(
+        reporter.generate_report(
             scan_results=minimal_results,
             output_path=str(output_path),
             include_executive_summary=False,

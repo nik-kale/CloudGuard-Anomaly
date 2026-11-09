@@ -113,7 +113,8 @@ class ServiceNowIntegration:
             "category": category,
             "subcategory": "Security Vulnerability",
             "u_source": "CloudGuard-Anomaly",
-            "work_notes": f"Finding ID: {finding.get('id')}\\nResource: {finding.get('resource_id')}",
+            "work_notes": f"Finding ID: {finding.get('id')}\\nResource: "
+            f"{finding.get('resource_id')}",
         }
 
         # Add assignment group
@@ -135,7 +136,10 @@ class ServiceNowIntegration:
             incident = ServiceNowIncident(
                 sys_id=result.get("sys_id"),
                 number=result.get("number"),
-                url=f"{self.base_url.replace('/api/now', '')}/nav_to.do?uri=incident.do?sys_id={result.get('sys_id')}",
+                url=(
+                    f"{self.base_url.replace('/api/now', '')}/nav_to.do"
+                    f"?uri=incident.do?sys_id={result.get('sys_id')}"
+                ),
                 finding_id=finding.get("id"),
                 created_at=datetime.utcnow(),
             )

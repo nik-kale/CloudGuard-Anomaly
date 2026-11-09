@@ -147,7 +147,8 @@ class IdentityDetector:
                         type=FindingType.IDENTITY_RISK,
                         severity=Severity.CRITICAL,
                         title="IAM Privilege Escalation Risk",
-                        description=f"IAM role {resource.name} has permissions that could allow privilege escalation",
+                        description=f"IAM role {resource.name} has permissions that could allow "
+                        "privilege escalation",
                         resource=resource,
                         policy=None,
                         evidence={
@@ -155,7 +156,8 @@ class IdentityDetector:
                             "dangerous_permissions": dangerous_combo,
                             "all_actions": all_actions,
                         },
-                        remediation="Remove or restrict permissions that allow privilege escalation. "
+                        remediation="Remove or restrict permissions that allow privilege "
+                        "escalation. "
                         "Separate administrative functions into different roles.",
                         timestamp=datetime.utcnow(),
                     )
@@ -185,14 +187,16 @@ class IdentityDetector:
                         type=FindingType.IDENTITY_RISK,
                         severity=Severity.CRITICAL,
                         title="IAM Role Allows Any AWS Account",
-                        description=f"IAM role {resource.name} trust policy allows any AWS account to assume it",
+                        description=f"IAM role {resource.name} trust policy allows any AWS account "
+                        "to assume it",
                         resource=resource,
                         policy=None,
                         evidence={
                             "resource_id": resource.id,
                             "trust_policy": assume_role_policy,
                         },
-                        remediation="Restrict assume role policy to specific AWS accounts or services. "
+                        remediation="Restrict assume role policy to specific AWS accounts or "
+                        "services. "
                         "Add external ID for additional security.",
                         timestamp=datetime.utcnow(),
                     )
@@ -222,7 +226,8 @@ class IdentityDetector:
                     type=FindingType.IDENTITY_RISK,
                     severity=Severity.LOW,
                     title="Inactive Access Key",
-                    description=f"IAM role {resource.name} has inactive access keys that should be removed",
+                    description=f"IAM role {resource.name} has inactive access keys that should be "
+                    "removed",
                     resource=resource,
                     policy=None,
                     evidence={
@@ -259,14 +264,16 @@ class IdentityDetector:
                             type=FindingType.IDENTITY_RISK,
                             severity=Severity.HIGH,
                             title="Resource Policy Allows Public Access",
-                            description=f"Resource {resource.name} has a policy allowing access from any principal",
+                            description=f"Resource {resource.name} has a policy allowing access "
+                            "from any principal",
                             resource=resource,
                             policy=None,
                             evidence={
                                 "resource_id": resource.id,
                                 "resource_policy": policy,
                             },
-                            remediation="Restrict resource policy to specific principals or AWS accounts.",
+                            remediation="Restrict resource policy to specific principals or AWS "
+                            "accounts.",
                             timestamp=datetime.utcnow(),
                         )
                         findings.append(finding)

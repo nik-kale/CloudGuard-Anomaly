@@ -230,8 +230,10 @@ class CloudFormationScanner:
                             policy_id="iac-cfn-001",
                             severity=Severity.HIGH,
                             title="Unencrypted S3 bucket in CloudFormation",
-                            description=f"S3 bucket '{resource.name}' does not have encryption enabled",
-                            remediation="Add BucketEncryption configuration to your CloudFormation template",
+                            description=f"S3 bucket '{resource.name}' does not have encryption "
+                            "enabled",
+                            remediation="Add BucketEncryption configuration to your CloudFormation "
+                            "template",
                         )
                     )
 
@@ -259,7 +261,8 @@ class CloudFormationScanner:
                             policy_id="iac-cfn-003",
                             severity=Severity.HIGH,
                             title="Security group allows traffic from 0.0.0.0/0",
-                            description=f"Security group '{resource.name}' allows unrestricted access",
+                            description=f"Security group '{resource.name}' allows unrestricted "
+                            "access",
                             remediation="Restrict CidrIp to specific IP ranges in CloudFormation",
                         )
                     )

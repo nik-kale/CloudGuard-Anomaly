@@ -135,13 +135,13 @@ class MLAnomalyDetector:
         if not all_features:
             raise ValueError("No features extracted for training")
 
-        X = np.array(all_features)
+        feature_matrix = np.array(all_features)
 
         # Scale features
-        X_scaled = self.scaler.fit_transform(X)
+        scaled_features = self.scaler.fit_transform(feature_matrix)
 
         # Train model
-        self.model.fit(X_scaled)
+        self.model.fit(scaled_features)
         self.is_trained = True
 
         logger.info(f"Trained ML model on {len(all_features)} resources")

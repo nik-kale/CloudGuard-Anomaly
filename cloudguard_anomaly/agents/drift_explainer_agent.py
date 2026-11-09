@@ -33,7 +33,7 @@ class DriftExplainerAgent(BaseAgent):
                 - risk_assessment: Risk analysis
         """
         anomaly: Anomaly = input_data.get("anomaly")
-        context: dict[str, Any] = input_data.get("context", {})
+        input_data.get("context", {})
 
         if not anomaly:
             return {"error": "No anomaly provided"}

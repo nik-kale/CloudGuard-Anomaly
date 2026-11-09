@@ -365,7 +365,8 @@ def regenerate_api_key(user_id: str):
                 jsonify(
                     {
                         "api_key": api_key,
-                        "message": "API key regenerated successfully. Store it securely - it will not be shown again.",
+                        "message": "API key regenerated successfully. Store it securely - it will "
+                        "not be shown again.",
                     }
                 ),
                 200,

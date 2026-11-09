@@ -48,6 +48,7 @@ try:
 except ImportError:
     CSRF_AVAILABLE = False
 
+from cloudguard_anomaly.api.v1 import api_v1
 from cloudguard_anomaly.api.validation import (
     safe_error_message,
     validate_days,
@@ -152,7 +153,6 @@ if CACHE_AVAILABLE:
 db = None
 
 # Register API v1 blueprint
-from cloudguard_anomaly.api.v1 import api_v1
 
 app.register_blueprint(api_v1)
 logger.info("Registered API v1 blueprint at /api/v1")
@@ -641,7 +641,8 @@ def resolve_finding(finding_id: str):
     try:
         db.mark_finding_resolved(finding_id)
         logger.info(
-            f"Finding {finding_id} marked as resolved by user {getattr(request, 'current_user', 'unknown')}"
+            f"Finding {finding_id} marked as resolved by user "
+            f"{getattr(request, 'current_user', 'unknown')}"
         )
         return jsonify({"success": True, "message": "Finding resolved"})
     except Exception as e:

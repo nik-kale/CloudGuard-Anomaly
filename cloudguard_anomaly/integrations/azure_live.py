@@ -34,7 +34,8 @@ class AzureLiveIntegration:
         """
         if not AZURE_SDK_AVAILABLE:
             raise ImportError(
-                "Azure SDK is required. Install with: pip install azure-identity azure-mgmt-resource azure-mgmt-storage azure-mgmt-sql azure-mgmt-compute"
+                "Azure SDK is required. Install with: pip install azure-identity "
+                "azure-mgmt-resource azure-mgmt-storage azure-mgmt-sql azure-mgmt-compute"
             )
 
         self.subscription_id = subscription_id

@@ -4,8 +4,6 @@ Tests for continuous monitoring daemon.
 
 from unittest.mock import Mock, patch
 
-import pytest
-
 from cloudguard_anomaly.core.models import Environment, Provider, ResourceType
 from cloudguard_anomaly.monitoring.daemon import MonitoringDaemon
 from cloudguard_anomaly.notifications.webhooks import SlackNotifier

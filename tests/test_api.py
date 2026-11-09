@@ -545,7 +545,7 @@ class TestUserAPI:
         # Verify they're still not admin
         get_response = client.get(f"/api/v1/users/{regular_user.id}", headers=user_headers)
         data = get_response.get_json()
-        assert data["is_admin"] == False
+        assert data["is_admin"] is False
 
     def test_update_user_admin_can_change_admin_status(self, client, admin_headers, regular_user):
         """Test admins can change user admin status."""
@@ -557,7 +557,7 @@ class TestUserAPI:
         assert response.status_code == 200
 
         data = response.get_json()
-        assert data["is_admin"] == True
+        assert data["is_admin"] is True
 
     def test_delete_user_success(self, client, admin_headers, auth_manager):
         """Test deleting a user."""

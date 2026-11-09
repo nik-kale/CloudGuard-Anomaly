@@ -357,7 +357,8 @@ class DockerScanner:
                                     severity="critical",
                                     title=f"Potential {pattern_name} found in layer",
                                     description=f"Layer command may contain {pattern_name}",
-                                    remediation="Remove secrets from Dockerfile and use Docker secrets or build args",
+                                    remediation="Remove secrets from Dockerfile and use Docker "
+                                    "secrets or build args",
                                     layer=f"Layer {idx}",
                                     metadata={"pattern": pattern_name},
                                 )
@@ -393,7 +394,6 @@ class DockerScanner:
 
             has_user = False
             has_healthcheck = False
-            uses_latest_tag = False
 
             for line_num, line in enumerate(lines, 1):
                 line = line.strip()
@@ -412,7 +412,6 @@ class DockerScanner:
 
                 # Check for :latest tag usage
                 if "FROM " in line and ":latest" in line:
-                    uses_latest_tag = True
                     findings.append(
                         ContainerFinding(
                             finding_id="DOCKERFILE-001",
@@ -605,7 +604,8 @@ class DockerScanner:
             f"| High | {result.summary.get('high', 0)} |",
             f"| Medium | {result.summary.get('medium', 0)} |",
             f"| Low | {result.summary.get('low', 0)} |",
-            f"| **Total** | **{result.summary['total_vulnerabilities'] + result.summary['total_findings']}** |",
+            f"| **Total** | "
+            f"**{result.summary['total_vulnerabilities'] + result.summary['total_findings']}** |",
             "",
         ]
 
@@ -661,6 +661,7 @@ class DockerScanner:
 
     def _generate_text_report(self, result: ContainerScanResult) -> str:
         """Generate plain text report."""
+        total = result.summary["total_vulnerabilities"] + result.summary["total_findings"]
         lines = [
             "=" * 80,
             "CONTAINER SECURITY SCAN REPORT",
@@ -675,7 +676,7 @@ class DockerScanner:
             f"High:     {result.summary.get('high', 0)}",
             f"Medium:   {result.summary.get('medium', 0)}",
             f"Low:      {result.summary.get('low', 0)}",
-            f"Total:    {result.summary['total_vulnerabilities'] + result.summary['total_findings']}",
+            f"Total:    {total}",
             "",
         ]
 

@@ -5,14 +5,14 @@ Provides request validation, sanitization, and security checks.
 """
 
 import re
-from enum import Enum
+from enum import StrEnum
 from functools import wraps
 from typing import Any
 
 from flask import jsonify, request
 
 
-class ValidSeverity(str, Enum):
+class ValidSeverity(StrEnum):
     """Valid severity levels."""
 
     CRITICAL = "critical"
@@ -22,7 +22,7 @@ class ValidSeverity(str, Enum):
     INFO = "info"
 
 
-class ValidStatus(str, Enum):
+class ValidStatus(StrEnum):
     """Valid finding status."""
 
     OPEN = "open"
@@ -30,7 +30,7 @@ class ValidStatus(str, Enum):
     ALL = "all"
 
 
-class ValidFramework(str, Enum):
+class ValidFramework(StrEnum):
     """Valid compliance frameworks."""
 
     SOC2 = "soc2"
@@ -41,7 +41,7 @@ class ValidFramework(str, Enum):
     NIST = "nist"
 
 
-class ValidProvider(str, Enum):
+class ValidProvider(StrEnum):
     """Valid cloud providers."""
 
     AWS = "aws"

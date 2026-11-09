@@ -6,7 +6,6 @@ Provides programmatic access to Alembic migrations.
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from alembic.config import Config as AlembicConfig
 

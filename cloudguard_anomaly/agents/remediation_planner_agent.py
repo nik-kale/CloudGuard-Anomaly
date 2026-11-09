@@ -35,7 +35,7 @@ class RemediationPlannerAgent(BaseAgent):
                 - side_effects: Potential side effects
         """
         finding: Finding = input_data.get("finding")
-        context: dict[str, Any] = input_data.get("context", {})
+        input_data.get("context", {})
 
         if not finding:
             return {"error": "No finding provided"}
@@ -118,7 +118,6 @@ class RemediationPlannerAgent(BaseAgent):
         """Generate remediation steps."""
         steps = []
         resource = finding.resource
-        resource_type = resource.type
 
         # Generate steps based on finding title and resource type
         title_lower = finding.title.lower()
@@ -269,7 +268,6 @@ class RemediationPlannerAgent(BaseAgent):
     def _identify_side_effects(self, finding: Finding) -> list[str]:
         """Identify potential side effects."""
         side_effects = []
-        resource = finding.resource
         title_lower = finding.title.lower()
 
         if "public access" in title_lower:

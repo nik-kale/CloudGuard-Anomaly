@@ -6,13 +6,9 @@ Provides user management, session handling, and RBAC.
 
 import logging
 from datetime import datetime
-from typing import List, Optional
-
-from sqlalchemy.orm import Session as DBSession
 
 from cloudguard_anomaly.auth.models import (
     DEFAULT_ROLES,
-    Permission,
     Role,
     Session,
     User,

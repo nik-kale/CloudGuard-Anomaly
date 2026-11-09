@@ -8,11 +8,11 @@ for representing cloud resources, policies, findings, and anomalies.
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     """Severity levels for findings and anomalies."""
 
     CRITICAL = "critical"
@@ -27,7 +27,7 @@ class Severity(str, Enum):
         return ["info", "low", "medium", "high", "critical"].index(self.value)
 
 
-class ResourceType(str, Enum):
+class ResourceType(StrEnum):
     """Common cloud resource types across providers."""
 
     COMPUTE = "compute"
@@ -47,7 +47,7 @@ class ResourceType(str, Enum):
     UNKNOWN = "unknown"
 
 
-class Provider(str, Enum):
+class Provider(StrEnum):
     """Supported cloud providers."""
 
     AWS = "aws"
@@ -56,7 +56,7 @@ class Provider(str, Enum):
     MULTI = "multi"
 
 
-class FindingType(str, Enum):
+class FindingType(StrEnum):
     """Types of security findings."""
 
     MISCONFIGURATION = "misconfiguration"

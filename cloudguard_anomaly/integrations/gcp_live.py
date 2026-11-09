@@ -7,7 +7,7 @@ Provides real-time resource discovery and analysis from live GCP projects.
 import logging
 
 try:
-    from google.cloud import compute_v1, sql_v1, storage
+    from google.cloud import compute_v1, sql_v1, storage  # noqa: F401
     from google.oauth2 import service_account
 
     GCP_SDK_AVAILABLE = True
@@ -32,7 +32,8 @@ class GCPLiveIntegration:
         """
         if not GCP_SDK_AVAILABLE:
             raise ImportError(
-                "Google Cloud SDK required. Install with: pip install google-cloud-storage google-cloud-compute google-cloud-sql"
+                "Google Cloud SDK required. Install with: pip install google-cloud-storage "
+                "google-cloud-compute google-cloud-sql"
             )
 
         self.project_id = project_id
