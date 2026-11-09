@@ -5,6 +5,7 @@ Provides user management, authentication, and session handling.
 """
 
 import hashlib
+import hmac
 import secrets
 import uuid
 from datetime import datetime, timedelta
@@ -14,6 +15,9 @@ from sqlalchemy.orm import relationship
 
 from cloudguard_anomaly.storage.database import Base
 
+# Marks a token as an API key, as opposed to a session token
+API_KEY_PREFIX = "cgak_"
+
 # Association table for many-to-many relationship between users and roles
 user_roles = Table(
     "user_roles",
@@ -21,6 +25,11 @@ user_roles = Table(
     Column("user_id", String, ForeignKey("users.id")),
     Column("role_id", String, ForeignKey("roles.id")),
 )
+
+
+def burn_password_hash(password: str) -> None:
+    """Spend the same effort as a real check so unknown usernames cost equal time."""
+    hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), b"unknown-user", 100000)
 
 
 class User(Base):
@@ -40,7 +49,8 @@ class User(Base):
     last_login = Column(DateTime, nullable=True)
 
     # Relationships
-    roles = relationship("Role", secondary=user_roles, back_populates="users")
+    # Loaded eagerly: users outlive the session that fetched them
+    roles = relationship("Role", secondary=user_roles, back_populates="users", lazy="selectin")
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
@@ -61,7 +71,7 @@ class User(Base):
             password_hash = hashlib.pbkdf2_hmac(
                 "sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000
             )
-            return password_hash.hex() == stored_hash
+            return hmac.compare_digest(password_hash.hex(), stored_hash)
         except (ValueError, AttributeError):
             return False
 
@@ -73,7 +83,7 @@ class User(Base):
         Stores hashed version in database.
         """
         # Generate secure random API key
-        api_key = f"cgak_{secrets.token_urlsafe(32)}"
+        api_key = f"{API_KEY_PREFIX}{secrets.token_urlsafe(32)}"
 
         # Store prefix for identification (first 8 chars)
         self.api_key_prefix = api_key[:8]
@@ -106,7 +116,7 @@ class User(Base):
             key_hash = hashlib.pbkdf2_hmac(
                 "sha256", api_key.encode("utf-8"), salt.encode("utf-8"), 100000
             )
-            return key_hash.hex() == stored_hash
+            return hmac.compare_digest(key_hash.hex(), stored_hash)
         except (ValueError, AttributeError):
             return False
 
@@ -115,9 +125,10 @@ class User(Base):
         return any(role.name == role_name for role in self.roles)
 
     def has_permission(self, permission: str) -> bool:
-        """Check if user has a specific permission."""
+        """Check if any role grants a permission, directly or through the admin wildcard."""
         for role in self.roles:
-            if permission in role.permissions:
+            granted = role.get_permissions()
+            if permission in granted or Permission.ADMIN_ALL in granted:
                 return True
         return False
 

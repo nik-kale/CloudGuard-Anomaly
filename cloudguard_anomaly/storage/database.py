@@ -202,7 +202,9 @@ class DatabaseStorage:
 
         self.engine = create_engine(database_url, **engine_kwargs)
         Base.metadata.create_all(self.engine)
-        self.SessionLocal = sessionmaker(bind=self.engine)
+        # Records are handed back to callers after their session closes, so committed
+        # objects have to keep their loaded attributes.
+        self.SessionLocal = sessionmaker(bind=self.engine, expire_on_commit=False)
 
         logger.info(f"Initialized database storage: {database_url}")
 
@@ -719,8 +721,9 @@ class DatabaseStorage:
                 policy.enabled = enabled
 
             # Update data field
-            if any([resource_types, condition, remediation, references]):
-                data = policy.data or {}
+            if any(v is not None for v in (resource_types, condition, remediation, references)):
+                # Copy so SQLAlchemy sees a new value for the JSON column
+                data = dict(policy.data or {})
                 if resource_types is not None:
                     data["resource_types"] = resource_types
                 if condition is not None:

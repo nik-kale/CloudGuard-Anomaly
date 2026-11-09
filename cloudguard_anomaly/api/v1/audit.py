@@ -5,7 +5,7 @@ Provides read-only access to audit logs for security monitoring.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from flask import jsonify, request
@@ -21,6 +21,14 @@ from cloudguard_anomaly.auth.models import Permission
 from cloudguard_anomaly.storage.database import get_database
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_timestamp(value: str) -> datetime:
+    """Parse an ISO timestamp into the naive UTC form the audit table stores."""
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
+    return parsed
 
 
 def audit_log_to_dict(log) -> dict[str, Any]:
@@ -84,17 +92,17 @@ def list_audit_logs():
 
         if request.args.get("start_time"):
             try:
-                start_time = datetime.fromisoformat(request.args.get("start_time"))
+                start_time = _parse_timestamp(request.args.get("start_time"))
             except ValueError:
                 return jsonify({"error": "Invalid start_time format. Use ISO format."}), 400
 
         if request.args.get("end_time"):
             try:
-                end_time = datetime.fromisoformat(request.args.get("end_time"))
+                end_time = _parse_timestamp(request.args.get("end_time"))
             except ValueError:
                 return jsonify({"error": "Invalid end_time format. Use ISO format."}), 400
 
-        limit, offset = get_pagination_params(request)
+        limit, offset = get_pagination_params()
 
         # Get audit logs from database
         logs = get_database().get_audit_logs(

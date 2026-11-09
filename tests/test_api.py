@@ -59,11 +59,7 @@ def auth_manager(database):
 @pytest.fixture(scope="session")
 def app(test_config, database, auth_manager):
     """Create Flask app for testing."""
-    # Set test config
-    os.environ["DATABASE_URL"] = test_config.database_url
-    os.environ["LOG_LEVEL"] = "DEBUG"
-
-    app = create_app()
+    app = create_app(test_config.database_url)
     app.config["TESTING"] = True
 
     yield app
@@ -87,7 +83,7 @@ def admin_user(auth_manager):
         # Cleanup
         try:
             auth_manager.delete_user(user.id)
-        except:
+        except Exception:
             pass
 
 
@@ -106,7 +102,7 @@ def regular_user(auth_manager):
         # Cleanup
         try:
             auth_manager.delete_user(user.id)
-        except:
+        except Exception:
             pass
 
 
@@ -166,7 +162,44 @@ class TestAuthentication:
     def test_valid_token_succeeds(self, client, admin_headers):
         """Test that valid tokens are accepted."""
         response = client.get("/api/v1/policies", headers=admin_headers)
-        assert response.status_code in [200, 403]  # 403 if no permission
+        assert response.status_code == 200
+
+    def test_login_returns_a_token_usable_as_bearer(self, app, auth_manager):
+        """The JSON login flow hands out a token; it has to open the API."""
+        auth_manager.create_user(
+            username="bearer_flow",
+            email="bearer@test.com",
+            password="BearerFl0w#Pass!",
+            roles=["viewer"],
+        )
+        client = app.test_client()
+        login = client.post(
+            "/login", json={"username": "bearer_flow", "password": "BearerFl0w#Pass!"}
+        )
+        assert login.status_code == 200
+        token = login.get_json()["token"]
+
+        fresh_client = app.test_client()
+        response = fresh_client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert response.get_json()["username"] == "bearer_flow"
+        assert "api_key" not in response.get_json()
+
+    def test_generated_api_key_opens_the_api(self, client, admin_headers, app):
+        response = client.post("/api/auth/generate-api-key", headers=admin_headers)
+        assert response.status_code == 200
+        api_key = response.get_json()["api_key"]
+
+        fresh_client = app.test_client()
+        assert (
+            fresh_client.get("/api/v1/policies", headers={"X-API-Key": api_key}).status_code == 200
+        )
+        assert (
+            fresh_client.get(
+                "/api/v1/policies", headers={"Authorization": f"Bearer {api_key}"}
+            ).status_code
+            == 200
+        )
 
     def test_permission_denied(self, client, user_headers):
         """Test that insufficient permissions return 403."""
@@ -254,7 +287,7 @@ class TestPolicyAPI:
 
     def test_get_policy_invalid_id(self, client, admin_headers):
         """Test getting policy with invalid ID."""
-        response = client.get("/api/v1/policies/invalid-id", headers=admin_headers)
+        response = client.get("/api/v1/policies/invalid$id", headers=admin_headers)
         assert response.status_code == 400
 
     def test_create_policy_success(self, client, admin_headers):
@@ -444,7 +477,7 @@ class TestUserAPI:
         # Cleanup
         try:
             auth_manager.delete_user(data["id"])
-        except:
+        except Exception:
             pass
 
     def test_create_user_missing_fields(self, client, admin_headers):
@@ -725,7 +758,7 @@ class TestAuditLogAPI:
     def test_list_audit_logs_success(self, client, admin_headers, database):
         """Test listing audit logs."""
         # Create some audit logs
-        database.create_audit_log(
+        database.log_audit_event(
             user_id="test-user",
             username="test",
             action="create",
@@ -761,6 +794,45 @@ class TestAuditLogAPI:
         )
         assert response.status_code == 200
 
+    def test_audit_time_filter_converts_offsets_to_utc(self, client, admin_headers, database):
+        """Stored timestamps are naive UTC, so offsets have to be normalised first."""
+        database.log_audit_event(
+            action="tz_probe", resource_type="test", username="tz", status="success"
+        )
+        future = (datetime.utcnow() + timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S") + "+05:00"
+        response = client.get(
+            "/api/v1/audit-logs",
+            query_string={"action": "tz_probe", "end_time": future},
+            headers=admin_headers,
+        )
+        assert response.status_code == 200
+        # two hours ahead of UTC at +05:00 is three hours in the past
+        assert response.get_json()["audit_logs"] == []
+
+    def test_mutations_are_audited(self, client, admin_headers, database):
+        """The audit trail is only useful if API writes actually land in it."""
+        created = client.post(
+            "/api/v1/policies",
+            headers=admin_headers,
+            json={
+                "name": "Audited",
+                "description": "x",
+                "severity": "low",
+                "provider": "aws",
+                "resource_types": [],
+                "condition": {},
+                "remediation": "x",
+            },
+        )
+        policy_id = created.get_json()["id"]
+        client.delete(f"/api/v1/policies/{policy_id}", headers=admin_headers)
+
+        actions = {
+            log.action
+            for log in database.get_audit_logs(resource_type="policy", resource_id=policy_id)
+        }
+        assert actions == {"create", "delete"}
+
     def test_list_audit_logs_invalid_time_format(self, client, admin_headers):
         """Test that invalid time format returns error."""
         response = client.get("/api/v1/audit-logs?start_time=invalid", headers=admin_headers)
@@ -769,7 +841,7 @@ class TestAuditLogAPI:
     def test_get_user_activity_self(self, client, user_headers, regular_user, database):
         """Test users can view their own activity."""
         # Create audit log for user
-        database.create_audit_log(
+        database.log_audit_event(
             user_id=regular_user.id,
             username=regular_user.username,
             action="login",
@@ -797,14 +869,14 @@ class TestAuditLogAPI:
     def test_get_audit_stats(self, client, admin_headers, database):
         """Test getting audit log statistics."""
         # Create various audit logs
-        database.create_audit_log(
+        database.log_audit_event(
             user_id="test-1",
             username="test1",
             action="create",
             resource_type="policy",
             status="success",
         )
-        database.create_audit_log(
+        database.log_audit_event(
             user_id="test-2",
             username="test2",
             action="delete",
@@ -855,11 +927,9 @@ class TestInputValidation:
 
         response = client.post("/api/v1/policies", headers=admin_headers, json=policy_data)
 
-        # XSS should be sanitized or rejected
-        if response.status_code == 201:
-            data = response.get_json()
-            # Scripts should be stripped
-            assert "<script>" not in data["name"]
+        # The API stores data verbatim; the browser-side escaping is tested separately.
+        assert response.status_code == 201
+        assert response.content_type == "application/json"
 
     def test_large_payload_handling(self, client, admin_headers):
         """Test handling of excessively large payloads."""
@@ -876,8 +946,73 @@ class TestInputValidation:
         }
 
         response = client.post("/api/v1/policies", headers=admin_headers, json=policy_data)
-        # Should be rejected or truncated
-        assert response.status_code in [400, 413, 500]
+        # Oversized text fields are truncated to their limit
+        assert response.status_code == 201
+        assert len(response.get_json()["description"]) == 1000
+
+    def test_request_body_is_capped(self, client, admin_headers):
+        """Bodies above the configured limit are refused before parsing."""
+        response = client.post(
+            "/api/v1/policies",
+            headers=admin_headers,
+            data=b"x" * (2 * 1024 * 1024),
+        )
+        assert response.status_code == 413
+
+    def test_non_string_fields_are_rejected(self, client, admin_headers):
+        """A JSON number where a string belongs is a client error, not a crash."""
+        response = client.post(
+            "/api/v1/policies",
+            headers=admin_headers,
+            json={
+                "name": 123,
+                "description": "x",
+                "severity": ["high"],
+                "provider": "aws",
+                "resource_types": [],
+                "condition": {},
+                "remediation": "x",
+            },
+        )
+        assert response.status_code == 400
+
+    def test_update_rejects_invalid_severity(self, client, admin_headers, database):
+        """An invalid value must not be reported as a successful update."""
+        policy = database.create_policy(
+            name="Severity guard",
+            description="x",
+            severity="low",
+            provider="aws",
+            resource_types=["storage"],
+            condition={},
+            remediation="x",
+        )
+        response = client.put(
+            f"/api/v1/policies/{policy.id}", headers=admin_headers, json={"severity": "nope"}
+        )
+        assert response.status_code == 400
+        assert database.get_policy(policy.id).severity == "low"
+
+    def test_update_can_clear_list_fields(self, client, admin_headers, database):
+        """Empty lists and dicts are real values, not 'no change'."""
+        policy = database.create_policy(
+            name="Clear references",
+            description="x",
+            severity="low",
+            provider="aws",
+            resource_types=["storage"],
+            condition={"a": 1},
+            remediation="x",
+            references=["CIS 1"],
+        )
+        response = client.put(
+            f"/api/v1/policies/{policy.id}",
+            headers=admin_headers,
+            json={"references": [], "condition": {}},
+        )
+        assert response.status_code == 200
+        assert response.get_json()["references"] == []
+        assert response.get_json()["condition"] == {}
 
     def test_null_byte_injection(self, client, admin_headers):
         """Test handling of null byte injection."""
@@ -918,7 +1053,7 @@ class TestErrorHandling:
         response = client.post(
             "/api/v1/policies", headers=admin_headers, data='{"invalid": json}'  # Invalid JSON
         )
-        assert response.status_code in [400, 500]
+        assert response.status_code == 400
 
     def test_missing_content_type(self, client, admin_token):
         """Test handling of missing Content-Type header."""

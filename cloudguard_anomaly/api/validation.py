@@ -52,7 +52,7 @@ class ValidProvider(str, Enum):
 
 def validate_severity(severity: str | None) -> str | None:
     """Validate severity parameter."""
-    if severity is None:
+    if not isinstance(severity, str):
         return None
 
     severity = severity.lower().strip()
@@ -66,7 +66,7 @@ def validate_severity(severity: str | None) -> str | None:
 
 def validate_status(status: str | None) -> str | None:
     """Validate status parameter."""
-    if status is None:
+    if not isinstance(status, str):
         return None
 
     status = status.lower().strip()
@@ -80,7 +80,7 @@ def validate_status(status: str | None) -> str | None:
 
 def validate_framework(framework: str | None) -> str | None:
     """Validate framework parameter."""
-    if framework is None:
+    if not isinstance(framework, str):
         return None
 
     framework = framework.lower().strip()
@@ -94,7 +94,7 @@ def validate_framework(framework: str | None) -> str | None:
 
 def validate_provider(provider: str | None) -> str | None:
     """Validate cloud provider parameter."""
-    if provider is None:
+    if not isinstance(provider, str):
         return None
 
     provider = provider.lower().strip()
@@ -147,7 +147,7 @@ def validate_days(days: int | None, max_days: int = 365) -> int:
 
 def validate_environment_name(env_name: str | None) -> str | None:
     """Validate environment name (alphanumeric, hyphens, underscores only)."""
-    if env_name is None:
+    if not isinstance(env_name, str):
         return None
 
     env_name = env_name.strip()
@@ -161,7 +161,7 @@ def validate_environment_name(env_name: str | None) -> str | None:
 
 def validate_scan_id(scan_id: str | None) -> str | None:
     """Validate scan ID format."""
-    if scan_id is None:
+    if not isinstance(scan_id, str):
         return None
 
     scan_id = scan_id.strip()
@@ -175,7 +175,7 @@ def validate_scan_id(scan_id: str | None) -> str | None:
 
 def sanitize_string(value: str | None, max_length: int = 256) -> str | None:
     """Sanitize string input."""
-    if value is None:
+    if not isinstance(value, str):
         return None
 
     # Strip whitespace
@@ -252,10 +252,11 @@ class PaginationParams:
         return {"limit": self.limit, "offset": self.offset, "cursor": self.cursor}
 
 
-def get_pagination_params() -> PaginationParams:
-    """Extract and validate pagination parameters from request."""
-    limit = request.args.get("limit", type=int)
-    offset = request.args.get("offset", type=int, default=0)
-    cursor = request.args.get("cursor")
-
-    return PaginationParams(limit=limit, offset=offset, cursor=cursor)
+def get_pagination_params() -> tuple[int, int]:
+    """Return the validated (limit, offset) pair from the current request."""
+    params = PaginationParams(
+        limit=request.args.get("limit", type=int),
+        offset=request.args.get("offset", type=int, default=0),
+        cursor=request.args.get("cursor"),
+    )
+    return params.limit, params.offset

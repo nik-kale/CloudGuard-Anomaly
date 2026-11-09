@@ -8,7 +8,8 @@ import logging
 import time
 import uuid
 
-from flask import Flask, g, request
+from flask import Flask, abort, g, jsonify, request
+from werkzeug.exceptions import HTTPException
 
 from cloudguard_anomaly.observability.metrics import metrics
 
@@ -38,6 +39,14 @@ def setup_middleware(app: Flask):
         else:
             request.user_id = None
             g.user_id = None
+
+        # Routes wrap their bodies in broad except blocks, so reject unusable input
+        # here where abort() still reaches the error handlers.
+        max_length = app.config.get("MAX_CONTENT_LENGTH")
+        if max_length and (request.content_length or 0) > max_length:
+            abort(413)
+        if request.is_json and request.content_length:
+            request.get_json()
 
         # Log request
         logger.info(
@@ -158,6 +167,13 @@ def setup_middleware(app: Flask):
     @app.errorhandler(Exception)
     def handle_exception(error):
         """Handle uncaught exceptions."""
+        # HTTP errors (400, 405, 413, 429, ...) are deliberate responses, not crashes
+        if isinstance(error, HTTPException):
+            return (
+                jsonify({"error": error.description, "request_id": g.get("request_id")}),
+                error.code,
+            )
+
         # Track error metrics
         error_type = type(error).__name__
         metrics.track_error(error_type, "application")
@@ -176,8 +192,6 @@ def setup_middleware(app: Flask):
         )
 
         # Return generic error response
-        from flask import jsonify
-
         return (
             jsonify(
                 {"error": "An internal server error occurred", "request_id": g.get("request_id")}
@@ -198,8 +212,6 @@ def setup_middleware(app: Flask):
             },
         )
 
-        from flask import jsonify
-
         return jsonify({"error": "Resource not found", "request_id": g.get("request_id")}), 404
 
     @app.errorhandler(500)
@@ -217,8 +229,6 @@ def setup_middleware(app: Flask):
             },
             exc_info=True,
         )
-
-        from flask import jsonify
 
         return jsonify({"error": "Internal server error", "request_id": g.get("request_id")}), 500
 

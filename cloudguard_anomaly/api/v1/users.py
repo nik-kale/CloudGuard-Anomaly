@@ -9,6 +9,7 @@ from typing import Any
 
 from flask import jsonify, request
 
+from cloudguard_anomaly.api.audit_trail import record_audit_event
 from cloudguard_anomaly.api.v1 import api_v1
 from cloudguard_anomaly.api.validation import (
     safe_error_message,
@@ -160,6 +161,7 @@ def create_user():
 
         current_user = getattr(request, "current_user", None)
         current_user_id = current_user.id if current_user else "unknown"
+        record_audit_event("create", "user", user.id)
         logger.info(f"User created: {user.id} ({username}) by {current_user_id}")
 
         return jsonify(user_to_dict(user)), 201
@@ -257,6 +259,7 @@ def update_user(user_id: str):
                             user.roles.append(role)
 
             session.commit()
+            record_audit_event("update", "user", user_id, details={"fields": sorted(data)})
             logger.info(f"User updated: {user_id} by {current_user.id}")
 
             result = user_to_dict(user)
@@ -304,6 +307,7 @@ def delete_user(user_id: str):
         # Delete user
         get_auth_manager().delete_user(user_id)
 
+        record_audit_event("delete", "user", user_id)
         logger.info(f"User deleted: {user_id} by {current_user.id}")
 
         return "", 204
@@ -350,16 +354,17 @@ def regenerate_api_key(user_id: str):
             if not user:
                 return jsonify({"error": "User not found"}), 404
 
-            # Generate new API key
-            user.generate_api_key()
+            # Generate new API key; the plaintext exists only in this response
+            api_key = user.generate_api_key()
             session.commit()
+            record_audit_event("regenerate_api_key", "user", user_id)
 
             logger.info(f"API key regenerated for user: {user_id} by {current_user.id}")
 
             return (
                 jsonify(
                     {
-                        "api_key": user.api_key,
+                        "api_key": api_key,
                         "message": "API key regenerated successfully. Store it securely - it will not be shown again.",
                     }
                 ),

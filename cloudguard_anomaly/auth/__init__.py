@@ -10,7 +10,14 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session as DBSession
 
-from cloudguard_anomaly.auth.models import DEFAULT_ROLES, Permission, Role, Session, User
+from cloudguard_anomaly.auth.models import (
+    DEFAULT_ROLES,
+    Permission,
+    Role,
+    Session,
+    User,
+    burn_password_hash,
+)
 from cloudguard_anomaly.auth.password import PasswordValidationError, validate_password_strength
 from cloudguard_anomaly.storage.database import DatabaseStorage, get_database
 
@@ -96,6 +103,7 @@ class AuthenticationManager:
 
             session.add(user)
             session.commit()
+            session.refresh(user)
 
             logger.info(f"Created user: {username}")
             return user
@@ -107,13 +115,21 @@ class AuthenticationManager:
         finally:
             session.close()
 
-    def authenticate(self, username: str, password: str) -> User | None:
+    def authenticate(
+        self,
+        username: str,
+        password: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> User | None:
         """
         Authenticate user with username and password.
 
         Args:
             username: Username or email
             password: Password
+            ip_address: Client address, recorded in the audit log
+            user_agent: Client user agent, recorded in the audit log
 
         Returns:
             User if authentication successful, None otherwise
@@ -127,21 +143,33 @@ class AuthenticationManager:
                 .first()
             )
 
+            failure = None
             if not user:
-                logger.warning(f"Authentication failed: user '{username}' not found")
-                return None
+                burn_password_hash(password)
+                failure = "unknown user"
+            elif not user.check_password(password):
+                failure = "invalid password"
+            elif not user.is_active:
+                failure = "inactive user"
 
-            if not user.is_active:
-                logger.warning(f"Authentication failed: user '{username}' is inactive")
-                return None
+            if failure is None:
+                user.last_login = datetime.utcnow()
+                session.commit()
 
-            if not user.check_password(password):
-                logger.warning(f"Authentication failed: invalid password for '{username}'")
-                return None
+            self.database.log_audit_event(
+                action="login",
+                resource_type="session",
+                user_id=user.id if user else None,
+                username=username[:128],
+                status="failure" if failure else "success",
+                ip_address=ip_address,
+                user_agent=user_agent,
+                details={"reason": failure} if failure else None,
+            )
 
-            # Update last login
-            user.last_login = datetime.utcnow()
-            session.commit()
+            if failure:
+                logger.warning(f"Authentication failed for {username[:128]!r}: {failure}")
+                return None
 
             logger.info(f"User authenticated: {username}")
             return user

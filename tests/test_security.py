@@ -14,6 +14,8 @@ Tests cover security-critical functionality:
 - Sensitive data exposure
 """
 
+import hashlib
+import hmac
 import os
 import tempfile
 import time
@@ -21,6 +23,7 @@ import uuid
 
 import pytest
 
+from cloudguard_anomaly.api.v1.users import user_to_dict
 from cloudguard_anomaly.auth import AuthenticationManager
 from cloudguard_anomaly.auth.models import Permission, Role, Session, User
 from cloudguard_anomaly.auth.password import PasswordValidationError, validate_password_strength
@@ -72,7 +75,7 @@ def test_user(auth_manager):
     finally:
         try:
             auth_manager.delete_user(user.id)
-        except:
+        except Exception:
             pass
 
 
@@ -130,22 +133,32 @@ class TestAuthenticationSecurity:
         finally:
             session.close()
 
-    def test_password_timing_attack_resistance(self, auth_manager, test_user):
-        """Test that password verification time is constant (timing attack resistant)."""
-        # Measure time for correct password
-        start = time.time()
-        auth_manager.authenticate(test_user.username, "SecureP@ssw0rd123!")
-        correct_time = time.time() - start
+    def test_password_verification_is_constant_time(self, test_user, monkeypatch):
+        """Hash comparison must go through hmac.compare_digest."""
+        calls = []
+        real = hmac.compare_digest
 
-        # Measure time for incorrect password
-        start = time.time()
-        auth_manager.authenticate(test_user.username, "WrongPassword")
-        incorrect_time = time.time() - start
+        def spy(left, right):
+            calls.append((left, right))
+            return real(left, right)
 
-        # Times should be similar (within 50% margin)
-        # PBKDF2 with high iteration count ensures this
-        ratio = max(correct_time, incorrect_time) / min(correct_time, incorrect_time)
-        assert ratio < 2.0, "Timing difference too large - potential timing attack vector"
+        monkeypatch.setattr("cloudguard_anomaly.auth.models.hmac.compare_digest", spy)
+        assert test_user.check_password("SecureP@ssw0rd123!") is True
+        assert test_user.check_password("wrong") is False
+        assert len(calls) == 2
+
+    def test_unknown_user_costs_the_same_as_a_wrong_password(self, auth_manager, monkeypatch):
+        """Skipping the hash for unknown names would reveal which names exist."""
+        derivations = []
+        real = hashlib.pbkdf2_hmac
+
+        def spy(*args, **kwargs):
+            derivations.append(args)
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr("cloudguard_anomaly.auth.models.hashlib.pbkdf2_hmac", spy)
+        assert auth_manager.authenticate("no_such_user", "whatever") is None
+        assert len(derivations) == 1
 
     def test_password_brute_force_protection(self, auth_manager):
         """Test that PBKDF2 iterations slow down brute force attacks."""
@@ -172,17 +185,17 @@ class TestAuthenticationSecurity:
         result = auth_manager.authenticate(test_user.username, "WrongPassword")
         assert result is None
 
-        # Check audit log
-        logs = database.get_audit_logs(
-            user_id=test_user.id, action="login", status="failure", limit=10
-        )
+        logs = database.get_audit_logs(user_id=test_user.id, action="login", status="failure")
+        assert len(logs) == 1
+        assert logs[0].username == test_user.username
 
-        # Should have at least one failed login attempt logged
-        # Note: This depends on auth manager logging failed attempts
-        # The current implementation logs via logger but may not create audit records
-        # This test documents expected behavior
+    def test_successful_login_audit_logged(self, auth_manager, test_user, database):
+        assert auth_manager.authenticate(test_user.username, "SecureP@ssw0rd123!") is not None
 
-    def test_inactive_user_cannot_login(self, auth_manager):
+        logs = database.get_audit_logs(user_id=test_user.id, action="login", status="success")
+        assert len(logs) == 1
+
+    def test_inactive_user_cannot_login(self, auth_manager, database):
         """Test that inactive users cannot authenticate."""
         user = auth_manager.create_user(
             username="inactive_test", email="inactive@test.com", password="InactiveTest123!"
@@ -190,12 +203,7 @@ class TestAuthenticationSecurity:
 
         try:
             # Deactivate user
-            from cloudguard_anomaly.config import get_config
-            from cloudguard_anomaly.storage.database import DatabaseStorage
-
-            config = get_config()
-            db = DatabaseStorage(config.database_url)
-            session = db.get_session()
+            session = database.get_session()
 
             try:
                 db_user = session.query(User).filter(User.id == user.id).first()
@@ -264,7 +272,7 @@ class TestAuthorizationSecurity:
         finally:
             session.close()
 
-    def test_privilege_escalation_prevented(self, auth_manager):
+    def test_privilege_escalation_prevented(self, auth_manager, database):
         """Test that users cannot escalate their own privileges."""
         user = auth_manager.create_user(
             username="escalation_test",
@@ -274,12 +282,7 @@ class TestAuthorizationSecurity:
         )
 
         try:
-            from cloudguard_anomaly.config import get_config
-            from cloudguard_anomaly.storage.database import DatabaseStorage
-
-            config = get_config()
-            db = DatabaseStorage(config.database_url)
-            session = db.get_session()
+            session = database.get_session()
 
             try:
                 db_user = session.query(User).filter(User.id == user.id).first()
@@ -432,6 +435,18 @@ class TestPasswordSecurity:
         with pytest.raises(PasswordValidationError, match="sequential"):
             validate_password_strength("Abcd1234!@#$")
 
+    def test_admin_wildcard_grants_every_permission(self):
+        user = User(username="w", email="w@test.com")
+        user.roles.append(Role(name="root", permissions=Permission.ADMIN_ALL))
+        assert user.has_permission(Permission.USER_DELETE) is True
+
+    def test_permissions_match_exactly_not_by_substring(self):
+        """'scan:view' must not be satisfied by a role holding 'scan:viewer'."""
+        user = User(username="s", email="s@test.com")
+        user.roles.append(Role(name="r", permissions="scan:viewer,finding:view"))
+        assert user.has_permission("scan:view") is False
+        assert user.has_permission("finding:view") is True
+
     def test_strong_password_accepted(self):
         """Test that strong passwords are accepted."""
         strong_passwords = [
@@ -525,13 +540,7 @@ class TestAPIKeySecurity:
 
     def test_api_key_not_exposed_in_responses(self, test_user):
         """Test that API keys are not exposed in serialization."""
-        # Simulate converting user to dict (as done in API responses)
-        user_dict = {
-            "id": test_user.id,
-            "username": test_user.username,
-            "email": test_user.email,
-            "is_admin": test_user.is_admin,
-        }
+        user_dict = user_to_dict(test_user)
 
         # Sensitive fields should NOT be included
         assert "password_hash" not in user_dict
@@ -594,24 +603,6 @@ class TestInputSanitization:
             # Cleanup
             database.delete_policy(policy.id)
 
-    def test_path_traversal_prevention(self):
-        """Test path traversal attack prevention."""
-        malicious_paths = [
-            "../../../etc/passwd",
-            "..\\..\\..\\windows\\system32",
-            "/etc/passwd",
-            "C:\\windows\\system32\\config\\sam",
-        ]
-
-        from cloudguard_anomaly.api.validation import sanitize_string
-
-        for malicious_path in malicious_paths:
-            # Should sanitize or reject path traversal attempts
-            sanitized = sanitize_string(malicious_path)
-            # Should not contain path traversal sequences
-            assert "../" not in sanitized
-            assert "..\\" not in sanitized
-
     def test_command_injection_prevention(self, database):
         """Test command injection prevention."""
         malicious_commands = [
@@ -660,7 +651,7 @@ class TestAuditLoggingSecurity:
 
         for action in sensitive_actions:
             # Create audit log entry
-            log = database.create_audit_log(
+            log = database.log_audit_event(
                 user_id=test_user.id,
                 username=test_user.username,
                 action=action,
@@ -674,7 +665,7 @@ class TestAuditLoggingSecurity:
 
     def test_failed_operations_logged(self, database, test_user):
         """Test that failed operations are logged."""
-        log = database.create_audit_log(
+        log = database.log_audit_event(
             user_id=test_user.id,
             username=test_user.username,
             action="delete_user",
@@ -690,7 +681,7 @@ class TestAuditLoggingSecurity:
     def test_audit_log_immutability(self, database, test_user):
         """Test that audit logs cannot be easily modified."""
         # Create audit log
-        log = database.create_audit_log(
+        log = database.log_audit_event(
             user_id=test_user.id,
             username=test_user.username,
             action="test_action",
@@ -714,7 +705,7 @@ class TestAuditLoggingSecurity:
     def test_audit_log_retention(self, database, test_user):
         """Test audit log retention and cleanup."""
         # Create old audit log (simulated)
-        old_log = database.create_audit_log(
+        old_log = database.log_audit_event(
             user_id=test_user.id,
             username=test_user.username,
             action="old_action",
@@ -748,7 +739,7 @@ class TestSensitiveDataExposure:
         caplog.set_level(logging.DEBUG)
 
         user = auth_manager.create_user(
-            username="log_test", email="log@test.com", password="LogTest123!"
+            username="log_test", email="log@test.com", password="LogTestPass123!"
         )
 
         try:

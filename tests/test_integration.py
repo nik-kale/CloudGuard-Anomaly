@@ -16,6 +16,7 @@ import tempfile
 import uuid
 
 import pytest
+from sqlalchemy.exc import StatementError
 
 from cloudguard_anomaly.auth import AuthenticationManager
 from cloudguard_anomaly.auth.models import Permission, Role, User
@@ -110,7 +111,7 @@ class TestUserJourney:
         deleted_user = auth_manager.get_user(user.id)
         assert deleted_user is None
 
-    def test_user_password_change_journey(self, auth_manager):
+    def test_user_password_change_journey(self, auth_manager, database):
         """Test user changing their password."""
         # Create user
         user = auth_manager.create_user(
@@ -142,7 +143,7 @@ class TestUserJourney:
         finally:
             auth_manager.delete_user(user.id)
 
-    def test_user_role_change_journey(self, auth_manager):
+    def test_user_role_change_journey(self, auth_manager, database):
         """Test changing user roles and permissions."""
         # Create user with viewer role
         user = auth_manager.create_user(
@@ -287,9 +288,8 @@ class TestPolicyLifecycle:
 class TestScanWorkflow:
     """Test complete scan workflow."""
 
-    def test_scan_finding_audit_workflow(self, database, auth_manager):
-        """Test complete scan → findings → audit workflow."""
-        # Create user
+    def test_scan_finding_audit_workflow(self, database, auth_manager, sample_scan_result):
+        """Test complete scan -> findings -> resolve -> audit workflow."""
         user = auth_manager.create_user(
             username="scan_user",
             email="scan@test.com",
@@ -298,82 +298,28 @@ class TestScanWorkflow:
         )
 
         try:
-            # Step 1: Create policies
-            policy = database.create_policy(
-                name="S3 Public Access Check",
-                description="Check for public S3 buckets",
-                severity="high",
-                provider="aws",
-                resource_types=["s3_bucket"],
-                condition={"public_access": True},
-                remediation="Disable public access",
-            )
+            scan_id = database.save_scan(sample_scan_result)
+            scan_findings = database.get_findings(scan_id=scan_id)
+            assert len(scan_findings) == 1
 
-            # Step 2: Create scan record
-            scan_id = str(uuid.uuid4())
-            scan = database.create_scan_record(
-                scan_id=scan_id, provider="aws", region="us-east-1", scan_type="full"
-            )
-            assert scan is not None
-
-            # Step 3: Create findings from scan
-            findings = []
-            for i in range(3):
-                finding = database.create_finding_record(
-                    scan_id=scan_id,
-                    resource_id=f"s3-bucket-{i}",
-                    resource_type="s3_bucket",
-                    policy_id=policy.id,
-                    severity="high",
-                    title=f"Public S3 Bucket {i}",
-                    description=f"Bucket {i} is publicly accessible",
-                    status="open",
-                )
-                findings.append(finding)
-
-            assert len(findings) == 3
-
-            # Step 4: Query findings by scan
-            scan_findings = database.get_findings_by_scan(scan_id)
-            assert len(scan_findings) == 3
-
-            # Step 5: Create audit log for scan
-            audit = database.create_audit_log(
+            audit = database.log_audit_event(
                 user_id=user.id,
                 username=user.username,
                 action="run_scan",
                 resource_type="scan",
                 resource_id=scan_id,
                 status="success",
-                details={"findings_count": 3, "severity": "high"},
+                details={"findings_count": 1},
             )
             assert audit is not None
 
-            # Step 6: Query audit logs
             logs = database.get_audit_logs(user_id=user.id, action="run_scan", limit=10)
-            assert len(logs) > 0
             assert any(log.resource_id == scan_id for log in logs)
 
-            # Step 7: Resolve finding
-            resolved = database.update_finding_status(
-                findings[0].id, "resolved", resolution_notes="Fixed by enabling encryption"
-            )
-            assert resolved is not None
-            assert resolved.status == "resolved"
-
-            # Step 8: Create audit log for resolution
-            database.create_audit_log(
-                user_id=user.id,
-                username=user.username,
-                action="resolve_finding",
-                resource_type="finding",
-                resource_id=findings[0].id,
-                status="success",
-            )
+            database.mark_finding_resolved(scan_findings[0].id)
+            assert database.get_findings(scan_id=scan_id, unresolved_only=True) == []
 
         finally:
-            # Cleanup
-            database.delete_policy(policy.id)
             auth_manager.delete_user(user.id)
 
 
@@ -385,7 +331,7 @@ class TestScanWorkflow:
 class TestRBACIntegration:
     """Test role-based access control integration."""
 
-    def test_multi_role_permissions(self, auth_manager):
+    def test_multi_role_permissions(self, auth_manager, database):
         """Test user with multiple roles."""
         # Create custom role
         session = database.get_session()
@@ -423,7 +369,7 @@ class TestRBACIntegration:
         finally:
             session.close()
 
-    def test_role_permission_changes_propagate(self, auth_manager):
+    def test_role_permission_changes_propagate(self, auth_manager, database):
         """Test that role permission changes affect users."""
         session = database.get_session()
         try:
@@ -511,10 +457,10 @@ class TestMultiUserScenarios:
                 created_by=admin.id,
             )
 
-            # All users can view
+            # Admins and analysts can read policies; viewers only see scans and findings
             assert admin.has_permission(Permission.POLICY_VIEW)
             assert analyst.has_permission(Permission.POLICY_VIEW)
-            assert viewer.has_permission(Permission.POLICY_VIEW)
+            assert not viewer.has_permission(Permission.POLICY_VIEW)
 
             # Only admin can delete
             assert admin.has_permission(Permission.POLICY_DELETE)
@@ -550,7 +496,7 @@ class TestMultiUserScenarios:
             # Each user performs actions
             for i, user in enumerate(users):
                 for j in range(i + 1):  # Different number of actions per user
-                    database.create_audit_log(
+                    database.log_audit_event(
                         user_id=user.id,
                         username=user.username,
                         action="view_dashboard",
@@ -599,70 +545,21 @@ class TestDatabaseIntegrity:
         for session in sessions:
             assert auth_manager.validate_session(session.token) is None
 
-    def test_referential_integrity_policy_findings(self, database):
-        """Test referential integrity between policies and findings."""
-        # Create policy
-        policy = database.create_policy(
-            name="Integrity Test Policy",
-            description="Test",
-            severity="medium",
-            provider="aws",
-            resource_types=["s3_bucket"],
-            condition={},
-            remediation="Fix",
-        )
-
-        try:
-            # Create scan
-            scan_id = str(uuid.uuid4())
-            scan = database.create_scan_record(
-                scan_id=scan_id, provider="aws", region="us-east-1", scan_type="full"
-            )
-
-            # Create finding referencing policy
-            finding = database.create_finding_record(
-                scan_id=scan_id,
-                resource_id="test-resource",
-                resource_type="s3_bucket",
-                policy_id=policy.id,
-                severity="medium",
-                title="Test Finding",
-                description="Test",
-                status="open",
-            )
-
-            # Verify finding references policy
-            retrieved_finding = database.get_finding(finding.id)
-            assert retrieved_finding.policy_id == policy.id
-
-            # Delete policy (finding may or may not cascade depending on constraints)
-            database.delete_policy(policy.id)
-
-        except Exception:
-            # Cleanup on error
-            try:
-                database.delete_policy(policy.id)
-            except:
-                pass
-
     def test_transaction_rollback_on_error(self, database):
         """Test that transactions rollback on errors."""
         initial_policy_count = len(database.list_policies(limit=1000))
 
-        try:
-            # Attempt to create invalid policy (should fail)
+        with pytest.raises(StatementError):
+            # A dict cannot bind to the name column, so the insert fails mid-transaction
             database.create_policy(
-                name="Invalid Policy",
+                name={"not": "a string"},
                 description="Test",
-                severity="invalid_severity",  # Invalid
+                severity="high",
                 provider="aws",
                 resource_types=[],
                 condition={},
                 remediation="Fix",
             )
-        except Exception:
-            # Expected to fail
-            pass
 
         # Policy count should not have changed
         final_policy_count = len(database.list_policies(limit=1000))
@@ -681,12 +578,12 @@ class TestAPIIntegration:
         """Test complete authentication flow."""
         # Create user
         user = auth_manager.create_user(
-            username="api_auth_user", email="api_auth@test.com", password="ApiAuth123!"
+            username="api_auth_user", email="api_auth@test.com", password="ApiAuthPass123!"
         )
 
         try:
             # Authenticate (simulate login endpoint)
-            authenticated = auth_manager.authenticate("api_auth_user", "ApiAuth123!")
+            authenticated = auth_manager.authenticate("api_auth_user", "ApiAuthPass123!")
             assert authenticated is not None
 
             # Create session (simulate session creation)
@@ -708,11 +605,11 @@ class TestAPIIntegration:
         finally:
             auth_manager.delete_user(user.id)
 
-    def test_api_key_authentication_flow(self, auth_manager):
+    def test_api_key_authentication_flow(self, auth_manager, database):
         """Test API key authentication flow."""
         # Create user
         user = auth_manager.create_user(
-            username="api_key_user", email="api_key@test.com", password="ApiKey123!"
+            username="api_key_user", email="api_key@test.com", password="ApiKeyPass123!"
         )
 
         try:

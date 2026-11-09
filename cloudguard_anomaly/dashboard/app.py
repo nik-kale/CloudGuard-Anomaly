@@ -79,6 +79,9 @@ app = Flask(__name__, template_folder="templates", static_folder="static")
 # Load configuration
 config = get_config()
 
+# Every route takes small JSON bodies; refuse anything larger before parsing it
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
+
 # Initialize observability
 setup_logging(log_level=config.log_level, log_format=getattr(config, "log_format", "json"))
 setup_middleware(app)
@@ -98,11 +101,24 @@ if CORS_AVAILABLE:
 # CSRF protection
 csrf: CSRFProtect | None = None
 if CSRF_AVAILABLE:
+    # Checked in enforce_csrf below: the built-in check cannot distinguish a browser
+    # relying on its session cookie from a client sending its own credentials.
+    app.config["WTF_CSRF_CHECK_DEFAULT"] = False
     csrf = CSRFProtect(app)
     logger.info("CSRF protection enabled")
 
-    # Exempt API endpoints from CSRF (they use token-based auth)
-    csrf.exempt("/api/*")
+    @app.before_request
+    def enforce_csrf():
+        """Require a CSRF token on cookie-authenticated state changes."""
+        if request.method not in app.config["WTF_CSRF_METHODS"] or not request.endpoint:
+            return
+        # Browsers cannot attach these headers (or a JSON body) to a cross-site form post
+        if request.headers.get("Authorization") or request.headers.get("X-API-Key"):
+            return
+        if request.endpoint == "login" and request.is_json:
+            return
+        csrf.protect()
+
 
 # Rate limiting
 limiter: Limiter | None = None
@@ -325,7 +341,12 @@ def login():
         return render_template("login.html", error="Username and password required")
 
     auth_manager = get_auth_manager(db)
-    user = auth_manager.authenticate(username, password)
+    user = auth_manager.authenticate(
+        username,
+        password,
+        ip_address=request.remote_addr,
+        user_agent=request.user_agent.string or None,
+    )
 
     if not user:
         if request.is_json:
@@ -390,7 +411,7 @@ def get_current_user():
             "email": user.email,
             "is_admin": user.is_admin,
             "roles": [role.name for role in user.roles],
-            "api_key": user.api_key if user.api_key else None,
+            "api_key_prefix": user.api_key_prefix,
         }
     )
 

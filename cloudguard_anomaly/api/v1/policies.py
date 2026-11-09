@@ -9,6 +9,7 @@ from typing import Any
 
 from flask import jsonify, request
 
+from cloudguard_anomaly.api.audit_trail import record_audit_event
 from cloudguard_anomaly.api.v1 import api_v1
 from cloudguard_anomaly.api.validation import (
     get_pagination_params,
@@ -68,7 +69,7 @@ def list_policies():
         severity = validate_severity(request.args.get("severity"))
         enabled_param = request.args.get("enabled", "").lower()
         enabled_only = enabled_param == "true" if enabled_param else False
-        limit, offset = get_pagination_params(request)
+        limit, offset = get_pagination_params()
 
         # Get policies from database
         policies = get_database().list_policies(
@@ -200,6 +201,7 @@ def create_policy():
             created_by=user_id,
         )
 
+        record_audit_event("create", "policy", policy.id)
         logger.info(f"Policy created: {policy.id} by user {user_id}")
 
         return jsonify(policy_record_to_dict(policy)), 201
@@ -237,7 +239,7 @@ def update_policy(policy_id: str):
         data = request.get_json()
 
         # Validate and sanitize inputs
-        update_args = {}
+        update_args: dict[str, Any] = {}
 
         if "name" in data:
             update_args["name"] = sanitize_string(data["name"], max_length=256)
@@ -258,6 +260,14 @@ def update_policy(policy_id: str):
         if "enabled" in data:
             update_args["enabled"] = bool(data["enabled"])
 
+        invalid = [
+            field
+            for field in ("name", "description", "severity", "provider", "remediation")
+            if field in update_args and update_args[field] is None
+        ]
+        if invalid:
+            return jsonify({"error": f'Invalid values for: {", ".join(invalid)}'}), 400
+
         # Update policy
         policy = get_database().update_policy(policy_id, **update_args)
 
@@ -266,6 +276,7 @@ def update_policy(policy_id: str):
 
         user_id = getattr(request, "current_user", None)
         user_id = user_id.id if user_id else "unknown"
+        record_audit_event("update", "policy", policy_id, details={"fields": sorted(update_args)})
         logger.info(f"Policy updated: {policy_id} by user {user_id}")
 
         return jsonify(policy_record_to_dict(policy)), 200
@@ -301,6 +312,7 @@ def delete_policy(policy_id: str):
 
         user_id = getattr(request, "current_user", None)
         user_id = user_id.id if user_id else "unknown"
+        record_audit_event("delete", "policy", policy_id)
         logger.info(f"Policy deleted: {policy_id} by user {user_id}")
 
         return "", 204

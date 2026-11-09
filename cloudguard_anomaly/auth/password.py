@@ -52,6 +52,21 @@ class PasswordValidationError(ValueError):
     pass
 
 
+def _base_word(password: str) -> str:
+    """Lowercase a password and strip the digits and symbols around its core."""
+    return re.sub(r"^[^a-z]+|[^a-z]+$", "", password.lower())
+
+
+def _has_sequential_run(password: str, length: int = 4) -> bool:
+    """Return True if the password has ``length`` consecutive ascending characters."""
+    lowered = password.lower()
+    for start in range(len(lowered) - length + 1):
+        run = lowered[start : start + length]
+        if run.isalnum() and all(ord(b) - ord(a) == 1 for a, b in zip(run, run[1:])):
+            return True
+    return False
+
+
 def validate_password_strength(password: str, username: str | None = None) -> None:
     """
     Validate password meets complexity requirements.
@@ -64,6 +79,7 @@ def validate_password_strength(password: str, username: str | None = None) -> No
     - At least one special character
     - Not in common passwords list
     - Not containing username
+    - No runs of four or more sequential characters
 
     Args:
         password: Password to validate
@@ -94,9 +110,13 @@ def validate_password_strength(password: str, username: str | None = None) -> No
     if not re.search(r'[!@#$%^&*()_+\-=\[\]{};:\'",.<>?/\\|`~]', password):
         errors.append("Password must contain at least one special character")
 
-    # Check against common passwords
-    if password.lower() in COMMON_PASSWORDS:
-        errors.append("Password is too common - please choose a stronger password")
+    # Check against common passwords, ignoring decoration such as "Password123!"
+    if _base_word(password) in COMMON_PASSWORDS or password.lower() in COMMON_PASSWORDS:
+        errors.append("Password is based on a common password - please choose a stronger one")
+
+    # Check for runs such as "abcd" or "1234"
+    if _has_sequential_run(password):
+        errors.append("Password cannot contain sequential characters like 'abcd' or '1234'")
 
     # Check if password contains username
     if username and username.lower() in password.lower():

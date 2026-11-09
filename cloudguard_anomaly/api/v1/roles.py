@@ -9,6 +9,7 @@ from typing import Any
 
 from flask import jsonify, request
 
+from cloudguard_anomaly.api.audit_trail import record_audit_event
 from cloudguard_anomaly.api.v1 import api_v1
 from cloudguard_anomaly.api.validation import (
     safe_error_message,
@@ -177,6 +178,7 @@ def create_role():
 
             current_user = getattr(request, "current_user", None)
             current_user_id = current_user.id if current_user else "unknown"
+            record_audit_event("create", "role", role.id)
             logger.info(f"Role created: {role.id} ({name}) by {current_user_id}")
 
             return jsonify(role_to_dict(role)), 201
@@ -255,6 +257,7 @@ def update_role(role_id: str):
 
             current_user = getattr(request, "current_user", None)
             current_user_id = current_user.id if current_user else "unknown"
+            record_audit_event("update", "role", role_id)
             logger.info(f"Role updated: {role_id} by {current_user_id}")
 
             return jsonify(role_to_dict(role)), 200
@@ -310,6 +313,7 @@ def delete_role(role_id: str):
 
             current_user = getattr(request, "current_user", None)
             current_user_id = current_user.id if current_user else "unknown"
+            record_audit_event("delete", "role", role_id)
             logger.info(f"Role deleted: {role_id} ({role.name}) by {current_user_id}")
 
             return "", 204

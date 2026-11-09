@@ -10,8 +10,42 @@ from flask import jsonify, redirect, request, url_for
 from flask import session as flask_session
 
 from cloudguard_anomaly.auth import get_auth_manager
+from cloudguard_anomaly.auth.models import API_KEY_PREFIX, User
 
 logger = logging.getLogger(__name__)
+
+
+def _authenticate_request() -> User | None:
+    """
+    Resolve the caller from a session cookie, bearer token or API key.
+
+    Bearer tokens are either session tokens (handed out by the JSON login) or API
+    keys, which are recognisable by their prefix.
+    """
+    auth_manager = get_auth_manager()
+
+    session_token = flask_session.get("token")
+    if session_token:
+        user = auth_manager.validate_session(session_token)
+        if user:
+            return user
+
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[len("Bearer ") :].strip()
+        if token:
+            if token.startswith(API_KEY_PREFIX):
+                user = auth_manager.authenticate_api_key(token)
+            else:
+                user = auth_manager.validate_session(token)
+            if user:
+                return user
+
+    api_key = request.headers.get("X-API-Key")
+    if api_key:
+        return auth_manager.authenticate_api_key(api_key)
+
+    return None
 
 
 def login_required(f: Callable) -> Callable:
@@ -23,40 +57,19 @@ def login_required(f: Callable) -> Callable:
 
     @functools.wraps(f)
     def decorated_function(*args, **kwargs):
-        auth_manager = get_auth_manager()
+        # Routes stack this with permission_required; authenticate only once
+        if getattr(request, "current_user", None) is not None:
+            return f(*args, **kwargs)
 
-        # Check session token
-        session_token = flask_session.get("token")
-        if session_token:
-            user = auth_manager.validate_session(session_token)
-            if user:
-                request.current_user = user
-                return f(*args, **kwargs)
-
-        # Check API key in Authorization header
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            parts = auth_header.split(" ", 1)  # Split only on first space
-            if len(parts) == 2 and parts[1].strip():  # Validate token exists and not empty
-                api_key = parts[1].strip()
-                user = auth_manager.authenticate_api_key(api_key)
-                if user:
-                    request.current_user = user
-                    return f(*args, **kwargs)
-
-        # Check API key in X-API-Key header
-        api_key = request.headers.get("X-API-Key")
-        if api_key:
-            user = auth_manager.authenticate_api_key(api_key)
-            if user:
-                request.current_user = user
-                return f(*args, **kwargs)
+        user = _authenticate_request()
+        if user:
+            request.current_user = user
+            return f(*args, **kwargs)
 
         # Not authenticated
         if request.is_json or request.path.startswith("/api/"):
             return jsonify({"error": "Authentication required"}), 401
-        else:
-            return redirect(url_for("login"))
+        return redirect(url_for("login"))
 
     return decorated_function
 
@@ -166,29 +179,7 @@ def optional_auth(f: Callable) -> Callable:
 
     @functools.wraps(f)
     def decorated_function(*args, **kwargs):
-        auth_manager = get_auth_manager()
-
-        # Try session token
-        session_token = flask_session.get("token")
-        if session_token:
-            user = auth_manager.validate_session(session_token)
-            if user:
-                request.current_user = user
-                return f(*args, **kwargs)
-
-        # Try API key
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            parts = auth_header.split(" ", 1)  # Split only on first space
-            if len(parts) == 2 and parts[1].strip():  # Validate token exists and not empty
-                api_key = parts[1].strip()
-                user = auth_manager.authenticate_api_key(api_key)
-                if user:
-                    request.current_user = user
-                    return f(*args, **kwargs)
-
-        # No authentication - continue anyway
-        request.current_user = None
+        request.current_user = _authenticate_request()
         return f(*args, **kwargs)
 
     return decorated_function
