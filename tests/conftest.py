@@ -10,7 +10,7 @@ import pytest
 
 from cloudguard_anomaly.core.models import (
     Anomaly,
-    CloudProvider,
+    Provider,
     Environment,
     Finding,
     FindingType,
@@ -47,7 +47,7 @@ def sample_s3_bucket():
         id="s3-bucket-test-123",
         name="test-bucket",
         type=ResourceType.STORAGE,
-        provider=CloudProvider.AWS,
+        provider=Provider.AWS,
         region="us-east-1",
         properties={
             "encryption_enabled": False,
@@ -67,7 +67,7 @@ def sample_ec2_instance():
         id="i-1234567890abcdef0",
         name="test-instance",
         type=ResourceType.COMPUTE,
-        provider=CloudProvider.AWS,
+        provider=Provider.AWS,
         region="us-east-1",
         properties={
             "instance_type": "t2.micro",
@@ -86,8 +86,8 @@ def sample_security_group():
     return Resource(
         id="sg-12345",
         name="test-sg",
-        type=ResourceType.NETWORK,
-        provider=CloudProvider.AWS,
+        type=ResourceType.SECURITY_GROUP,
+        provider=Provider.AWS,
         region="us-east-1",
         properties={
             "ingress_rules": [
@@ -114,8 +114,8 @@ def sample_iam_role():
     return Resource(
         id="arn:aws:iam::123456789012:role/test-role",
         name="test-role",
-        type=ResourceType.IDENTITY,
-        provider=CloudProvider.AWS,
+        type=ResourceType.IAM_ROLE,
+        provider=Provider.AWS,
         region="us-east-1",
         properties={
             "assume_role_policy": {
@@ -152,8 +152,7 @@ def sample_environment(sample_resources):
     """Sample cloud environment."""
     return Environment(
         name="test-environment",
-        provider=CloudProvider.AWS,
-        region="us-east-1",
+        provider=Provider.AWS,
         resources=sample_resources,
         metadata={"account_id": "123456789012"},
     )
@@ -165,7 +164,8 @@ def sample_finding(sample_s3_bucket):
     return Finding(
         id="finding-001",
         resource=sample_s3_bucket,
-        policy_id="S3_ENCRYPTION_REQUIRED",
+        policy=None,
+        evidence={"policy_id": "S3_ENCRYPTION_REQUIRED"},
         severity=Severity.HIGH,
         type=FindingType.MISCONFIGURATION,
         title="S3 Bucket Not Encrypted",
@@ -183,9 +183,10 @@ def sample_anomaly(sample_s3_bucket):
         resource=sample_s3_bucket,
         type="configuration_drift",
         severity=Severity.MEDIUM,
-        description="Bucket public access settings changed",
-        expected_value={"public_access": False},
-        actual_value={"public_access": True},
+        baseline={"public_access": False},
+        current={"public_access": True},
+        changes=[{"field": "public_access", "old": False, "new": True}],
+        impact="Bucket public access settings changed",
         timestamp=datetime.utcnow(),
     )
 

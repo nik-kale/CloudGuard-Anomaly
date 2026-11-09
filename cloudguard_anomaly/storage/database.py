@@ -156,7 +156,7 @@ class AuditLog(Base):
     __table_args__ = (
         Index("idx_user_timestamp", "user_id", "timestamp"),
         Index("idx_action_status", "action", "status"),
-        Index("idx_resource", "resource_type", "resource_id"),
+        Index("idx_audit_resource", "resource_type", "resource_id"),
     )
 
 
@@ -927,3 +927,22 @@ class DatabaseStorage:
             raise
         finally:
             session.close()
+
+
+_database: DatabaseStorage | None = None
+
+
+def get_database() -> DatabaseStorage:
+    """Return the process-wide storage handle, opening it from config on first use."""
+    global _database
+    if _database is None:
+        from cloudguard_anomaly.config import get_config
+
+        _database = DatabaseStorage(get_config().database_url)
+    return _database
+
+
+def set_database(database: DatabaseStorage) -> None:
+    """Make ``database`` the handle returned by :func:`get_database`."""
+    global _database
+    _database = database

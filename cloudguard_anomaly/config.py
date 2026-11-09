@@ -5,6 +5,7 @@ Centralized configuration with environment variable support.
 """
 
 import os
+import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -68,10 +69,6 @@ class Config:
         default_factory=lambda: int(os.getenv("SESSION_TIMEOUT", "3600"))  # 1 hour
     )
 
-    # Logging configuration
-    log_level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO"))
-    log_format: str = field(default_factory=lambda: os.getenv("LOG_FORMAT", "json"))
-
     # Notifications
     slack_webhook_url: str | None = field(default_factory=lambda: os.getenv("SLACK_WEBHOOK_URL"))
     webhook_url: str | None = field(default_factory=lambda: os.getenv("WEBHOOK_URL"))
@@ -132,20 +129,27 @@ class Config:
     reports_dir: Path = field(default_factory=lambda: Path(os.getenv("REPORTS_DIR", "./reports")))
 
     def __post_init__(self):
-        """Validate configuration."""
-        # Validate secret key if dashboard is not in debug mode
-        if not self.dashboard_debug and not self.dashboard_secret_key:
-            raise ValueError(
-                "DASHBOARD_SECRET_KEY must be set when not in debug mode. "
-                "Generate a secure key with: python -c 'import secrets; print(secrets.token_hex(32))'"
-            )
-
-        # Warn if auth is enabled but no secret key
-        if self.enable_auth and not self.dashboard_secret_key:
-            raise ValueError("DASHBOARD_SECRET_KEY must be set when authentication is enabled")
-
-        # Create reports directory if it doesn't exist
+        """Create the reports directory if it doesn't exist."""
         self.reports_dir.mkdir(parents=True, exist_ok=True)
+
+    def require_dashboard_secret(self) -> str:
+        """
+        Return the key that signs dashboard sessions.
+
+        Only the dashboard needs a secret, so the check lives here rather than in
+        ``__post_init__``, where it stopped CLI scans and migrations from running.
+
+        Raises:
+            ValueError: If no key is configured outside debug mode
+        """
+        if self.dashboard_secret_key:
+            return self.dashboard_secret_key
+        if self.dashboard_debug:
+            return secrets.token_hex(32)
+        raise ValueError(
+            "DASHBOARD_SECRET_KEY must be set when not in debug mode. Generate a secure "
+            "key with: python -c 'import secrets; print(secrets.token_hex(32))'"
+        )
 
     def get_llm_api_key(self) -> str | None:
         """Get the appropriate LLM API key based on provider."""

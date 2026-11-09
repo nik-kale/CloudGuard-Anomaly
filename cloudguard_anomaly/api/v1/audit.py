@@ -18,14 +18,9 @@ from cloudguard_anomaly.api.validation import (
 )
 from cloudguard_anomaly.auth.decorators import login_required, permission_required
 from cloudguard_anomaly.auth.models import Permission
-from cloudguard_anomaly.config import get_config
-from cloudguard_anomaly.storage.database import DatabaseStorage
+from cloudguard_anomaly.storage.database import get_database
 
 logger = logging.getLogger(__name__)
-
-# Initialize database
-config = get_config()
-db = DatabaseStorage(config.database_url)
 
 
 def audit_log_to_dict(log) -> dict[str, Any]:
@@ -102,7 +97,7 @@ def list_audit_logs():
         limit, offset = get_pagination_params(request)
 
         # Get audit logs from database
-        logs = db.get_audit_logs(
+        logs = get_database().get_audit_logs(
             user_id=user_id,
             action=action,
             resource_type=resource_type,
@@ -146,7 +141,7 @@ def get_audit_log(log_id: str):
         return jsonify({"error": "Invalid audit log ID"}), 400
 
     try:
-        session = db.get_session()
+        session = get_database().get_session()
         try:
             from cloudguard_anomaly.storage.database import AuditLog
 
@@ -205,7 +200,7 @@ def get_user_activity(user_id: str):
                 days = 30
 
         # Get user activity
-        logs = db.get_user_activity(user_id=user_id, days=days)
+        logs = get_database().get_user_activity(user_id=user_id, days=days)
 
         # Convert to API response format
         result = [audit_log_to_dict(log) for log in logs]
@@ -246,7 +241,7 @@ def get_audit_stats():
 
         start_time = datetime.utcnow() - timedelta(days=days)
 
-        session = db.get_session()
+        session = get_database().get_session()
         try:
             from sqlalchemy import func
 

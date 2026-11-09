@@ -270,3 +270,18 @@ def set_output(output: CliOutput):
     """Set global CLI output instance."""
     global _output
     _output = output
+
+
+def print_success(message: str) -> None:
+    """Print a success message through the global CLI output."""
+    get_output().success(message)
+
+
+def print_error(message: str) -> None:
+    """Print an error message through the global CLI output."""
+    get_output().error(message)
+
+
+def print_info(message: str) -> None:
+    """Print an informational message through the global CLI output."""
+    get_output().info(message)

@@ -20,14 +20,9 @@ from cloudguard_anomaly.api.validation import (
 )
 from cloudguard_anomaly.auth.decorators import login_required, permission_required
 from cloudguard_anomaly.auth.models import Permission
-from cloudguard_anomaly.config import get_config
-from cloudguard_anomaly.storage.database import DatabaseStorage
+from cloudguard_anomaly.storage.database import get_database
 
 logger = logging.getLogger(__name__)
-
-# Initialize database
-config = get_config()
-db = DatabaseStorage(config.database_url)
 
 
 def policy_record_to_dict(policy) -> dict[str, Any]:
@@ -76,7 +71,7 @@ def list_policies():
         limit, offset = get_pagination_params(request)
 
         # Get policies from database
-        policies = db.list_policies(
+        policies = get_database().list_policies(
             provider=provider,
             severity=severity,
             enabled_only=enabled_only,
@@ -116,7 +111,7 @@ def get_policy(policy_id: str):
         return jsonify({"error": "Invalid policy ID"}), 400
 
     try:
-        policy = db.get_policy(policy_id)
+        policy = get_database().get_policy(policy_id)
 
         if not policy:
             return jsonify({"error": "Policy not found"}), 404
@@ -192,7 +187,7 @@ def create_policy():
         user_id = user_id.id if user_id else None
 
         # Create policy
-        policy = db.create_policy(
+        policy = get_database().create_policy(
             name=name,
             description=description,
             severity=severity,
@@ -264,7 +259,7 @@ def update_policy(policy_id: str):
             update_args["enabled"] = bool(data["enabled"])
 
         # Update policy
-        policy = db.update_policy(policy_id, **update_args)
+        policy = get_database().update_policy(policy_id, **update_args)
 
         if not policy:
             return jsonify({"error": "Policy not found"}), 404
@@ -299,7 +294,7 @@ def delete_policy(policy_id: str):
         return jsonify({"error": "Invalid policy ID"}), 400
 
     try:
-        deleted = db.delete_policy(policy_id)
+        deleted = get_database().delete_policy(policy_id)
 
         if not deleted:
             return jsonify({"error": "Policy not found"}), 404

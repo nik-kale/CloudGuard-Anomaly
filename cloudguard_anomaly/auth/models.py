@@ -228,6 +228,9 @@ class Permission:
     ROLE_UPDATE = "role:update"
     ROLE_DELETE = "role:delete"
 
+    # Audit log access
+    AUDIT_VIEW = "audit:view"
+
     # Admin
     ADMIN_ALL = "admin:*"
 
@@ -247,12 +250,13 @@ DEFAULT_ROLES = {
         ],
     },
     "auditor": {
-        "description": "Read-only access to scans and findings",
+        "description": "Read-only access to scans, findings and audit logs",
         "permissions": [
             Permission.SCAN_VIEW,
             Permission.FINDING_VIEW,
             Permission.COMPLIANCE_VIEW,
             Permission.POLICY_VIEW,
+            Permission.AUDIT_VIEW,
         ],
     },
     "viewer": {

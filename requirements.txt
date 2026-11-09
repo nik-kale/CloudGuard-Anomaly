@@ -4,9 +4,9 @@ pyyaml>=6.0
 python-dotenv>=1.0.0  # Configuration management
 
 # Database
-sqlalchemy>=2.0.0
+sqlalchemy>=2.1.0
 alembic>=1.12.0  # Database migrations
-psycopg2-binary>=2.9.0  # PostgreSQL support
+psycopg[binary]>=3.2.0  # PostgreSQL support (the default driver for postgresql:// URLs)
 pymysql>=1.1.0  # MySQL support
 
 # Cloud provider SDKs (optional)
@@ -38,6 +38,9 @@ flask-wtf>=1.2.0  # CSRF protection
 flasgger>=0.9.7  # OpenAPI/Swagger documentation
 plotly>=5.17.0
 
+# Reports
+reportlab>=4.0.0  # PDF generation
+
 # CLI Enhancement
 rich>=13.7.0  # Beautiful terminal output
 colorama>=0.4.6  # Cross-platform terminal colors
@@ -45,6 +48,7 @@ tqdm>=4.66.0  # Progress bars
 
 # Notifications
 requests>=2.31.0
+jira>=3.5.0  # Jira ticketing integration
 
 # Monitoring & Scheduling
 schedule>=1.2.0  # Task scheduling

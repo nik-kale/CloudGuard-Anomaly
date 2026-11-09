@@ -5,6 +5,8 @@ Generates professional PDF reports suitable for executive dashboards,
 compliance documentation, and audit trails.
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime
 from pathlib import Path

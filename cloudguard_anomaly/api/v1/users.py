@@ -18,11 +18,9 @@ from cloudguard_anomaly.api.validation import (
 from cloudguard_anomaly.auth import get_auth_manager
 from cloudguard_anomaly.auth.decorators import admin_required, login_required
 from cloudguard_anomaly.auth.password import PasswordValidationError, validate_password_strength
+from cloudguard_anomaly.storage.database import get_database
 
 logger = logging.getLogger(__name__)
-
-# Get auth manager
-auth_manager = get_auth_manager()
 
 
 def user_to_dict(user) -> dict[str, Any]:
@@ -51,7 +49,7 @@ def list_users():
         JSON array of user objects
     """
     try:
-        users = auth_manager.list_users()
+        users = get_auth_manager().list_users()
         result = [user_to_dict(u) for u in users]
 
         return jsonify({"users": result, "count": len(result)}), 200
@@ -87,7 +85,7 @@ def get_user(user_id: str):
         if current_user.id != user_id and not current_user.is_admin:
             return jsonify({"error": "Permission denied"}), 403
 
-        user = auth_manager.get_user(user_id)
+        user = get_auth_manager().get_user(user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -149,7 +147,7 @@ def create_user():
 
         # Create user (password validation happens in auth manager)
         try:
-            user = auth_manager.create_user(
+            user = get_auth_manager().create_user(
                 username=username,
                 email=email,
                 password=password,
@@ -210,12 +208,7 @@ def update_user(user_id: str):
         data = request.get_json()
 
         # Get user from database
-        from cloudguard_anomaly.config import get_config
-        from cloudguard_anomaly.storage.database import DatabaseStorage
-
-        config = get_config()
-        db = DatabaseStorage(config.database_url)
-        session = db.get_session()
+        session = get_database().get_session()
 
         try:
             from cloudguard_anomaly.auth.models import User
@@ -304,12 +297,12 @@ def delete_user(user_id: str):
             return jsonify({"error": "Cannot delete your own account"}), 400
 
         # Check if user exists
-        user = auth_manager.get_user(user_id)
+        user = get_auth_manager().get_user(user_id)
         if not user:
             return jsonify({"error": "User not found"}), 404
 
         # Delete user
-        auth_manager.delete_user(user_id)
+        get_auth_manager().delete_user(user_id)
 
         logger.info(f"User deleted: {user_id} by {current_user.id}")
 
@@ -347,12 +340,7 @@ def regenerate_api_key(user_id: str):
             return jsonify({"error": "Permission denied"}), 403
 
         # Get user and regenerate API key
-        from cloudguard_anomaly.config import get_config
-        from cloudguard_anomaly.storage.database import DatabaseStorage
-
-        config = get_config()
-        db = DatabaseStorage(config.database_url)
-        session = db.get_session()
+        session = get_database().get_session()
 
         try:
             from cloudguard_anomaly.auth.models import User

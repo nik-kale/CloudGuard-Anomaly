@@ -16,14 +16,9 @@ from cloudguard_anomaly.api.validation import (
     validate_scan_id,
 )
 from cloudguard_anomaly.auth.decorators import admin_required, login_required
-from cloudguard_anomaly.config import get_config
-from cloudguard_anomaly.storage.database import DatabaseStorage
+from cloudguard_anomaly.storage.database import get_database
 
 logger = logging.getLogger(__name__)
-
-# Initialize database
-config = get_config()
-db = DatabaseStorage(config.database_url)
 
 
 def role_to_dict(role) -> dict[str, Any]:
@@ -48,7 +43,7 @@ def list_roles():
         JSON array of role objects
     """
     try:
-        session = db.get_session()
+        session = get_database().get_session()
         try:
             from cloudguard_anomaly.auth.models import Role
 
@@ -84,7 +79,7 @@ def get_role(role_id: str):
         return jsonify({"error": "Invalid role ID"}), 400
 
     try:
-        session = db.get_session()
+        session = get_database().get_session()
         try:
             from cloudguard_anomaly.auth.models import Role
 
@@ -146,7 +141,7 @@ def create_role():
         if not re.match(r"^[a-z_]+$", name):
             return jsonify({"error": "Role name must be lowercase with underscores only"}), 400
 
-        session = db.get_session()
+        session = get_database().get_session()
         try:
             import uuid
 
@@ -224,7 +219,7 @@ def update_role(role_id: str):
     try:
         data = request.get_json()
 
-        session = db.get_session()
+        session = get_database().get_session()
         try:
             from cloudguard_anomaly.auth.models import Permission, Role
 
@@ -296,7 +291,7 @@ def delete_role(role_id: str):
         return jsonify({"error": "Invalid role ID"}), 400
 
     try:
-        session = db.get_session()
+        session = get_database().get_session()
         try:
             from cloudguard_anomaly.auth.models import Role
 

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session as DBSession
 
 from cloudguard_anomaly.auth.models import DEFAULT_ROLES, Permission, Role, Session, User
 from cloudguard_anomaly.auth.password import PasswordValidationError, validate_password_strength
-from cloudguard_anomaly.storage.database import DatabaseStorage
+from cloudguard_anomaly.storage.database import DatabaseStorage, get_database
 
 logger = logging.getLogger(__name__)
 
@@ -354,16 +354,11 @@ _auth_manager: AuthenticationManager | None = None
 
 
 def get_auth_manager(database: DatabaseStorage | None = None) -> AuthenticationManager:
-    """Get global authentication manager instance."""
+    """Get the authentication manager bound to ``database`` or the shared handle."""
     global _auth_manager
 
-    if _auth_manager is None:
-        if database is None:
-            from cloudguard_anomaly.config import get_config
-
-            config = get_config()
-            database = DatabaseStorage(config.database_url)
-
+    database = database or get_database()
+    if _auth_manager is None or _auth_manager.database is not database:
         _auth_manager = AuthenticationManager(database)
         _auth_manager.create_default_roles()
 

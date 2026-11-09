@@ -69,7 +69,7 @@ from cloudguard_anomaly.config import get_config
 from cloudguard_anomaly.middleware import setup_middleware
 from cloudguard_anomaly.observability.logging import setup_logging
 from cloudguard_anomaly.observability.metrics import get_metrics, get_metrics_content_type
-from cloudguard_anomaly.storage.database import DatabaseStorage
+from cloudguard_anomaly.storage.database import DatabaseStorage, set_database
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,6 @@ app = Flask(__name__, template_folder="templates", static_folder="static")
 
 # Load configuration
 config = get_config()
-app.config["SECRET_KEY"] = config.dashboard_secret_key or "dev-key-change-in-production"
 
 # Initialize observability
 setup_logging(log_level=config.log_level, log_format=getattr(config, "log_format", "json"))
@@ -119,8 +118,10 @@ if LIMITER_AVAILABLE and config.rate_limit_enabled:
 # Caching
 cache: Cache | None = None
 if CACHE_AVAILABLE:
+    # flask-caching resolves CACHE_TYPE to a backend class name
+    cache_backends = {"simple": "SimpleCache", "redis": "RedisCache"}
     cache_config = {
-        "CACHE_TYPE": config.cache_backend,
+        "CACHE_TYPE": cache_backends.get(config.cache_backend, config.cache_backend),
     }
     if config.cache_backend == "redis":
         cache_config["CACHE_REDIS_URL"] = config.redis_url
@@ -142,7 +143,26 @@ def init_dashboard(database_url: str):
     """Initialize dashboard with database connection."""
     global db
     db = DatabaseStorage(database_url)
+    set_database(db)
     logger.info(f"Dashboard initialized with database: {database_url}")
+
+
+def create_app(database_url: str | None = None) -> Flask:
+    """
+    Configure the dashboard application.
+
+    Args:
+        database_url: Database URL (defaults to the configured one)
+
+    Returns:
+        The ready-to-serve Flask application
+
+    Raises:
+        ValueError: If no session secret is configured outside debug mode
+    """
+    app.config["SECRET_KEY"] = config.require_dashboard_secret()
+    init_dashboard(database_url or config.database_url)
+    return app
 
 
 # =============================================================================
@@ -715,7 +735,7 @@ def run_dashboard(database_url: str, host: str = "0.0.0.0", port: int = 5000, de
         port: Port to listen on
         debug: Enable debug mode
     """
-    init_dashboard(database_url)
+    create_app(database_url)
     logger.info(f"Starting dashboard on {host}:{port}")
     socketio.run(app, host=host, port=port, debug=debug)
 
