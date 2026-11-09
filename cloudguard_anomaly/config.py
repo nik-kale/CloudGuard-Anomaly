@@ -5,13 +5,13 @@ Centralized configuration with environment variable support.
 """
 
 import os
-from pathlib import Path
-from typing import Optional
 from dataclasses import dataclass, field
+from pathlib import Path
 
 # Try to load .env file if python-dotenv is available
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass
@@ -33,16 +33,14 @@ class Config:
     )
 
     # LLM Providers
-    anthropic_api_key: Optional[str] = field(
-        default_factory=lambda: os.getenv("ANTHROPIC_API_KEY")
-    )
-    openai_api_key: Optional[str] = field(
-        default_factory=lambda: os.getenv("OPENAI_API_KEY")
-    )
+    anthropic_api_key: str | None = field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY"))
+    openai_api_key: str | None = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
     llm_provider: str = field(
-        default_factory=lambda: os.getenv("LLM_PROVIDER", "auto")  # auto, claude, openai, local, none
+        default_factory=lambda: os.getenv(
+            "LLM_PROVIDER", "auto"
+        )  # auto, claude, openai, local, none
     )
-    llm_model: Optional[str] = field(
+    llm_model: str | None = field(
         default_factory=lambda: os.getenv("LLM_MODEL")  # e.g., claude-3-5-sonnet-20241022
     )
     local_llm_url: str = field(
@@ -50,20 +48,16 @@ class Config:
     )
 
     # Dashboard
-    dashboard_secret_key: str = field(
-        default_factory=lambda: os.getenv("DASHBOARD_SECRET_KEY", "")
-    )
-    dashboard_host: str = field(
-        default_factory=lambda: os.getenv("DASHBOARD_HOST", "0.0.0.0")
-    )
-    dashboard_port: int = field(
-        default_factory=lambda: int(os.getenv("DASHBOARD_PORT", "5000"))
-    )
+    dashboard_secret_key: str = field(default_factory=lambda: os.getenv("DASHBOARD_SECRET_KEY", ""))
+    dashboard_host: str = field(default_factory=lambda: os.getenv("DASHBOARD_HOST", "0.0.0.0"))
+    dashboard_port: int = field(default_factory=lambda: int(os.getenv("DASHBOARD_PORT", "5000")))
     dashboard_debug: bool = field(
         default_factory=lambda: os.getenv("DASHBOARD_DEBUG", "false").lower() == "true"
     )
     cors_origins: str = field(
-        default_factory=lambda: os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5000")
+        default_factory=lambda: os.getenv(
+            "CORS_ORIGINS", "http://localhost:3000,http://localhost:5000"
+        )
     )
 
     # Authentication
@@ -75,49 +69,31 @@ class Config:
     )
 
     # Logging configuration
-    log_level: str = field(
-        default_factory=lambda: os.getenv("LOG_LEVEL", "INFO")
-    )
-    log_format: str = field(
-        default_factory=lambda: os.getenv("LOG_FORMAT", "json")
-    )
+    log_level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO"))
+    log_format: str = field(default_factory=lambda: os.getenv("LOG_FORMAT", "json"))
 
     # Notifications
-    slack_webhook_url: Optional[str] = field(
-        default_factory=lambda: os.getenv("SLACK_WEBHOOK_URL")
-    )
-    webhook_url: Optional[str] = field(
-        default_factory=lambda: os.getenv("WEBHOOK_URL")
-    )
+    slack_webhook_url: str | None = field(default_factory=lambda: os.getenv("SLACK_WEBHOOK_URL"))
+    webhook_url: str | None = field(default_factory=lambda: os.getenv("WEBHOOK_URL"))
 
     # Secrets Management
     secrets_backend: str = field(
         default_factory=lambda: os.getenv("SECRETS_BACKEND", "env")  # env, vault, aws
     )
-    vault_url: Optional[str] = field(
-        default_factory=lambda: os.getenv("VAULT_URL")
-    )
-    vault_token: Optional[str] = field(
-        default_factory=lambda: os.getenv("VAULT_TOKEN")
-    )
+    vault_url: str | None = field(default_factory=lambda: os.getenv("VAULT_URL"))
+    vault_token: str | None = field(default_factory=lambda: os.getenv("VAULT_TOKEN"))
 
     # AWS Cloud Provider
-    aws_profile: Optional[str] = field(
-        default_factory=lambda: os.getenv("AWS_PROFILE")
-    )
-    aws_region: str = field(
-        default_factory=lambda: os.getenv("AWS_REGION", "us-east-1")
-    )
+    aws_profile: str | None = field(default_factory=lambda: os.getenv("AWS_PROFILE"))
+    aws_region: str = field(default_factory=lambda: os.getenv("AWS_REGION", "us-east-1"))
 
     # Azure Cloud Provider
-    azure_subscription_id: Optional[str] = field(
+    azure_subscription_id: str | None = field(
         default_factory=lambda: os.getenv("AZURE_SUBSCRIPTION_ID")
     )
 
     # GCP Cloud Provider
-    gcp_project_id: Optional[str] = field(
-        default_factory=lambda: os.getenv("GCP_PROJECT_ID")
-    )
+    gcp_project_id: str | None = field(default_factory=lambda: os.getenv("GCP_PROJECT_ID"))
 
     # Scanning
     scan_parallel_workers: int = field(
@@ -149,17 +125,11 @@ class Config:
     )
 
     # Logging
-    log_level: str = field(
-        default_factory=lambda: os.getenv("LOG_LEVEL", "INFO")
-    )
-    log_format: str = field(
-        default_factory=lambda: os.getenv("LOG_FORMAT", "text")  # text, json
-    )
+    log_level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO"))
+    log_format: str = field(default_factory=lambda: os.getenv("LOG_FORMAT", "text"))  # text, json
 
     # Reports
-    reports_dir: Path = field(
-        default_factory=lambda: Path(os.getenv("REPORTS_DIR", "./reports"))
-    )
+    reports_dir: Path = field(default_factory=lambda: Path(os.getenv("REPORTS_DIR", "./reports")))
 
     def __post_init__(self):
         """Validate configuration."""
@@ -172,16 +142,16 @@ class Config:
 
         # Warn if auth is enabled but no secret key
         if self.enable_auth and not self.dashboard_secret_key:
-            raise ValueError(
-                "DASHBOARD_SECRET_KEY must be set when authentication is enabled"
-            )
+            raise ValueError("DASHBOARD_SECRET_KEY must be set when authentication is enabled")
 
         # Create reports directory if it doesn't exist
         self.reports_dir.mkdir(parents=True, exist_ok=True)
 
-    def get_llm_api_key(self) -> Optional[str]:
+    def get_llm_api_key(self) -> str | None:
         """Get the appropriate LLM API key based on provider."""
-        if self.llm_provider == "claude" or (self.llm_provider == "auto" and self.anthropic_api_key):
+        if self.llm_provider == "claude" or (
+            self.llm_provider == "auto" and self.anthropic_api_key
+        ):
             return self.anthropic_api_key
         elif self.llm_provider == "openai" or (self.llm_provider == "auto" and self.openai_api_key):
             return self.openai_api_key
@@ -189,7 +159,7 @@ class Config:
 
 
 # Global configuration instance
-_config: Optional[Config] = None
+_config: Config | None = None
 
 
 def get_config() -> Config:
@@ -210,6 +180,7 @@ def load_config_from_file(path: str):
     """Load configuration from .env file."""
     try:
         from dotenv import load_dotenv
+
         load_dotenv(path)
         # Reset config to reload from new env vars
         global _config

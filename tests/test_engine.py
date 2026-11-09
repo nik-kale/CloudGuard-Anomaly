@@ -3,13 +3,14 @@ Unit tests for the analysis engine.
 """
 
 import pytest
+
+from cloudguard_anomaly.core.engine import AnalysisEngine
 from cloudguard_anomaly.core.models import (
     Environment,
     Provider,
     Resource,
     ResourceType,
 )
-from cloudguard_anomaly.core.engine import AnalysisEngine
 
 
 class TestAnalysisEngine:

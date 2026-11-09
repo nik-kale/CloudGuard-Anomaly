@@ -4,10 +4,8 @@ LLM provider implementations for CloudGuard-Anomaly.
 Supports multiple LLM providers with a unified interface.
 """
 
-import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +42,7 @@ class ClaudeLLMProvider(LLMProvider):
         """
         try:
             import anthropic
+
             self.client = anthropic.Anthropic(api_key=api_key)
             self.model = model
             logger.info(f"Initialized Claude LLM provider with model {model}")
@@ -80,6 +79,7 @@ class OpenAIProvider(LLMProvider):
         """
         try:
             import openai
+
             self.client = openai.OpenAI(api_key=api_key)
             self.model = model
             logger.info(f"Initialized OpenAI provider with model {model}")
@@ -143,7 +143,7 @@ class LocalLLMProvider(LLMProvider):
             raise
 
 
-def get_llm_provider() -> Optional[LLMProvider]:
+def get_llm_provider() -> LLMProvider | None:
     """
     Auto-detect and create appropriate LLM provider.
 

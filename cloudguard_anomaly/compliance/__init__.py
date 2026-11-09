@@ -1,9 +1,9 @@
 """Compliance framework support for CloudGuard-Anomaly."""
 
 from cloudguard_anomaly.compliance.frameworks import (
-    ComplianceFramework,
     ComplianceControl,
     ComplianceEngine,
+    ComplianceFramework,
     ComplianceReport,
 )
 

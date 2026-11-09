@@ -8,7 +8,6 @@ and heuristic analysis.
 import logging
 import uuid
 from datetime import datetime
-from typing import List
 
 from cloudguard_anomaly.core.models import (
     Finding,
@@ -28,7 +27,7 @@ class MisconfigDetector:
         """Initialize the misconfiguration detector."""
         self.detection_rules = self._build_detection_rules()
 
-    def detect(self, resources: List[Resource]) -> List[Finding]:
+    def detect(self, resources: list[Resource]) -> list[Finding]:
         """
         Detect misconfigurations across resources.
 
@@ -47,7 +46,7 @@ class MisconfigDetector:
         logger.info(f"Misconfiguration detector found {len(findings)} issues")
         return findings
 
-    def _detect_resource_misconfigs(self, resource: Resource) -> List[Finding]:
+    def _detect_resource_misconfigs(self, resource: Resource) -> list[Finding]:
         """Detect misconfigurations for a single resource."""
         findings = []
 

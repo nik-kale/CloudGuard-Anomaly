@@ -5,26 +5,54 @@ Enforces strong password policies for CloudGuard-Anomaly.
 """
 
 import re
-from typing import List, Optional
-
 
 # Common weak passwords to reject
 COMMON_PASSWORDS = {
-    'password', 'password123', '123456', '12345678', 'qwerty', 'abc123',
-    'monkey', '1234567', 'letmein', 'trustno1', 'dragon', 'baseball',
-    'iloveyou', 'master', 'sunshine', 'ashley', 'bailey', 'passw0rd',
-    'shadow', '123123', '654321', 'superman', 'qazwsx', 'michael',
-    'football', 'admin', 'admin123', 'root', 'toor', 'changeme',
-    'changeme123', 'welcome', 'welcome123', 'test', 'test123'
+    "password",
+    "password123",
+    "123456",
+    "12345678",
+    "qwerty",
+    "abc123",
+    "monkey",
+    "1234567",
+    "letmein",
+    "trustno1",
+    "dragon",
+    "baseball",
+    "iloveyou",
+    "master",
+    "sunshine",
+    "ashley",
+    "bailey",
+    "passw0rd",
+    "shadow",
+    "123123",
+    "654321",
+    "superman",
+    "qazwsx",
+    "michael",
+    "football",
+    "admin",
+    "admin123",
+    "root",
+    "toor",
+    "changeme",
+    "changeme123",
+    "welcome",
+    "welcome123",
+    "test",
+    "test123",
 }
 
 
 class PasswordValidationError(ValueError):
     """Raised when password validation fails."""
+
     pass
 
 
-def validate_password_strength(password: str, username: Optional[str] = None) -> None:
+def validate_password_strength(password: str, username: str | None = None) -> None:
     """
     Validate password meets complexity requirements.
 
@@ -44,22 +72,22 @@ def validate_password_strength(password: str, username: Optional[str] = None) ->
     Raises:
         PasswordValidationError: If password doesn't meet requirements
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     # Check minimum length
     if len(password) < 12:
         errors.append("Password must be at least 12 characters long")
 
     # Check for uppercase letter
-    if not re.search(r'[A-Z]', password):
+    if not re.search(r"[A-Z]", password):
         errors.append("Password must contain at least one uppercase letter")
 
     # Check for lowercase letter
-    if not re.search(r'[a-z]', password):
+    if not re.search(r"[a-z]", password):
         errors.append("Password must contain at least one lowercase letter")
 
     # Check for digit
-    if not re.search(r'\d', password):
+    if not re.search(r"\d", password):
         errors.append("Password must contain at least one digit")
 
     # Check for special character
@@ -97,15 +125,15 @@ def validate_password_basic(password: str) -> None:
     Raises:
         PasswordValidationError: If password doesn't meet basic requirements
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     if len(password) < 8:
         errors.append("Password must be at least 8 characters long")
 
-    if not re.search(r'[a-zA-Z]', password):
+    if not re.search(r"[a-zA-Z]", password):
         errors.append("Password must contain at least one letter")
 
-    if not re.search(r'\d', password):
+    if not re.search(r"\d", password):
         errors.append("Password must contain at least one digit")
 
     if len(password) > 128:
@@ -138,22 +166,22 @@ def check_password_strength_score(password: str) -> int:
         score += 10
 
     # Character diversity
-    if re.search(r'[a-z]', password):
+    if re.search(r"[a-z]", password):
         score += 10
-    if re.search(r'[A-Z]', password):
+    if re.search(r"[A-Z]", password):
         score += 10
-    if re.search(r'\d', password):
+    if re.search(r"\d", password):
         score += 10
     if re.search(r'[!@#$%^&*()_+\-=\[\]{};:\'",.<>?/\\|`~]', password):
         score += 15
 
     # Multiple character types
     char_types = 0
-    if re.search(r'[a-z]', password):
+    if re.search(r"[a-z]", password):
         char_types += 1
-    if re.search(r'[A-Z]', password):
+    if re.search(r"[A-Z]", password):
         char_types += 1
-    if re.search(r'\d', password):
+    if re.search(r"\d", password):
         char_types += 1
     if re.search(r'[!@#$%^&*()_+\-=\[\]{};:\'",.<>?/\\|`~]', password):
         char_types += 1
@@ -168,9 +196,9 @@ def check_password_strength_score(password: str) -> int:
         score = max(0, score - 50)
 
     # Penalize simple patterns
-    if re.match(r'^(.)\1+$', password):  # All same character
+    if re.match(r"^(.)\1+$", password):  # All same character
         score = max(0, score - 30)
-    if re.match(r'^(012|123|234|345|456|567|678|789)', password):  # Sequential
+    if re.match(r"^(012|123|234|345|456|567|678|789)", password):  # Sequential
         score = max(0, score - 20)
 
     return min(100, score)

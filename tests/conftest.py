@@ -5,19 +5,19 @@ Pytest configuration and shared fixtures for CloudGuard-Anomaly tests.
 import os
 import tempfile
 from datetime import datetime
-from typing import List
+
 import pytest
 
 from cloudguard_anomaly.core.models import (
-    Resource,
-    ResourceType,
+    Anomaly,
     CloudProvider,
     Environment,
     Finding,
-    Anomaly,
-    Severity,
     FindingType,
+    Resource,
+    ResourceType,
     ScanResult,
+    Severity,
 )
 from cloudguard_anomaly.storage.database import DatabaseStorage
 
@@ -133,9 +133,7 @@ def sample_iam_role():
                     "PolicyName": "AdminAccess",
                     "PolicyDocument": {
                         "Version": "2012-10-17",
-                        "Statement": [
-                            {"Effect": "Allow", "Action": "*", "Resource": "*"}
-                        ],
+                        "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}],
                     },
                 }
             ],

@@ -5,16 +5,16 @@ Provides real-time resource discovery and analysis from live GCP projects.
 """
 
 import logging
-from typing import List, Optional
 
 try:
-    from google.cloud import storage, compute_v1, sql_v1
+    from google.cloud import compute_v1, sql_v1, storage
     from google.oauth2 import service_account
+
     GCP_SDK_AVAILABLE = True
 except ImportError:
     GCP_SDK_AVAILABLE = False
 
-from cloudguard_anomaly.core.models import Resource, ResourceType, Provider, Environment
+from cloudguard_anomaly.core.models import Environment, Provider, Resource, ResourceType
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class GCPLiveIntegration:
     """Real-time GCP resource discovery and analysis."""
 
-    def __init__(self, project_id: str, credentials_path: Optional[str] = None):
+    def __init__(self, project_id: str, credentials_path: str | None = None):
         """
         Initialize GCP live integration.
 
@@ -31,7 +31,9 @@ class GCPLiveIntegration:
             credentials_path: Path to service account JSON (optional)
         """
         if not GCP_SDK_AVAILABLE:
-            raise ImportError("Google Cloud SDK required. Install with: pip install google-cloud-storage google-cloud-compute google-cloud-sql")
+            raise ImportError(
+                "Google Cloud SDK required. Install with: pip install google-cloud-storage google-cloud-compute google-cloud-sql"
+            )
 
         self.project_id = project_id
 
@@ -64,7 +66,7 @@ class GCPLiveIntegration:
             },
         )
 
-    def _discover_storage_buckets(self) -> List[Resource]:
+    def _discover_storage_buckets(self) -> list[Resource]:
         """Discover GCS buckets."""
         resources = []
 

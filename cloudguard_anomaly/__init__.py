@@ -10,11 +10,11 @@ __version__ = "0.1.0"
 __author__ = "CloudGuard-Anomaly Contributors"
 
 from cloudguard_anomaly.core.models import (
-    Resource,
-    Policy,
-    Finding,
     Anomaly,
     Environment,
+    Finding,
+    Policy,
+    Resource,
     ScanResult,
 )
 

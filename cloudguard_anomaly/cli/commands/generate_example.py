@@ -5,7 +5,7 @@ Generate example environment command implementation.
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import yaml
 
@@ -68,12 +68,12 @@ def execute_generate(
     print(f"  Location: {env_dir}")
     print(f"  Provider: {provider.upper()}")
     if with_issues:
-        print(f"  ⚠️  Includes intentional security issues for demonstration")
-    print(f"\nTo scan this environment:")
+        print("  ⚠️  Includes intentional security issues for demonstration")
+    print("\nTo scan this environment:")
     print(f"  cloudguard-anomaly scan --env {env_dir}")
 
 
-def generate_resources(provider: str, count: int, with_issues: bool) -> List[Dict[str, Any]]:
+def generate_resources(provider: str, count: int, with_issues: bool) -> list[dict[str, Any]]:
     """Generate synthetic resources."""
     resources = []
 
@@ -87,7 +87,7 @@ def generate_resources(provider: str, count: int, with_issues: bool) -> List[Dic
     return resources
 
 
-def generate_aws_resources(count: int, with_issues: bool) -> List[Dict[str, Any]]:
+def generate_aws_resources(count: int, with_issues: bool) -> list[dict[str, Any]]:
     """Generate AWS resources."""
     resources = []
 
@@ -145,7 +145,12 @@ def generate_aws_resources(count: int, with_issues: bool) -> List[Dict[str, Any]
 
         if with_issues:
             sg_rules.append(
-                {"from_port": 3389, "to_port": 3389, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"]}
+                {
+                    "from_port": 3389,
+                    "to_port": 3389,
+                    "protocol": "tcp",
+                    "cidr_blocks": ["0.0.0.0/0"],
+                }
             )
 
         security_group = {
@@ -189,7 +194,9 @@ def generate_aws_resources(count: int, with_issues: bool) -> List[Dict[str, Any]
                     "Statement": [
                         {
                             "Effect": "Allow",
-                            "Principal": {"AWS": "*" if with_issues else "arn:aws:iam::123456789012:root"},
+                            "Principal": {
+                                "AWS": "*" if with_issues else "arn:aws:iam::123456789012:root"
+                            },
                             "Action": "sts:AssumeRole",
                         }
                     ]
@@ -224,7 +231,7 @@ def generate_aws_resources(count: int, with_issues: bool) -> List[Dict[str, Any]
     return resources
 
 
-def generate_azure_resources(count: int, with_issues: bool) -> List[Dict[str, Any]]:
+def generate_azure_resources(count: int, with_issues: bool) -> list[dict[str, Any]]:
     """Generate Azure resources."""
     resources = []
 
@@ -275,7 +282,7 @@ def generate_azure_resources(count: int, with_issues: bool) -> List[Dict[str, An
     return resources
 
 
-def generate_gcp_resources(count: int, with_issues: bool) -> List[Dict[str, Any]]:
+def generate_gcp_resources(count: int, with_issues: bool) -> list[dict[str, Any]]:
     """Generate GCP resources."""
     resources = []
 

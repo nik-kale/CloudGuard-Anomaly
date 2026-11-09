@@ -1,6 +1,6 @@
 """Azure provider implementation."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 from cloudguard_anomaly.core.models import Provider, Resource, ResourceType
 from cloudguard_anomaly.providers.base import BaseProvider
@@ -12,7 +12,7 @@ class AzureProvider(BaseProvider):
     def __init__(self):
         super().__init__("azure")
 
-    def get_resource_type_mapping(self) -> Dict[str, ResourceType]:
+    def get_resource_type_mapping(self) -> dict[str, ResourceType]:
         """Map Azure resource types to standard types."""
         return {
             # Compute
@@ -45,7 +45,7 @@ class AzureProvider(BaseProvider):
             "azurerm_key_vault_key": ResourceType.KEY,
         }
 
-    def normalize_resource(self, raw_resource: Dict[str, Any]) -> Resource:
+    def normalize_resource(self, raw_resource: dict[str, Any]) -> Resource:
         """Normalize Azure resource to standard format."""
         resource_type = self.detect_resource_type(raw_resource)
 
@@ -63,15 +63,15 @@ class AzureProvider(BaseProvider):
             },
         )
 
-    def extract_tags(self, raw_resource: Dict[str, Any]) -> Dict[str, str]:
+    def extract_tags(self, raw_resource: dict[str, Any]) -> dict[str, str]:
         """Extract tags from Azure resource format."""
         return raw_resource.get("tags", {})
 
-    def extract_region(self, raw_resource: Dict[str, Any]) -> str:
+    def extract_region(self, raw_resource: dict[str, Any]) -> str:
         """Extract location/region from Azure resource."""
         return raw_resource.get("location", raw_resource.get("region", "eastus"))
 
-    def validate_resource(self, resource: Resource) -> List[str]:
+    def validate_resource(self, resource: Resource) -> list[str]:
         """Validate Azure resource configuration."""
         errors = []
 

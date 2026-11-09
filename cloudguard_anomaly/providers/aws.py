@@ -1,6 +1,6 @@
 """AWS provider implementation."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 from cloudguard_anomaly.core.models import Provider, Resource, ResourceType
 from cloudguard_anomaly.providers.base import BaseProvider
@@ -12,7 +12,7 @@ class AWSProvider(BaseProvider):
     def __init__(self):
         super().__init__("aws")
 
-    def get_resource_type_mapping(self) -> Dict[str, ResourceType]:
+    def get_resource_type_mapping(self) -> dict[str, ResourceType]:
         """Map AWS resource types to standard types."""
         return {
             # Compute
@@ -49,7 +49,7 @@ class AWSProvider(BaseProvider):
             "aws_secretsmanager_secret": ResourceType.SECRET,
         }
 
-    def normalize_resource(self, raw_resource: Dict[str, Any]) -> Resource:
+    def normalize_resource(self, raw_resource: dict[str, Any]) -> Resource:
         """Normalize AWS resource to standard format."""
         resource_type = self.detect_resource_type(raw_resource)
 
@@ -67,7 +67,7 @@ class AWSProvider(BaseProvider):
             },
         )
 
-    def extract_tags(self, raw_resource: Dict[str, Any]) -> Dict[str, str]:
+    def extract_tags(self, raw_resource: dict[str, Any]) -> dict[str, str]:
         """Extract tags from AWS resource format."""
         tags = raw_resource.get("tags", {})
 
@@ -81,7 +81,7 @@ class AWSProvider(BaseProvider):
 
         return {}
 
-    def extract_region(self, raw_resource: Dict[str, Any]) -> str:
+    def extract_region(self, raw_resource: dict[str, Any]) -> str:
         """Extract region from AWS resource."""
         # Try different region fields
         region = raw_resource.get("region")
@@ -97,7 +97,7 @@ class AWSProvider(BaseProvider):
 
         return "us-east-1"  # Default region
 
-    def validate_resource(self, resource: Resource) -> List[str]:
+    def validate_resource(self, resource: Resource) -> list[str]:
         """Validate AWS resource configuration."""
         errors = []
 
@@ -118,7 +118,7 @@ class AWSProvider(BaseProvider):
 
         return errors
 
-    def _validate_s3_bucket(self, resource: Resource) -> List[str]:
+    def _validate_s3_bucket(self, resource: Resource) -> list[str]:
         """Validate S3 bucket configuration."""
         errors = []
         props = resource.properties
@@ -130,7 +130,7 @@ class AWSProvider(BaseProvider):
 
         return errors
 
-    def _validate_security_group(self, resource: Resource) -> List[str]:
+    def _validate_security_group(self, resource: Resource) -> list[str]:
         """Validate security group configuration."""
         errors = []
         props = resource.properties
@@ -142,7 +142,7 @@ class AWSProvider(BaseProvider):
 
         return errors
 
-    def _validate_iam_role(self, resource: Resource) -> List[str]:
+    def _validate_iam_role(self, resource: Resource) -> list[str]:
         """Validate IAM role configuration."""
         errors = []
         props = resource.properties

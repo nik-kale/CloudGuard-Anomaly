@@ -2,18 +2,16 @@
 Tests for Policy SDK.
 """
 
-import pytest
-
+from cloudguard_anomaly.core.models import FindingType, Resource, ResourceType, Severity
 from cloudguard_anomaly.sdk.policy_sdk import (
-    policy,
     PolicyBuilder,
-    require_encryption,
-    deny_public_access,
-    require_tags,
-    check_property,
     PolicyRegistry,
+    check_property,
+    deny_public_access,
+    policy,
+    require_encryption,
+    require_tags,
 )
-from cloudguard_anomaly.core.models import Resource, ResourceType, Severity, FindingType
 
 
 class TestPolicySDK:
@@ -180,9 +178,7 @@ class TestPolicySDK:
         builder = PolicyBuilder("BUILDER_003", "Tag Check")
 
         policy_func = (
-            builder.with_severity(Severity.LOW)
-            .require_tags(["CostCenter", "Owner"])
-            .build()
+            builder.with_severity(Severity.LOW).require_tags(["CostCenter", "Owner"]).build()
         )
 
         result = policy_func(sample_s3_bucket)
@@ -195,9 +191,7 @@ class TestPolicySDK:
         builder = PolicyBuilder("BUILDER_004", "Property Check")
 
         policy_func = (
-            builder.with_severity(Severity.MEDIUM)
-            .check_property("logging_enabled", True)
-            .build()
+            builder.with_severity(Severity.MEDIUM).check_property("logging_enabled", True).build()
         )
 
         result = policy_func(sample_s3_bucket)

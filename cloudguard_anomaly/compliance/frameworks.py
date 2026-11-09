@@ -8,9 +8,9 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import List, Dict, Any, Optional
+from typing import Any
 
-from cloudguard_anomaly.core.models import ScanResult, Severity, Finding
+from cloudguard_anomaly.core.models import Finding, ScanResult, Severity
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +37,11 @@ class ComplianceControl:
     framework: ComplianceFramework
     title: str
     description: str
-    policies: List[str]  # Policy IDs that satisfy this control
-    evidence_required: List[str]
+    policies: list[str]  # Policy IDs that satisfy this control
+    evidence_required: list[str]
     severity: Severity
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -60,11 +60,11 @@ class ComplianceControlResult:
 
     control: ComplianceControl
     passed: bool
-    findings: List[Finding]
-    evidence: Dict[str, Any]
-    recommendations: List[str]
+    findings: list[Finding]
+    evidence: dict[str, Any]
+    recommendations: list[str]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "control": self.control.to_dict(),
@@ -81,7 +81,7 @@ class ComplianceReport:
     """Compliance evaluation report."""
 
     framework: ComplianceFramework
-    control_results: List[ComplianceControlResult]
+    control_results: list[ComplianceControlResult]
     overall_compliance: float  # 0-100%
     timestamp: datetime
 
@@ -97,7 +97,7 @@ class ComplianceReport:
     def failed_controls(self) -> int:
         return self.total_controls - self.passed_controls
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "framework": self.framework.value,
@@ -118,7 +118,7 @@ class ComplianceEngine:
         self.controls = self._load_all_controls()
         logger.info(f"Initialized compliance engine with {len(self.controls)} controls")
 
-    def _load_all_controls(self) -> Dict[ComplianceFramework, List[ComplianceControl]]:
+    def _load_all_controls(self) -> dict[ComplianceFramework, list[ComplianceControl]]:
         """Load all compliance controls."""
         return {
             ComplianceFramework.SOC2: self._load_soc2_controls(),
@@ -126,7 +126,7 @@ class ComplianceEngine:
             ComplianceFramework.HIPAA: self._load_hipaa_controls(),
         }
 
-    def _load_soc2_controls(self) -> List[ComplianceControl]:
+    def _load_soc2_controls(self) -> list[ComplianceControl]:
         """Load SOC2 compliance controls."""
         return [
             ComplianceControl(
@@ -165,7 +165,7 @@ class ComplianceEngine:
             ),
         ]
 
-    def _load_pci_controls(self) -> List[ComplianceControl]:
+    def _load_pci_controls(self) -> list[ComplianceControl]:
         """Load PCI-DSS compliance controls."""
         return [
             ComplianceControl(
@@ -197,7 +197,7 @@ class ComplianceEngine:
             ),
         ]
 
-    def _load_hipaa_controls(self) -> List[ComplianceControl]:
+    def _load_hipaa_controls(self) -> list[ComplianceControl]:
         """Load HIPAA compliance controls."""
         return [
             ComplianceControl(
@@ -275,9 +275,7 @@ class ComplianceEngine:
         """Evaluate a single compliance control."""
         # Find relevant findings
         relevant_findings = [
-            f
-            for f in scan_result.findings
-            if f.policy and f.policy.id in control.policies
+            f for f in scan_result.findings if f.policy and f.policy.id in control.policies
         ]
 
         # Control passes if no related findings
@@ -300,8 +298,8 @@ class ComplianceEngine:
         )
 
     def _gather_evidence(
-        self, scan_result: ScanResult, evidence_types: List[str]
-    ) -> Dict[str, Any]:
+        self, scan_result: ScanResult, evidence_types: list[str]
+    ) -> dict[str, Any]:
         """Gather evidence for compliance control."""
         evidence = {}
 
@@ -325,8 +323,8 @@ class ComplianceEngine:
         return evidence
 
     def _generate_recommendations(
-        self, control: ComplianceControl, findings: List[Finding]
-    ) -> List[str]:
+        self, control: ComplianceControl, findings: list[Finding]
+    ) -> list[str]:
         """Generate recommendations for failed control."""
         recommendations = [
             f"Address {len(findings)} finding(s) related to {control.title}",

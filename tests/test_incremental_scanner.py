@@ -2,11 +2,8 @@
 Tests for incremental scanning with hash-based change detection.
 """
 
-import pytest
-from datetime import datetime
-
 from cloudguard_anomaly.core.incremental import IncrementalScanTracker, ResourceSnapshot
-from cloudguard_anomaly.core.models import Resource, ResourceType, CloudProvider
+from cloudguard_anomaly.core.models import CloudProvider, Resource, ResourceType
 
 
 class TestIncrementalScanner:

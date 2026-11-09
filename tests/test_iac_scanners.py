@@ -2,14 +2,13 @@
 Tests for Infrastructure-as-Code scanners.
 """
 
-import tempfile
 import os
+import tempfile
 from pathlib import Path
-import pytest
 
-from cloudguard_anomaly.iac.terraform_scanner import TerraformScanner
+from cloudguard_anomaly.core.models import ResourceType
 from cloudguard_anomaly.iac.cloudformation_scanner import CloudFormationScanner
-from cloudguard_anomaly.core.models import ResourceType, CloudProvider
+from cloudguard_anomaly.iac.terraform_scanner import TerraformScanner
 
 
 class TestTerraformScanner:

@@ -5,24 +5,24 @@ Runs scans on a schedule and alerts on changes.
 """
 
 import logging
-import time
 import signal
 import sys
-from datetime import datetime, timedelta
-from typing import Optional, Callable, Dict, Any
-from pathlib import Path
+import time
+from collections.abc import Callable
+from datetime import datetime
+from typing import Any
 
 try:
     import schedule
+
     SCHEDULE_AVAILABLE = True
 except ImportError:
     SCHEDULE_AVAILABLE = False
 
-from cloudguard_anomaly.core.engine import AnalysisEngine
-from cloudguard_anomaly.core.models import ScanResult, Environment
-from cloudguard_anomaly.storage.database import DatabaseStorage
-from cloudguard_anomaly.notifications.webhooks import SlackNotifier
 from cloudguard_anomaly.config import get_config
+from cloudguard_anomaly.core.engine import AnalysisEngine
+from cloudguard_anomaly.core.models import Environment, ScanResult
+from cloudguard_anomaly.storage.database import DatabaseStorage
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +37,8 @@ class MonitoringDaemon:
     def __init__(
         self,
         scan_interval: int = 3600,  # 1 hour in seconds
-        database_url: Optional[str] = None,
-        slack_webhook: Optional[str] = None,
+        database_url: str | None = None,
+        slack_webhook: str | None = None,
     ):
         """
         Initialize monitoring daemon.
@@ -50,14 +50,13 @@ class MonitoringDaemon:
         """
         if not SCHEDULE_AVAILABLE:
             raise ImportError(
-                "schedule required for monitoring daemon. "
-                "Install with: pip install schedule"
+                "schedule required for monitoring daemon. " "Install with: pip install schedule"
             )
 
         self.scan_interval = scan_interval
         self.running = False
         self.scan_count = 0
-        self.last_scan_time: Optional[datetime] = None
+        self.last_scan_time: datetime | None = None
 
         # Initialize components
         config = get_config()
@@ -67,12 +66,13 @@ class MonitoringDaemon:
         if slack_webhook or config.slack_webhook_url:
             try:
                 from cloudguard_anomaly.notifications.webhooks import SlackNotifier
+
                 self.slack_notifier = SlackNotifier(slack_webhook or config.slack_webhook_url)
             except (ImportError, Exception) as e:
                 logger.warning(f"Could not initialize Slack notifier: {e}")
 
         # Scan targets
-        self.scan_targets: Dict[str, Dict[str, Any]] = {}
+        self.scan_targets: dict[str, dict[str, Any]] = {}
 
         # Set up signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -81,10 +81,7 @@ class MonitoringDaemon:
         logger.info(f"Monitoring daemon initialized with {scan_interval}s interval")
 
     def add_target(
-        self,
-        name: str,
-        scan_func: Callable[[], Environment],
-        policies: Optional[list] = None
+        self, name: str, scan_func: Callable[[], Environment], policies: list | None = None
     ):
         """
         Add a scan target.
@@ -95,20 +92,15 @@ class MonitoringDaemon:
             policies: Optional policies to use for this target
         """
         self.scan_targets[name] = {
-            'scan_func': scan_func,
-            'policies': policies,
-            'last_result': None,
-            'last_scan': None
+            "scan_func": scan_func,
+            "policies": policies,
+            "last_result": None,
+            "last_scan": None,
         }
 
         logger.info(f"Added scan target: {name}")
 
-    def add_aws_target(
-        self,
-        name: str,
-        profile: Optional[str] = None,
-        region: str = "us-east-1"
-    ):
+    def add_aws_target(self, name: str, profile: str | None = None, region: str = "us-east-1"):
         """
         Add AWS account as scan target.
 
@@ -140,10 +132,7 @@ class MonitoringDaemon:
 
         # Schedule scans
         for target_name in self.scan_targets.keys():
-            schedule.every(self.scan_interval).seconds.do(
-                self._scan_target,
-                target_name
-            )
+            schedule.every(self.scan_interval).seconds.do(self._scan_target, target_name)
 
         # Run initial scans immediately
         for target_name in self.scan_targets.keys():
@@ -179,18 +168,18 @@ class MonitoringDaemon:
 
         try:
             # Get environment
-            environment = target['scan_func']()
+            environment = target["scan_func"]()
 
             # Run analysis
-            engine = AnalysisEngine(policies=target.get('policies'))
+            engine = AnalysisEngine(policies=target.get("policies"))
             result = engine.scan_environment(environment)
 
             # Save to database
             scan_id = self.database.save_scan(result)
 
             # Update target tracking
-            target['last_result'] = result
-            target['last_scan'] = scan_start
+            target["last_result"] = result
+            target["last_scan"] = scan_start
             self.scan_count += 1
             self.last_scan_time = scan_start
 
@@ -212,9 +201,7 @@ class MonitoringDaemon:
 
             # Send error notification
             if self.slack_notifier:
-                self.slack_notifier.send_message(
-                    f"❌ Error scanning {target_name}: {str(e)}"
-                )
+                self.slack_notifier.send_message(f"❌ Error scanning {target_name}: {str(e)}")
 
     def _check_for_changes(self, target_name: str, current_result: ScanResult):
         """Check for significant changes from previous scan."""
@@ -228,12 +215,12 @@ class MonitoringDaemon:
         prev_data = prev_scan.data
 
         # Compare findings counts
-        prev_findings = len(prev_data.get('findings', []))
+        prev_findings = len(prev_data.get("findings", []))
         curr_findings = len(current_result.findings)
 
         # Compare severity counts
-        prev_critical = prev_data.get('summary', {}).get('severity_counts', {}).get('critical', 0)
-        curr_critical = current_result.summary.get('severity_counts', {}).get('critical', 0)
+        prev_critical = prev_data.get("summary", {}).get("severity_counts", {}).get("critical", 0)
+        curr_critical = current_result.summary.get("severity_counts", {}).get("critical", 0)
 
         # Alert on significant changes
         if curr_critical > prev_critical:
@@ -284,7 +271,7 @@ class MonitoringDaemon:
         self.stop()
         sys.exit(0)
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """
         Get current daemon status.
 
@@ -292,26 +279,28 @@ class MonitoringDaemon:
             Status dictionary
         """
         return {
-            'running': self.running,
-            'scan_count': self.scan_count,
-            'last_scan_time': self.last_scan_time.isoformat() if self.last_scan_time else None,
-            'targets': list(self.scan_targets.keys()),
-            'scan_interval': self.scan_interval,
-            'target_details': {
+            "running": self.running,
+            "scan_count": self.scan_count,
+            "last_scan_time": self.last_scan_time.isoformat() if self.last_scan_time else None,
+            "targets": list(self.scan_targets.keys()),
+            "scan_interval": self.scan_interval,
+            "target_details": {
                 name: {
-                    'last_scan': target['last_scan'].isoformat() if target['last_scan'] else None,
-                    'last_findings': len(target['last_result'].findings) if target['last_result'] else 0
+                    "last_scan": target["last_scan"].isoformat() if target["last_scan"] else None,
+                    "last_findings": (
+                        len(target["last_result"].findings) if target["last_result"] else 0
+                    ),
                 }
                 for name, target in self.scan_targets.items()
-            }
+            },
         }
 
 
 def run_daemon(
     interval_hours: int = 1,
-    database_url: Optional[str] = None,
-    slack_webhook: Optional[str] = None,
-    aws_profile: Optional[str] = None,
+    database_url: str | None = None,
+    slack_webhook: str | None = None,
+    aws_profile: str | None = None,
 ):
     """
     Convenience function to run monitoring daemon.
@@ -323,9 +312,7 @@ def run_daemon(
         aws_profile: AWS profile to monitor
     """
     daemon = MonitoringDaemon(
-        scan_interval=interval_hours * 3600,
-        database_url=database_url,
-        slack_webhook=slack_webhook
+        scan_interval=interval_hours * 3600, database_url=database_url, slack_webhook=slack_webhook
     )
 
     # Add AWS target if profile specified

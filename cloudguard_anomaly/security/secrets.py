@@ -4,10 +4,9 @@ Secrets Management for CloudGuard-Anomaly.
 Integrates with HashiCorp Vault, AWS Secrets Manager, and environment variables.
 """
 
-import os
 import json
 import logging
-from typing import Optional, Dict, Any
+import os
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -15,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class SecretsBackend(Enum):
     """Secrets management backends."""
+
     ENV = "env"  # Environment variables
     VAULT = "vault"  # HashiCorp Vault
     AWS = "aws"  # AWS Secrets Manager
@@ -66,8 +66,7 @@ class SecretsManager:
 
         except ImportError:
             raise ImportError(
-                "hvac package required for Vault support. "
-                "Install with: pip install hvac"
+                "hvac package required for Vault support. " "Install with: pip install hvac"
             )
 
     def _init_aws(self):
@@ -76,21 +75,20 @@ class SecretsManager:
             import boto3
 
             region = os.getenv("AWS_REGION", "us-east-1")
-            self.client = boto3.client('secretsmanager', region_name=region)
+            self.client = boto3.client("secretsmanager", region_name=region)
 
             logger.info(f"Connected to AWS Secrets Manager in {region}")
 
         except ImportError:
             raise ImportError(
-                "boto3 package required for AWS support. "
-                "Install with: pip install boto3"
+                "boto3 package required for AWS support. " "Install with: pip install boto3"
             )
 
     def _init_azure(self):
         """Initialize Azure Key Vault client."""
         try:
-            from azure.keyvault.secrets import SecretClient
             from azure.identity import DefaultAzureCredential
+            from azure.keyvault.secrets import SecretClient
 
             vault_url = os.getenv("AZURE_KEYVAULT_URL")
             if not vault_url:
@@ -127,7 +125,7 @@ class SecretsManager:
                 "Install with: pip install google-cloud-secret-manager"
             )
 
-    def get_secret(self, path: str, default: Optional[str] = None) -> Optional[str]:
+    def get_secret(self, path: str, default: str | None = None) -> str | None:
         """
         Retrieve secret from configured backend.
 
@@ -158,36 +156,36 @@ class SecretsManager:
             logger.error(f"Error retrieving secret '{path}': {e}")
             return default
 
-    def _get_vault_secret(self, path: str, default: Optional[str]) -> Optional[str]:
+    def _get_vault_secret(self, path: str, default: str | None) -> str | None:
         """Get secret from Vault."""
         try:
             # Try KV v2 first
             secret_version = self.client.secrets.kv.v2.read_secret_version(path=path)
-            return secret_version['data']['data'].get('value', default)
+            return secret_version["data"]["data"].get("value", default)
         except Exception as e:
             logger.debug(f"Vault KV v2 failed for '{path}', trying KV v1: {e}")
             try:
                 # Fallback to KV v1
                 secret = self.client.secrets.kv.v1.read_secret(path=path)
-                return secret['data'].get('value', default)
+                return secret["data"].get("value", default)
             except Exception as e2:
                 logger.debug(f"Vault KV v1 also failed for '{path}': {e2}")
                 return default
 
-    def _get_aws_secret(self, path: str, default: Optional[str]) -> Optional[str]:
+    def _get_aws_secret(self, path: str, default: str | None) -> str | None:
         """Get secret from AWS Secrets Manager."""
         try:
             response = self.client.get_secret_value(SecretId=path)
 
-            if 'SecretString' in response:
-                secret = json.loads(response['SecretString'])
+            if "SecretString" in response:
+                secret = json.loads(response["SecretString"])
                 # If it's a dict, get 'value' key, otherwise return the whole thing
                 if isinstance(secret, dict):
-                    return secret.get('value', default)
+                    return secret.get("value", default)
                 return secret
             else:
                 # Binary secret
-                return response['SecretBinary'].decode('utf-8')
+                return response["SecretBinary"].decode("utf-8")
 
         except self.client.exceptions.ResourceNotFoundException:
             return default
@@ -195,7 +193,7 @@ class SecretsManager:
             logger.error(f"AWS Secrets Manager error: {e}")
             return default
 
-    def _get_azure_secret(self, path: str, default: Optional[str]) -> Optional[str]:
+    def _get_azure_secret(self, path: str, default: str | None) -> str | None:
         """Get secret from Azure Key Vault."""
         try:
             secret = self.client.get_secret(path)
@@ -204,12 +202,12 @@ class SecretsManager:
             logger.error(f"Azure Key Vault error: {e}")
             return default
 
-    def _get_gcp_secret(self, path: str, default: Optional[str]) -> Optional[str]:
+    def _get_gcp_secret(self, path: str, default: str | None) -> str | None:
         """Get secret from GCP Secret Manager."""
         try:
             name = f"projects/{self.project_id}/secrets/{path}/versions/latest"
             response = self.client.access_secret_version(request={"name": name})
-            return response.payload.data.decode('UTF-8')
+            return response.payload.data.decode("UTF-8")
         except Exception as e:
             logger.error(f"GCP Secret Manager error: {e}")
             return default
@@ -228,7 +226,9 @@ class SecretsManager:
         try:
             if self.backend == SecretsBackend.ENV:
                 # Can't set env vars at runtime, warn user
-                logger.warning(f"Cannot set env var '{path}' at runtime. Set it before starting the application.")
+                logger.warning(
+                    f"Cannot set env var '{path}' at runtime. Set it before starting the application."
+                )
                 return False
 
             elif self.backend == SecretsBackend.VAULT:
@@ -250,10 +250,7 @@ class SecretsManager:
     def _set_vault_secret(self, path: str, value: str) -> bool:
         """Set secret in Vault."""
         try:
-            self.client.secrets.kv.v2.create_or_update_secret(
-                path=path,
-                secret={'value': value}
-            )
+            self.client.secrets.kv.v2.create_or_update_secret(path=path, secret={"value": value})
             logger.info(f"Secret '{path}' stored in Vault")
             return True
         except Exception as e:
@@ -261,8 +258,7 @@ class SecretsManager:
             try:
                 # Fallback to KV v1
                 self.client.secrets.kv.v1.create_or_update_secret(
-                    path=path,
-                    secret={'value': value}
+                    path=path, secret={"value": value}
                 )
                 logger.info(f"Secret '{path}' stored in Vault (KV v1)")
                 return True
@@ -274,18 +270,12 @@ class SecretsManager:
         """Set secret in AWS Secrets Manager."""
         try:
             # Try to update existing secret
-            self.client.put_secret_value(
-                SecretId=path,
-                SecretString=json.dumps({'value': value})
-            )
+            self.client.put_secret_value(SecretId=path, SecretString=json.dumps({"value": value}))
             logger.info(f"Secret '{path}' updated in AWS Secrets Manager")
             return True
         except self.client.exceptions.ResourceNotFoundException:
             # Create new secret
-            self.client.create_secret(
-                Name=path,
-                SecretString=json.dumps({'value': value})
-            )
+            self.client.create_secret(Name=path, SecretString=json.dumps({"value": value}))
             logger.info(f"Secret '{path}' created in AWS Secrets Manager")
             return True
         except Exception as e:
@@ -331,7 +321,7 @@ class SecretsManager:
             self.client.add_secret_version(
                 request={
                     "parent": secret_name,
-                    "payload": {"data": value.encode('UTF-8')},
+                    "payload": {"data": value.encode("UTF-8")},
                 }
             )
 
@@ -344,15 +334,16 @@ class SecretsManager:
 
 
 # Global secrets manager instance
-_secrets_manager: Optional[SecretsManager] = None
+_secrets_manager: SecretsManager | None = None
 
 
-def get_secrets_manager(backend: Optional[str] = None) -> SecretsManager:
+def get_secrets_manager(backend: str | None = None) -> SecretsManager:
     """Get global secrets manager instance."""
     global _secrets_manager
 
     if _secrets_manager is None:
         from cloudguard_anomaly.config import get_config
+
         config = get_config()
         backend = backend or config.secrets_backend
         _secrets_manager = SecretsManager(backend=backend)
@@ -360,7 +351,7 @@ def get_secrets_manager(backend: Optional[str] = None) -> SecretsManager:
     return _secrets_manager
 
 
-def get_secret(path: str, default: Optional[str] = None) -> Optional[str]:
+def get_secret(path: str, default: str | None = None) -> str | None:
     """
     Convenience function to get a secret.
 

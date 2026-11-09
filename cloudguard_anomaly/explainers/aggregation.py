@@ -5,7 +5,6 @@ Groups and aggregates findings by various dimensions for better analysis.
 """
 
 from collections import defaultdict
-from typing import Dict, List
 
 from cloudguard_anomaly.core.models import Finding, Resource
 
@@ -14,7 +13,7 @@ class FindingAggregator:
     """Aggregates findings by various dimensions."""
 
     @staticmethod
-    def group_by_resource(findings: List[Finding]) -> Dict[str, List[Finding]]:
+    def group_by_resource(findings: list[Finding]) -> dict[str, list[Finding]]:
         """
         Group findings by resource.
 
@@ -30,7 +29,7 @@ class FindingAggregator:
         return dict(grouped)
 
     @staticmethod
-    def group_by_severity(findings: List[Finding]) -> Dict[str, List[Finding]]:
+    def group_by_severity(findings: list[Finding]) -> dict[str, list[Finding]]:
         """
         Group findings by severity.
 
@@ -46,7 +45,7 @@ class FindingAggregator:
         return dict(grouped)
 
     @staticmethod
-    def group_by_type(findings: List[Finding]) -> Dict[str, List[Finding]]:
+    def group_by_type(findings: list[Finding]) -> dict[str, list[Finding]]:
         """
         Group findings by finding type.
 
@@ -62,7 +61,7 @@ class FindingAggregator:
         return dict(grouped)
 
     @staticmethod
-    def group_by_resource_type(findings: List[Finding]) -> Dict[str, List[Finding]]:
+    def group_by_resource_type(findings: list[Finding]) -> dict[str, list[Finding]]:
         """
         Group findings by resource type.
 
@@ -78,7 +77,7 @@ class FindingAggregator:
         return dict(grouped)
 
     @staticmethod
-    def get_top_issues(findings: List[Finding], limit: int = 10) -> List[Finding]:
+    def get_top_issues(findings: list[Finding], limit: int = 10) -> list[Finding]:
         """
         Get top issues by severity.
 
@@ -92,14 +91,12 @@ class FindingAggregator:
         # Sort by severity (critical first)
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
 
-        sorted_findings = sorted(
-            findings, key=lambda f: severity_order.get(f.severity.value, 5)
-        )
+        sorted_findings = sorted(findings, key=lambda f: severity_order.get(f.severity.value, 5))
 
         return sorted_findings[:limit]
 
     @staticmethod
-    def get_affected_resources(findings: List[Finding]) -> List[Resource]:
+    def get_affected_resources(findings: list[Finding]) -> list[Resource]:
         """
         Get unique list of affected resources.
 
@@ -116,7 +113,7 @@ class FindingAggregator:
         return list(resource_map.values())
 
     @staticmethod
-    def calculate_statistics(findings: List[Finding]) -> Dict[str, any]:
+    def calculate_statistics(findings: list[Finding]) -> dict[str, any]:
         """
         Calculate statistics about findings.
 

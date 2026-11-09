@@ -5,24 +5,27 @@ Provides severity-based coloring and rich formatting for terminal output.
 """
 
 import sys
-from typing import Optional, List, Any
 from enum import Enum
+from typing import Any
 
 # Try to import rich for enhanced output
 try:
     from rich.console import Console
-    from rich.table import Table
-    from rich.panel import Panel
-    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
-    from rich.tree import Tree
     from rich.markdown import Markdown
+    from rich.panel import Panel
+    from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
+    from rich.table import Table
+    from rich.tree import Tree
+
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
 
 # Try to import colorama for cross-platform colors
 try:
-    from colorama import init as colorama_init, Fore, Style, Back
+    from colorama import Back, Fore, Style
+    from colorama import init as colorama_init
+
     colorama_init(autoreset=True)
     COLORAMA_AVAILABLE = True
 except ImportError:
@@ -31,6 +34,7 @@ except ImportError:
 
 class OutputLevel(Enum):
     """Output verbosity levels."""
+
     QUIET = 0
     NORMAL = 1
     VERBOSE = 2
@@ -138,13 +142,7 @@ class CliOutput:
         reset = self._reset_color()
 
         # Icons for each severity
-        icons = {
-            "critical": "🔴",
-            "high": "🟠",
-            "medium": "🟡",
-            "low": "🔵",
-            "info": "ℹ️"
-        }
+        icons = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵", "info": "ℹ️"}
         icon = icons.get(severity.lower(), "")
 
         formatted = f"{color}{icon} {severity.upper()}: {message}{reset}"
@@ -159,7 +157,7 @@ class CliOutput:
                 "high": "red",
                 "medium": "yellow",
                 "low": "blue",
-                "info": "cyan"
+                "info": "cyan",
             }
             style = severity_styles.get(finding.severity.value.lower(), "")
 
@@ -167,7 +165,7 @@ class CliOutput:
                 f"[bold]{finding.title}[/bold]\n\n{finding.description}",
                 title=f"[{style}]{finding.severity.value.upper()}[/{style}]",
                 subtitle=f"Resource: {finding.resource.id}",
-                border_style=style
+                border_style=style,
             )
             self.console.print(panel)
         else:
@@ -177,7 +175,7 @@ class CliOutput:
             print(f"  {finding.description}")
             print()
 
-    def table(self, title: str, columns: List[str], rows: List[List[str]]):
+    def table(self, title: str, columns: list[str], rows: list[list[str]]):
         """Print a formatted table."""
         if RICH_AVAILABLE and self.console and not self.no_color:
             table = Table(title=title, show_header=True, header_style="bold magenta")
@@ -257,7 +255,7 @@ class _DummyProgress:
 
 
 # Global CLI output instance
-_output: Optional[CliOutput] = None
+_output: CliOutput | None = None
 
 
 def get_output(verbose: int = OutputLevel.NORMAL.value, no_color: bool = False) -> CliOutput:

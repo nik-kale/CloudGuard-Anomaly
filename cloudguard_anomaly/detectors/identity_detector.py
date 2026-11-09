@@ -8,7 +8,6 @@ unused credentials, and risky permission patterns.
 import logging
 import uuid
 from datetime import datetime
-from typing import List
 
 from cloudguard_anomaly.core.models import (
     Finding,
@@ -28,7 +27,7 @@ class IdentityDetector:
         """Initialize the identity detector."""
         pass
 
-    def detect(self, resources: List[Resource]) -> List[Finding]:
+    def detect(self, resources: list[Resource]) -> list[Finding]:
         """
         Detect IAM-related security issues.
 
@@ -59,7 +58,7 @@ class IdentityDetector:
         logger.info(f"Identity detector found {len(findings)} issues")
         return findings
 
-    def _check_wildcard_permissions(self, resource: Resource) -> List[Finding]:
+    def _check_wildcard_permissions(self, resource: Resource) -> list[Finding]:
         """Check for wildcard (*) permissions."""
         findings = []
         props = resource.properties
@@ -110,7 +109,7 @@ class IdentityDetector:
 
         return findings
 
-    def _check_privilege_escalation(self, resource: Resource) -> List[Finding]:
+    def _check_privilege_escalation(self, resource: Resource) -> list[Finding]:
         """Check for privilege escalation risks."""
         findings = []
         props = resource.properties
@@ -165,7 +164,7 @@ class IdentityDetector:
 
         return findings
 
-    def _check_cross_account_access(self, resource: Resource) -> List[Finding]:
+    def _check_cross_account_access(self, resource: Resource) -> list[Finding]:
         """Check for cross-account access risks."""
         findings = []
         props = resource.properties
@@ -201,7 +200,7 @@ class IdentityDetector:
 
         return findings
 
-    def _check_unused_credentials(self, resource: Resource) -> List[Finding]:
+    def _check_unused_credentials(self, resource: Resource) -> list[Finding]:
         """Check for unused or stale credentials."""
         findings = []
         props = resource.properties
@@ -237,7 +236,7 @@ class IdentityDetector:
 
         return findings
 
-    def _check_resource_iam_issues(self, resource: Resource) -> List[Finding]:
+    def _check_resource_iam_issues(self, resource: Resource) -> list[Finding]:
         """Check non-IAM resources for IAM-related issues."""
         findings = []
         props = resource.properties

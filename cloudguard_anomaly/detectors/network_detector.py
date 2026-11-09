@@ -8,7 +8,6 @@ public exposure, and insecure network configurations.
 import logging
 import uuid
 from datetime import datetime
-from typing import List, Set
 
 from cloudguard_anomaly.core.models import (
     Finding,
@@ -31,7 +30,7 @@ class NetworkDetector:
         self.high_risk_ports = {1433, 3306, 5432, 27017, 6379}  # Databases
         self.medium_risk_ports = {80, 8080, 443, 8443}  # Web services
 
-    def detect(self, resources: List[Resource]) -> List[Finding]:
+    def detect(self, resources: list[Resource]) -> list[Finding]:
         """
         Detect network exposure issues.
 
@@ -60,7 +59,7 @@ class NetworkDetector:
         logger.info(f"Network detector found {len(findings)} issues")
         return findings
 
-    def _check_security_group(self, sg: Resource) -> List[Finding]:
+    def _check_security_group(self, sg: Resource) -> list[Finding]:
         """Check security group for network issues."""
         findings = []
         props = sg.properties
@@ -108,7 +107,7 @@ class NetworkDetector:
                         id=finding_id,
                         type=FindingType.NETWORK_EXPOSURE,
                         severity=Severity.MEDIUM,
-                        title=f"Security Group with Overly Broad CIDR Range",
+                        title="Security Group with Overly Broad CIDR Range",
                         description=f"Security group {sg.name} allows traffic from broad CIDR range {cidr}",
                         resource=sg,
                         policy=None,
@@ -124,7 +123,7 @@ class NetworkDetector:
 
         return findings
 
-    def _check_network_resource(self, net: Resource) -> List[Finding]:
+    def _check_network_resource(self, net: Resource) -> list[Finding]:
         """Check network resource for security issues."""
         findings = []
         props = net.properties
@@ -150,7 +149,7 @@ class NetworkDetector:
 
         return findings
 
-    def _check_public_exposure(self, resource: Resource) -> List[Finding]:
+    def _check_public_exposure(self, resource: Resource) -> list[Finding]:
         """Check if resource has public exposure."""
         findings = []
         props = resource.properties

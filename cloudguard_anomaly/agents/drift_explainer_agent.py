@@ -5,7 +5,7 @@ Generates human-readable explanations for configuration drift,
 including what changed, when, and why it might be risky.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from cloudguard_anomaly.agents.base_agent import BaseAgent
 from cloudguard_anomaly.core.models import Anomaly
@@ -17,7 +17,7 @@ class DriftExplainerAgent(BaseAgent):
     def __init__(self):
         super().__init__("drift_explainer")
 
-    def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    def process(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """
         Generate explanation for configuration drift.
 
@@ -33,7 +33,7 @@ class DriftExplainerAgent(BaseAgent):
                 - risk_assessment: Risk analysis
         """
         anomaly: Anomaly = input_data.get("anomaly")
-        context: Dict[str, Any] = input_data.get("context", {})
+        context: dict[str, Any] = input_data.get("context", {})
 
         if not anomaly:
             return {"error": "No anomaly provided"}
@@ -152,9 +152,9 @@ class DriftExplainerAgent(BaseAgent):
                     f"properties were modified."
                 )
         elif anomaly.type == "resource_deleted":
-            timeline_parts.append(f"**Current (T1):** Resource has been deleted.")
+            timeline_parts.append("**Current (T1):** Resource has been deleted.")
         elif anomaly.type == "resource_added":
-            timeline_parts.append(f"**Current (T1):** Resource was newly created.")
+            timeline_parts.append("**Current (T1):** Resource was newly created.")
 
         return "\n".join(timeline_parts)
 
@@ -173,7 +173,8 @@ class DriftExplainerAgent(BaseAgent):
             security_degradations = [
                 c
                 for c in anomaly.changes
-                if "security posture degraded" in str(c).lower() or c.get("change_type") == "removed"
+                if "security posture degraded" in str(c).lower()
+                or c.get("change_type") == "removed"
             ]
 
             if security_degradations:
@@ -189,26 +190,35 @@ class DriftExplainerAgent(BaseAgent):
         recommendations = []
 
         if anomaly.type == "configuration_drift":
-            recommendations.append("• Investigate who made the changes and whether they were authorized")
+            recommendations.append(
+                "• Investigate who made the changes and whether they were authorized"
+            )
             recommendations.append("• Review change management logs and approval records")
             recommendations.append("• Assess whether the drift should be accepted or reverted")
 
             # Check for security-impacting changes
             if any(
-                keyword in str(anomaly.changes).lower() for keyword in ["public", "encrypt", "security"]
+                keyword in str(anomaly.changes).lower()
+                for keyword in ["public", "encrypt", "security"]
             ):
                 recommendations.append(
                     "• Security-related properties changed - perform immediate security review"
                 )
-                recommendations.append("• Consider reverting changes if they weaken security posture")
+                recommendations.append(
+                    "• Consider reverting changes if they weaken security posture"
+                )
 
             recommendations.append("• Update baseline if changes are approved and validated")
-            recommendations.append("• Implement drift detection alerts to catch future unauthorized changes")
+            recommendations.append(
+                "• Implement drift detection alerts to catch future unauthorized changes"
+            )
 
         elif anomaly.type == "resource_deleted":
             recommendations.append("• Verify the deletion was intentional and authorized")
             recommendations.append("• Check if deletion impacts dependent resources or services")
-            recommendations.append("• Update baseline to reflect the deletion if it was intentional")
+            recommendations.append(
+                "• Update baseline to reflect the deletion if it was intentional"
+            )
 
         elif anomaly.type == "resource_added":
             recommendations.append("• Verify the new resource follows security best practices")

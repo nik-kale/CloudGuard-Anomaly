@@ -2,10 +2,7 @@
 Tests for database storage layer.
 """
 
-import pytest
-from datetime import datetime, timedelta
-
-from cloudguard_anomaly.storage.database import DatabaseStorage, ScanRecord, FindingRecord
+from cloudguard_anomaly.storage.database import DatabaseStorage
 
 
 class TestDatabaseStorage:
@@ -166,7 +163,7 @@ class TestDatabaseStorage:
 
     def test_save_multiple_findings(self, database, sample_scan_result):
         """Test saving scan with multiple findings."""
-        from cloudguard_anomaly.core.models import Finding, Severity, FindingType
+        from cloudguard_anomaly.core.models import Finding, FindingType, Severity
 
         # Add more findings
         for i in range(5):

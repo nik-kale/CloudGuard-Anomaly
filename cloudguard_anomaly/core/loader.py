@@ -8,7 +8,7 @@ configuration snapshots from various formats (JSON, YAML, etc.)
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 
@@ -26,27 +26,27 @@ class ConfigLoader:
     """Loads cloud environment configurations from various sources."""
 
     @staticmethod
-    def load_json(file_path: Path) -> Dict[str, Any]:
+    def load_json(file_path: Path) -> dict[str, Any]:
         """Load configuration from JSON file."""
         try:
-            with open(file_path, "r") as f:
+            with open(file_path) as f:
                 return json.load(f)
         except Exception as e:
             logger.error(f"Failed to load JSON from {file_path}: {e}")
             raise
 
     @staticmethod
-    def load_yaml(file_path: Path) -> Dict[str, Any]:
+    def load_yaml(file_path: Path) -> dict[str, Any]:
         """Load configuration from YAML file."""
         try:
-            with open(file_path, "r") as f:
+            with open(file_path) as f:
                 return yaml.safe_load(f)
         except Exception as e:
             logger.error(f"Failed to load YAML from {file_path}: {e}")
             raise
 
     @staticmethod
-    def load_config_file(file_path: Path) -> Dict[str, Any]:
+    def load_config_file(file_path: Path) -> dict[str, Any]:
         """Load configuration file based on extension."""
         suffix = file_path.suffix.lower()
         if suffix == ".json":
@@ -57,7 +57,7 @@ class ConfigLoader:
             raise ValueError(f"Unsupported file format: {suffix}")
 
     @staticmethod
-    def parse_resource(resource_data: Dict[str, Any], provider: Provider) -> Resource:
+    def parse_resource(resource_data: dict[str, Any], provider: Provider) -> Resource:
         """Parse a resource from configuration data."""
         return Resource(
             id=resource_data.get("id", resource_data.get("name", "unknown")),
@@ -130,7 +130,7 @@ class ConfigLoader:
         )
 
     @staticmethod
-    def _load_resources_from_dir(dir_path: Path, provider: Provider) -> List[Resource]:
+    def _load_resources_from_dir(dir_path: Path, provider: Provider) -> list[Resource]:
         """Load all resources from a directory of config files."""
         resources = []
 
@@ -151,7 +151,7 @@ class ConfigLoader:
         return resources
 
     @staticmethod
-    def _parse_resources(config: Dict[str, Any], provider: Provider) -> List[Resource]:
+    def _parse_resources(config: dict[str, Any], provider: Provider) -> list[Resource]:
         """Parse resources from a configuration dictionary."""
         resources = []
 

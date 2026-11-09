@@ -5,7 +5,7 @@ Aggregates multiple findings and anomalies into a high-level risk summary
 suitable for executive reporting or dashboard display.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 from cloudguard_anomaly.agents.base_agent import BaseAgent
 from cloudguard_anomaly.core.models import Anomaly, Environment, Finding, Severity
@@ -17,7 +17,7 @@ class RiskSummarizerAgent(BaseAgent):
     def __init__(self):
         super().__init__("risk_summarizer")
 
-    def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    def process(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """
         Generate risk summary from findings and anomalies.
 
@@ -30,8 +30,8 @@ class RiskSummarizerAgent(BaseAgent):
         Returns:
             Dictionary containing risk summary data
         """
-        findings: List[Finding] = input_data.get("findings", [])
-        anomalies: List[Anomaly] = input_data.get("anomalies", [])
+        findings: list[Finding] = input_data.get("findings", [])
+        anomalies: list[Anomaly] = input_data.get("anomalies", [])
         environment: Environment = input_data.get("environment")
 
         summary = {
@@ -45,7 +45,7 @@ class RiskSummarizerAgent(BaseAgent):
         return summary
 
     def summarize(
-        self, findings: List[Finding], anomalies: List[Anomaly], environment: Environment
+        self, findings: list[Finding], anomalies: list[Anomaly], environment: Environment
     ) -> str:
         """
         Generate a human-readable risk summary.
@@ -80,9 +80,7 @@ class RiskSummarizerAgent(BaseAgent):
 """
         return summary.strip()
 
-    def _calculate_overall_risk(
-        self, findings: List[Finding], anomalies: List[Anomaly]
-    ) -> str:
+    def _calculate_overall_risk(self, findings: list[Finding], anomalies: list[Anomaly]) -> str:
         """Calculate overall risk level."""
         # Count by severity
         critical_count = len([f for f in findings if f.severity == Severity.CRITICAL])
@@ -104,8 +102,8 @@ class RiskSummarizerAgent(BaseAgent):
             return "LOW"
 
     def _identify_critical_issues(
-        self, findings: List[Finding], anomalies: List[Anomaly]
-    ) -> List[Dict[str, Any]]:
+        self, findings: list[Finding], anomalies: list[Anomaly]
+    ) -> list[dict[str, Any]]:
         """Identify critical issues requiring immediate attention."""
         critical_issues = []
 
@@ -136,8 +134,8 @@ class RiskSummarizerAgent(BaseAgent):
         return critical_issues
 
     def _calculate_risk_distribution(
-        self, findings: List[Finding], anomalies: List[Anomaly]
-    ) -> Dict[str, int]:
+        self, findings: list[Finding], anomalies: list[Anomaly]
+    ) -> dict[str, int]:
         """Calculate distribution of issues by severity."""
         distribution = {
             "critical": 0,
@@ -156,8 +154,8 @@ class RiskSummarizerAgent(BaseAgent):
         return distribution
 
     def _identify_top_priorities(
-        self, findings: List[Finding], anomalies: List[Anomaly]
-    ) -> List[str]:
+        self, findings: list[Finding], anomalies: list[Anomaly]
+    ) -> list[str]:
         """Identify top priorities for remediation."""
         priorities = []
 
@@ -184,9 +182,7 @@ class RiskSummarizerAgent(BaseAgent):
             f for f in findings if "public" in f.title.lower() or "public" in f.description.lower()
         ]
         if public_exposure:
-            priorities.append(
-                f"Remove public access from {len(public_exposure)} resource(s)"
-            )
+            priorities.append(f"Remove public access from {len(public_exposure)} resource(s)")
 
         # Priority 3: Encryption
         encryption_issues = [f for f in findings if "encrypt" in f.title.lower()]
@@ -196,22 +192,16 @@ class RiskSummarizerAgent(BaseAgent):
         # Priority 4: Network exposure
         network_issues = [f for f in findings if f.type.value == "network_exposure"]
         if network_issues:
-            priorities.append(
-                f"Restrict network access for {len(network_issues)} resource(s)"
-            )
+            priorities.append(f"Restrict network access for {len(network_issues)} resource(s)")
 
         # Priority 5: IAM issues
         iam_issues = [f for f in findings if f.type.value == "identity_risk"]
         if iam_issues:
-            priorities.append(
-                f"Review and restrict {len(iam_issues)} IAM permission(s)"
-            )
+            priorities.append(f"Review and restrict {len(iam_issues)} IAM permission(s)")
 
         # Priority 6: Configuration drift
         if anomalies:
-            priorities.append(
-                f"Investigate and resolve {len(anomalies)} configuration drift(s)"
-            )
+            priorities.append(f"Investigate and resolve {len(anomalies)} configuration drift(s)")
 
         # Default priority
         if not priorities:
@@ -222,7 +212,7 @@ class RiskSummarizerAgent(BaseAgent):
         return priorities[:5]  # Top 5 priorities
 
     def _generate_narrative(
-        self, findings: List[Finding], anomalies: List[Anomaly], environment: Environment
+        self, findings: list[Finding], anomalies: list[Anomaly], environment: Environment
     ) -> str:
         """Generate executive narrative summary."""
         total_issues = len(findings) + len(anomalies)
@@ -278,7 +268,7 @@ class RiskSummarizerAgent(BaseAgent):
 
         return " ".join(narrative_parts)
 
-    def _format_critical_issues(self, issues: List[Dict[str, Any]]) -> str:
+    def _format_critical_issues(self, issues: list[dict[str, Any]]) -> str:
         """Format critical issues for display."""
         if not issues:
             return "• None"
@@ -286,8 +276,7 @@ class RiskSummarizerAgent(BaseAgent):
         formatted = []
         for issue in issues[:5]:  # Top 5
             formatted.append(
-                f"• [{issue['type'].upper()}] {issue['title']} - "
-                f"Resource: {issue['resource']}"
+                f"• [{issue['type'].upper()}] {issue['title']} - " f"Resource: {issue['resource']}"
             )
 
         if len(issues) > 5:
@@ -295,7 +284,7 @@ class RiskSummarizerAgent(BaseAgent):
 
         return "\n".join(formatted)
 
-    def _format_risk_distribution(self, distribution: Dict[str, int]) -> str:
+    def _format_risk_distribution(self, distribution: dict[str, int]) -> str:
         """Format risk distribution for display."""
         return "\n".join(
             [
@@ -306,6 +295,6 @@ class RiskSummarizerAgent(BaseAgent):
             ]
         )
 
-    def _format_priorities(self, priorities: List[str]) -> str:
+    def _format_priorities(self, priorities: list[str]) -> str:
         """Format priorities for display."""
         return "\n".join([f"{i + 1}. {priority}" for i, priority in enumerate(priorities)])

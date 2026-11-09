@@ -5,7 +5,7 @@ Generates human-readable explanations for security misconfigurations,
 including what the issue is, why it matters, and potential impact.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 from cloudguard_anomaly.agents.base_agent import BaseAgent
 from cloudguard_anomaly.core.models import Finding
@@ -17,7 +17,7 @@ class MisconfigExplainerAgent(BaseAgent):
     def __init__(self):
         super().__init__("misconfig_explainer")
 
-    def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    def process(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """
         Generate explanation for a misconfiguration.
 
@@ -33,7 +33,7 @@ class MisconfigExplainerAgent(BaseAgent):
                 - risk_level: Risk level assessment
         """
         finding: Finding = input_data.get("finding")
-        context: Dict[str, Any] = input_data.get("context", {})
+        context: dict[str, Any] = input_data.get("context", {})
 
         if not finding:
             return {"error": "No finding provided"}
@@ -134,7 +134,9 @@ class MisconfigExplainerAgent(BaseAgent):
         resource_type = resource.type.value
 
         severity_impacts = impact_templates.get(severity_key, {})
-        impact = severity_impacts.get(resource_type, severity_impacts.get("default", "Unknown impact"))
+        impact = severity_impacts.get(
+            resource_type, severity_impacts.get("default", "Unknown impact")
+        )
 
         return impact
 

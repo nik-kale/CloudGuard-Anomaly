@@ -30,7 +30,7 @@ def execute_validate(env_path: Path = None, policy_path: Path = None) -> None:
             loader = ConfigLoader()
             environment = loader.load_environment(env_path)
 
-            print(f"✓ Environment loaded successfully")
+            print("✓ Environment loaded successfully")
             print(f"  Name: {environment.name}")
             print(f"  Provider: {environment.provider.value}")
             print(f"  Resources: {len(environment.resources)}")
@@ -47,7 +47,7 @@ def execute_validate(env_path: Path = None, policy_path: Path = None) -> None:
 
         except Exception as e:
             errors.append(f"Failed to load environment: {e}")
-            logger.error(f"Environment validation failed", exc_info=True)
+            logger.error("Environment validation failed", exc_info=True)
 
     if policy_path:
         print(f"\nValidating policies: {policy_path}")
@@ -77,7 +77,7 @@ def execute_validate(env_path: Path = None, policy_path: Path = None) -> None:
 
         except Exception as e:
             errors.append(f"Failed to load policies: {e}")
-            logger.error(f"Policy validation failed", exc_info=True)
+            logger.error("Policy validation failed", exc_info=True)
 
     # Print results
     print("\n" + "=" * 80)

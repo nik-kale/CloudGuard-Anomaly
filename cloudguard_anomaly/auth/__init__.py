@@ -6,11 +6,12 @@ Provides user management, session handling, and RBAC.
 
 import logging
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+
 from sqlalchemy.orm import Session as DBSession
 
-from cloudguard_anomaly.auth.models import User, Role, Session, Permission, DEFAULT_ROLES
-from cloudguard_anomaly.auth.password import validate_password_strength, PasswordValidationError
+from cloudguard_anomaly.auth.models import DEFAULT_ROLES, Permission, Role, Session, User
+from cloudguard_anomaly.auth.password import PasswordValidationError, validate_password_strength
 from cloudguard_anomaly.storage.database import DatabaseStorage
 
 logger = logging.getLogger(__name__)
@@ -38,8 +39,8 @@ class AuthenticationManager:
         username: str,
         email: str,
         password: str,
-        roles: Optional[List[str]] = None,
-        is_admin: bool = False
+        roles: list[str] | None = None,
+        is_admin: bool = False,
     ) -> User:
         """
         Create new user.
@@ -68,19 +69,19 @@ class AuthenticationManager:
                 raise ValueError(f"Password validation failed: {e}")
 
             # Check if user exists
-            existing = session.query(User).filter(
-                (User.username == username) | (User.email == email)
-            ).first()
+            existing = (
+                session.query(User)
+                .filter((User.username == username) | (User.email == email))
+                .first()
+            )
 
             if existing:
-                raise ValueError(f"User with username '{username}' or email '{email}' already exists")
+                raise ValueError(
+                    f"User with username '{username}' or email '{email}' already exists"
+                )
 
             # Create user
-            user = User(
-                username=username,
-                email=email,
-                is_admin=is_admin
-            )
+            user = User(username=username, email=email, is_admin=is_admin)
             user.set_password(password)
             user.generate_api_key()
 
@@ -106,7 +107,7 @@ class AuthenticationManager:
         finally:
             session.close()
 
-    def authenticate(self, username: str, password: str) -> Optional[User]:
+    def authenticate(self, username: str, password: str) -> User | None:
         """
         Authenticate user with username and password.
 
@@ -120,9 +121,11 @@ class AuthenticationManager:
         session = self.database.get_session()
 
         try:
-            user = session.query(User).filter(
-                (User.username == username) | (User.email == username)
-            ).first()
+            user = (
+                session.query(User)
+                .filter((User.username == username) | (User.email == username))
+                .first()
+            )
 
             if not user:
                 logger.warning(f"Authentication failed: user '{username}' not found")
@@ -146,7 +149,7 @@ class AuthenticationManager:
         finally:
             session.close()
 
-    def authenticate_api_key(self, api_key: str) -> Optional[User]:
+    def authenticate_api_key(self, api_key: str) -> User | None:
         """
         Authenticate using API key.
 
@@ -209,7 +212,7 @@ class AuthenticationManager:
         finally:
             db_session.close()
 
-    def validate_session(self, token: str) -> Optional[User]:
+    def validate_session(self, token: str) -> User | None:
         """
         Validate session token and return user.
 
@@ -282,8 +285,8 @@ class AuthenticationManager:
                 if not existing:
                     role = Role(
                         name=role_name,
-                        description=role_data['description'],
-                        permissions=','.join(role_data['permissions'])
+                        description=role_data["description"],
+                        permissions=",".join(role_data["permissions"]),
                     )
                     db_session.add(role)
                     logger.info(f"Created default role: {role_name}")
@@ -310,14 +313,10 @@ class AuthenticationManager:
             Created admin user
         """
         return self.create_user(
-            username=username,
-            email=email,
-            password=password,
-            roles=['admin'],
-            is_admin=True
+            username=username, email=email, password=password, roles=["admin"], is_admin=True
         )
 
-    def get_user(self, user_id: str) -> Optional[User]:
+    def get_user(self, user_id: str) -> User | None:
         """Get user by ID."""
         session = self.database.get_session()
         try:
@@ -325,7 +324,7 @@ class AuthenticationManager:
         finally:
             session.close()
 
-    def list_users(self) -> List[User]:
+    def list_users(self) -> list[User]:
         """List all users."""
         session = self.database.get_session()
         try:
@@ -351,16 +350,17 @@ class AuthenticationManager:
 
 
 # Global authentication manager instance
-_auth_manager: Optional[AuthenticationManager] = None
+_auth_manager: AuthenticationManager | None = None
 
 
-def get_auth_manager(database: Optional[DatabaseStorage] = None) -> AuthenticationManager:
+def get_auth_manager(database: DatabaseStorage | None = None) -> AuthenticationManager:
     """Get global authentication manager instance."""
     global _auth_manager
 
     if _auth_manager is None:
         if database is None:
             from cloudguard_anomaly.config import get_config
+
             config = get_config()
             database = DatabaseStorage(config.database_url)
 

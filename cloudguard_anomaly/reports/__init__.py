@@ -9,5 +9,4 @@ from cloudguard_anomaly.reports.markdown_reporter import MarkdownReporter
 from cloudguard_anomaly.reports.html_reporter import HTMLReporter
 from cloudguard_anomaly.reports.pdf_reporter import PDFReporter
 
-__all__ = ['JSONReporter', 'MarkdownReporter', 'HTMLReporter', 'PDFReporter']
-
+__all__ = ["JSONReporter", "MarkdownReporter", "HTMLReporter", "PDFReporter"]

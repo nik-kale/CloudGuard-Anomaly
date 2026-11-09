@@ -21,11 +21,10 @@ class JSONReporter:
         """Save scan results as JSON."""
         logger.info(f"Generating JSON report: {output_path}")
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             if self.pretty:
                 json.dump(scan_result, f, indent=2, default=str)
             else:
                 json.dump(scan_result, f, default=str)
 
         logger.info(f"JSON report saved: {output_path}")
-

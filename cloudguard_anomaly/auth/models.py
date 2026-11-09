@@ -8,28 +8,25 @@ import hashlib
 import secrets
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional, List
-from dataclasses import dataclass, field
 
-from sqlalchemy import Column, String, DateTime, Boolean, Table, ForeignKey
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Table
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
 
 from cloudguard_anomaly.storage.database import Base
 
 # Association table for many-to-many relationship between users and roles
 user_roles = Table(
-    'user_roles',
+    "user_roles",
     Base.metadata,
-    Column('user_id', String, ForeignKey('users.id')),
-    Column('role_id', String, ForeignKey('roles.id'))
+    Column("user_id", String, ForeignKey("users.id")),
+    Column("role_id", String, ForeignKey("roles.id")),
 )
 
 
 class User(Base):
     """User model for authentication."""
 
-    __tablename__ = 'users'
+    __tablename__ = "users"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     username = Column(String, unique=True, nullable=False, index=True)
@@ -43,8 +40,8 @@ class User(Base):
     last_login = Column(DateTime, nullable=True)
 
     # Relationships
-    roles = relationship('Role', secondary=user_roles, back_populates='users')
-    sessions = relationship('Session', back_populates='user', cascade='all, delete-orphan')
+    roles = relationship("Role", secondary=user_roles, back_populates="users")
+    sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User(username='{self.username}', email='{self.email}')>"
@@ -53,22 +50,16 @@ class User(Base):
         """Hash and set user password."""
         salt = secrets.token_hex(16)
         password_hash = hashlib.pbkdf2_hmac(
-            'sha256',
-            password.encode('utf-8'),
-            salt.encode('utf-8'),
-            100000
+            "sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000
         )
         self.password_hash = f"{salt}${password_hash.hex()}"
 
     def check_password(self, password: str) -> bool:
         """Verify password against stored hash."""
         try:
-            salt, stored_hash = self.password_hash.split('$')
+            salt, stored_hash = self.password_hash.split("$")
             password_hash = hashlib.pbkdf2_hmac(
-                'sha256',
-                password.encode('utf-8'),
-                salt.encode('utf-8'),
-                100000
+                "sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000
             )
             return password_hash.hex() == stored_hash
         except (ValueError, AttributeError):
@@ -90,10 +81,7 @@ class User(Base):
         # Hash the API key before storing
         salt = secrets.token_hex(16)
         key_hash = hashlib.pbkdf2_hmac(
-            'sha256',
-            api_key.encode('utf-8'),
-            salt.encode('utf-8'),
-            100000
+            "sha256", api_key.encode("utf-8"), salt.encode("utf-8"), 100000
         )
         self.api_key_hash = f"{salt}${key_hash.hex()}"
 
@@ -114,12 +102,9 @@ class User(Base):
             return False
 
         try:
-            salt, stored_hash = self.api_key_hash.split('$')
+            salt, stored_hash = self.api_key_hash.split("$")
             key_hash = hashlib.pbkdf2_hmac(
-                'sha256',
-                api_key.encode('utf-8'),
-                salt.encode('utf-8'),
-                100000
+                "sha256", api_key.encode("utf-8"), salt.encode("utf-8"), 100000
             )
             return key_hash.hex() == stored_hash
         except (ValueError, AttributeError):
@@ -140,44 +125,44 @@ class User(Base):
 class Role(Base):
     """Role model for RBAC."""
 
-    __tablename__ = 'roles'
+    __tablename__ = "roles"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, unique=True, nullable=False, index=True)
     description = Column(String, nullable=True)
-    permissions = Column(String, nullable=False, default='')  # JSON or comma-separated
+    permissions = Column(String, nullable=False, default="")  # JSON or comma-separated
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
-    users = relationship('User', secondary=user_roles, back_populates='roles')
+    users = relationship("User", secondary=user_roles, back_populates="roles")
 
     def __repr__(self):
         return f"<Role(name='{self.name}')>"
 
     def add_permission(self, permission: str):
         """Add permission to role."""
-        perms = set(self.permissions.split(',')) if self.permissions else set()
+        perms = set(self.permissions.split(",")) if self.permissions else set()
         perms.add(permission)
-        self.permissions = ','.join(sorted(perms))
+        self.permissions = ",".join(sorted(perms))
 
     def remove_permission(self, permission: str):
         """Remove permission from role."""
-        perms = set(self.permissions.split(',')) if self.permissions else set()
+        perms = set(self.permissions.split(",")) if self.permissions else set()
         perms.discard(permission)
-        self.permissions = ','.join(sorted(perms))
+        self.permissions = ",".join(sorted(perms))
 
-    def get_permissions(self) -> List[str]:
+    def get_permissions(self) -> list[str]:
         """Get list of permissions."""
-        return [p for p in self.permissions.split(',') if p]
+        return [p for p in self.permissions.split(",") if p]
 
 
 class Session(Base):
     """User session model."""
 
-    __tablename__ = 'sessions'
+    __tablename__ = "sessions"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, ForeignKey('users.id'), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     token = Column(String, unique=True, nullable=False, index=True)
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -185,22 +170,18 @@ class Session(Base):
     user_agent = Column(String, nullable=True)
 
     # Relationships
-    user = relationship('User', back_populates='sessions')
+    user = relationship("User", back_populates="sessions")
 
     def __repr__(self):
         return f"<Session(user_id='{self.user_id}', expires={self.expires_at})>"
 
     @classmethod
-    def create_session(cls, user_id: str, ttl_hours: int = 24) -> 'Session':
+    def create_session(cls, user_id: str, ttl_hours: int = 24) -> "Session":
         """Create new session for user."""
         token = secrets.token_urlsafe(32)
         expires_at = datetime.utcnow() + timedelta(hours=ttl_hours)
 
-        return cls(
-            user_id=user_id,
-            token=token,
-            expires_at=expires_at
-        )
+        return cls(user_id=user_id, token=token, expires_at=expires_at)
 
     def is_valid(self) -> bool:
         """Check if session is still valid."""
@@ -216,72 +197,69 @@ class Permission:
     """Standard permissions for CloudGuard-Anomaly."""
 
     # Scan permissions
-    SCAN_VIEW = 'scan:view'
-    SCAN_RUN = 'scan:run'
-    SCAN_DELETE = 'scan:delete'
+    SCAN_VIEW = "scan:view"
+    SCAN_RUN = "scan:run"
+    SCAN_DELETE = "scan:delete"
 
     # Finding permissions
-    FINDING_VIEW = 'finding:view'
-    FINDING_RESOLVE = 'finding:resolve'
-    FINDING_DELETE = 'finding:delete'
+    FINDING_VIEW = "finding:view"
+    FINDING_RESOLVE = "finding:resolve"
+    FINDING_DELETE = "finding:delete"
 
     # Compliance permissions
-    COMPLIANCE_VIEW = 'compliance:view'
-    COMPLIANCE_RUN = 'compliance:run'
+    COMPLIANCE_VIEW = "compliance:view"
+    COMPLIANCE_RUN = "compliance:run"
 
     # Policy permissions
-    POLICY_VIEW = 'policy:view'
-    POLICY_CREATE = 'policy:create'
-    POLICY_UPDATE = 'policy:update'
-    POLICY_DELETE = 'policy:delete'
+    POLICY_VIEW = "policy:view"
+    POLICY_CREATE = "policy:create"
+    POLICY_UPDATE = "policy:update"
+    POLICY_DELETE = "policy:delete"
 
     # User management
-    USER_VIEW = 'user:view'
-    USER_CREATE = 'user:create'
-    USER_UPDATE = 'user:update'
-    USER_DELETE = 'user:delete'
+    USER_VIEW = "user:view"
+    USER_CREATE = "user:create"
+    USER_UPDATE = "user:update"
+    USER_DELETE = "user:delete"
 
     # Role management
-    ROLE_VIEW = 'role:view'
-    ROLE_CREATE = 'role:create'
-    ROLE_UPDATE = 'role:update'
-    ROLE_DELETE = 'role:delete'
+    ROLE_VIEW = "role:view"
+    ROLE_CREATE = "role:create"
+    ROLE_UPDATE = "role:update"
+    ROLE_DELETE = "role:delete"
 
     # Admin
-    ADMIN_ALL = 'admin:*'
+    ADMIN_ALL = "admin:*"
 
 
 # Default roles
 DEFAULT_ROLES = {
-    'admin': {
-        'description': 'Full system access',
-        'permissions': [Permission.ADMIN_ALL]
-    },
-    'security_analyst': {
-        'description': 'Can view and resolve findings',
-        'permissions': [
+    "admin": {"description": "Full system access", "permissions": [Permission.ADMIN_ALL]},
+    "security_analyst": {
+        "description": "Can view and resolve findings",
+        "permissions": [
             Permission.SCAN_VIEW,
             Permission.SCAN_RUN,
             Permission.FINDING_VIEW,
             Permission.FINDING_RESOLVE,
             Permission.COMPLIANCE_VIEW,
             Permission.POLICY_VIEW,
-        ]
+        ],
     },
-    'auditor': {
-        'description': 'Read-only access to scans and findings',
-        'permissions': [
+    "auditor": {
+        "description": "Read-only access to scans and findings",
+        "permissions": [
             Permission.SCAN_VIEW,
             Permission.FINDING_VIEW,
             Permission.COMPLIANCE_VIEW,
             Permission.POLICY_VIEW,
-        ]
+        ],
     },
-    'viewer': {
-        'description': 'Read-only dashboard access',
-        'permissions': [
+    "viewer": {
+        "description": "Read-only dashboard access",
+        "permissions": [
             Permission.SCAN_VIEW,
             Permission.FINDING_VIEW,
-        ]
-    }
+        ],
+    },
 }

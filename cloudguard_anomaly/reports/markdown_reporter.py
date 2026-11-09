@@ -30,23 +30,22 @@ class MarkdownReporter:
         ]
 
         # Add findings summary
-        findings = scan_result.get('findings', [])
+        findings = scan_result.get("findings", [])
         if findings:
             severity_counts = {}
             for finding in findings:
-                severity = finding.get('severity', 'unknown')
+                severity = finding.get("severity", "unknown")
                 severity_counts[severity] = severity_counts.get(severity, 0) + 1
 
             lines.append("| Severity | Count |")
             lines.append("|----------|-------|")
-            for severity in ['critical', 'high', 'medium', 'low']:
+            for severity in ["critical", "high", "medium", "low"]:
                 count = severity_counts.get(severity, 0)
                 lines.append(f"| {severity.upper()} | {count} |")
             lines.append("")
 
         # Write report
-        with open(output_path, 'w') as f:
-            f.write('\n'.join(lines))
+        with open(output_path, "w") as f:
+            f.write("\n".join(lines))
 
         logger.info(f"Markdown report saved: {output_path}")
-

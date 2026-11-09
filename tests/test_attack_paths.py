@@ -2,16 +2,13 @@
 Tests for attack path analysis.
 """
 
-import pytest
 import networkx as nx
 
 from cloudguard_anomaly.analysis.attack_paths import (
-    AttackPathAnalyzer,
     AttackPath,
-    AttackPathNode,
+    AttackPathAnalyzer,
     get_attack_path_analyzer,
 )
-from cloudguard_anomaly.core.models import Severity, FindingType
 
 
 class TestAttackPathAnalyzer:
@@ -203,7 +200,7 @@ class TestAttackPathAnalyzer:
 
     def test_empty_environment_no_paths(self):
         """Test that empty environment produces no paths."""
-        from cloudguard_anomaly.core.models import Environment, CloudProvider
+        from cloudguard_anomaly.core.models import CloudProvider, Environment
 
         empty_env = Environment(
             name="empty",

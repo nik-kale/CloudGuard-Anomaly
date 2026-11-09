@@ -16,10 +16,10 @@ class HTMLReporter:
         """Save scan results as HTML."""
         logger.info(f"Generating HTML report: {output_path}")
 
-        env_name = scan_result.get('environment', {}).get('name', 'Unknown')
-        provider = scan_result.get('environment', {}).get('provider', 'N/A')
-        resources_count = len(scan_result.get('environment', {}).get('resources', []))
-        findings = scan_result.get('findings', [])
+        env_name = scan_result.get("environment", {}).get("name", "Unknown")
+        provider = scan_result.get("environment", {}).get("provider", "N/A")
+        resources_count = len(scan_result.get("environment", {}).get("resources", []))
+        findings = scan_result.get("findings", [])
 
         html = f"""<!DOCTYPE html>
 <html>
@@ -50,9 +50,9 @@ class HTMLReporter:
 """
 
         for finding in findings:
-            severity = finding.get('severity', 'low')
-            title = finding.get('title', 'N/A')
-            description = finding.get('description', '')
+            severity = finding.get("severity", "low")
+            title = finding.get("title", "N/A")
+            description = finding.get("description", "")
 
             html += f"""
     <div class="finding {severity}">
@@ -66,8 +66,7 @@ class HTMLReporter:
 </html>
 """
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             f.write(html)
 
         logger.info(f"HTML report saved: {output_path}")
-

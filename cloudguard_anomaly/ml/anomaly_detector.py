@@ -8,19 +8,19 @@ configurations that may not match known patterns.
 import logging
 import uuid
 from datetime import datetime
-from typing import List, Tuple, Optional
 
 import numpy as np
 
 try:
+    import joblib
     from sklearn.ensemble import IsolationForest
     from sklearn.preprocessing import StandardScaler
-    import joblib
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
 
-from cloudguard_anomaly.core.models import Resource, Environment, Anomaly, Severity
+from cloudguard_anomaly.core.models import Anomaly, Environment, Resource, Severity
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,7 @@ class MLAnomalyDetector:
         if "creation_date" in resource.properties:
             try:
                 from dateutil import parser
+
                 creation = parser.parse(resource.properties["creation_date"])
                 age_days = (datetime.now(creation.tzinfo) - creation).days
                 features.append(age_days)
@@ -98,9 +99,7 @@ class MLAnomalyDetector:
 
             # Count open rules
             open_rules = sum(
-                1
-                for rule in ingress_rules
-                if "0.0.0.0/0" in str(rule.get("cidr_blocks", []))
+                1 for rule in ingress_rules if "0.0.0.0/0" in str(rule.get("cidr_blocks", []))
             )
             features.append(open_rules)
         else:
@@ -116,7 +115,7 @@ class MLAnomalyDetector:
 
         return np.array(features)
 
-    def train(self, environments: List[Environment]) -> None:
+    def train(self, environments: list[Environment]) -> None:
         """
         Train anomaly detector on historical data.
 
@@ -149,7 +148,7 @@ class MLAnomalyDetector:
 
     def detect_anomalies(
         self, environment: Environment, threshold: float = -0.5
-    ) -> List[Tuple[Resource, float]]:
+    ) -> list[tuple[Resource, float]]:
         """
         Detect anomalous resources.
 
@@ -188,9 +187,7 @@ class MLAnomalyDetector:
 
         return anomalies
 
-    def create_anomaly_objects(
-        self, anomalies: List[Tuple[Resource, float]]
-    ) -> List[Anomaly]:
+    def create_anomaly_objects(self, anomalies: list[tuple[Resource, float]]) -> list[Anomaly]:
         """
         Convert anomaly detections to Anomaly objects.
 
@@ -279,7 +276,7 @@ class MLAnomalyDetector:
 
         logger.info(f"Loaded ML model from {path}")
 
-    def get_feature_importance(self) -> Optional[np.ndarray]:
+    def get_feature_importance(self) -> np.ndarray | None:
         """Get feature importance scores if available."""
         if not self.is_trained:
             return None

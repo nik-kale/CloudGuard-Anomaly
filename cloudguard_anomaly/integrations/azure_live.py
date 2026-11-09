@@ -5,19 +5,19 @@ Provides real-time resource discovery and analysis from live Azure subscriptions
 """
 
 import logging
-from typing import List, Optional
 
 try:
     from azure.identity import DefaultAzureCredential
-    from azure.mgmt.resource import ResourceManagementClient
-    from azure.mgmt.storage import StorageManagementClient
-    from azure.mgmt.sql import SqlManagementClient
     from azure.mgmt.compute import ComputeManagementClient
+    from azure.mgmt.resource import ResourceManagementClient
+    from azure.mgmt.sql import SqlManagementClient
+    from azure.mgmt.storage import StorageManagementClient
+
     AZURE_SDK_AVAILABLE = True
 except ImportError:
     AZURE_SDK_AVAILABLE = False
 
-from cloudguard_anomaly.core.models import Resource, ResourceType, Provider, Environment
+from cloudguard_anomaly.core.models import Environment, Provider, Resource, ResourceType
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,9 @@ class AzureLiveIntegration:
             subscription_id: Azure subscription ID
         """
         if not AZURE_SDK_AVAILABLE:
-            raise ImportError("Azure SDK is required. Install with: pip install azure-identity azure-mgmt-resource azure-mgmt-storage azure-mgmt-sql azure-mgmt-compute")
+            raise ImportError(
+                "Azure SDK is required. Install with: pip install azure-identity azure-mgmt-resource azure-mgmt-storage azure-mgmt-sql azure-mgmt-compute"
+            )
 
         self.subscription_id = subscription_id
         self.credential = DefaultAzureCredential()
@@ -67,7 +69,7 @@ class AzureLiveIntegration:
             },
         )
 
-    def _discover_storage_accounts(self) -> List[Resource]:
+    def _discover_storage_accounts(self) -> list[Resource]:
         """Discover Azure storage accounts."""
         resources = []
 
@@ -81,7 +83,11 @@ class AzureLiveIntegration:
                     region=account.location,
                     properties={
                         "enable_https_traffic_only": account.enable_https_traffic_only,
-                        "minimum_tls_version": str(account.minimum_tls_version) if account.minimum_tls_version else None,
+                        "minimum_tls_version": (
+                            str(account.minimum_tls_version)
+                            if account.minimum_tls_version
+                            else None
+                        ),
                         "allow_blob_public_access": account.allow_blob_public_access,
                     },
                     tags=account.tags or {},
@@ -94,7 +100,7 @@ class AzureLiveIntegration:
 
         return resources
 
-    def _discover_sql_databases(self) -> List[Resource]:
+    def _discover_sql_databases(self) -> list[Resource]:
         """Discover Azure SQL databases."""
         resources = []
 
@@ -123,7 +129,7 @@ class AzureLiveIntegration:
 
         return resources
 
-    def _discover_virtual_machines(self) -> List[Resource]:
+    def _discover_virtual_machines(self) -> list[Resource]:
         """Discover Azure virtual machines."""
         resources = []
 

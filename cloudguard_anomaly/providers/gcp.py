@@ -1,6 +1,6 @@
 """GCP provider implementation."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 from cloudguard_anomaly.core.models import Provider, Resource, ResourceType
 from cloudguard_anomaly.providers.base import BaseProvider
@@ -12,7 +12,7 @@ class GCPProvider(BaseProvider):
     def __init__(self):
         super().__init__("gcp")
 
-    def get_resource_type_mapping(self) -> Dict[str, ResourceType]:
+    def get_resource_type_mapping(self) -> dict[str, ResourceType]:
         """Map GCP resource types to standard types."""
         return {
             # Compute
@@ -45,7 +45,7 @@ class GCPProvider(BaseProvider):
             "google_secret_manager_secret": ResourceType.SECRET,
         }
 
-    def normalize_resource(self, raw_resource: Dict[str, Any]) -> Resource:
+    def normalize_resource(self, raw_resource: dict[str, Any]) -> Resource:
         """Normalize GCP resource to standard format."""
         resource_type = self.detect_resource_type(raw_resource)
 
@@ -63,12 +63,12 @@ class GCPProvider(BaseProvider):
             },
         )
 
-    def extract_tags(self, raw_resource: Dict[str, Any]) -> Dict[str, str]:
+    def extract_tags(self, raw_resource: dict[str, Any]) -> dict[str, str]:
         """Extract labels from GCP resource format."""
         # GCP uses 'labels' instead of 'tags'
         return raw_resource.get("labels", raw_resource.get("tags", {}))
 
-    def extract_region(self, raw_resource: Dict[str, Any]) -> str:
+    def extract_region(self, raw_resource: dict[str, Any]) -> str:
         """Extract zone/region from GCP resource."""
         # GCP uses zone or region
         zone = raw_resource.get("zone", "")
@@ -79,7 +79,7 @@ class GCPProvider(BaseProvider):
 
         return raw_resource.get("region", "global")
 
-    def validate_resource(self, resource: Resource) -> List[str]:
+    def validate_resource(self, resource: Resource) -> list[str]:
         """Validate GCP resource configuration."""
         errors = []
 

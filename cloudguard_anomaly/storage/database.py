@@ -8,23 +8,23 @@ to enable trend analysis, compliance tracking, and reporting.
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
+from typing import Any
 
 from sqlalchemy import (
-    create_engine,
+    JSON,
+    Boolean,
     Column,
-    String,
-    Integer,
     DateTime,
     Float,
-    Boolean,
-    JSON,
     Index,
+    Integer,
+    String,
+    create_engine,
 )
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
-from cloudguard_anomaly.core.models import ScanResult, Finding, Anomaly
+from cloudguard_anomaly.core.models import ScanResult
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +143,9 @@ class AuditLog(Base):
     timestamp = Column(DateTime, index=True, nullable=False, default=datetime.utcnow)
     user_id = Column(String, index=True)  # User who performed the action
     username = Column(String)  # Username for quick reference
-    action = Column(String, index=True, nullable=False)  # create, update, delete, login, logout, etc.
+    action = Column(
+        String, index=True, nullable=False
+    )  # create, update, delete, login, logout, etc.
     resource_type = Column(String, index=True)  # user, role, policy, scan, finding, etc.
     resource_id = Column(String, index=True)  # ID of affected resource
     status = Column(String, index=True)  # success, failure, error
@@ -169,26 +171,30 @@ class DatabaseStorage:
             database_url: SQLAlchemy database URL
         """
         from cloudguard_anomaly.config import get_config
+
         config = get_config()
 
         self.database_url = database_url
 
         # Configure engine with connection pooling
         engine_kwargs = {
-            'echo': False,
-            'pool_pre_ping': True,  # Verify connections before using
+            "echo": False,
+            "pool_pre_ping": True,  # Verify connections before using
         }
 
         # Add pooling only for non-SQLite databases
-        if not database_url.startswith('sqlite'):
+        if not database_url.startswith("sqlite"):
             from sqlalchemy.pool import QueuePool
-            engine_kwargs.update({
-                'poolclass': QueuePool,
-                'pool_size': config.database_pool_size,
-                'max_overflow': config.database_max_overflow,
-                'pool_recycle': 3600,  # Recycle connections after 1 hour
-                'pool_timeout': 30,  # Wait up to 30 seconds for a connection
-            })
+
+            engine_kwargs.update(
+                {
+                    "poolclass": QueuePool,
+                    "pool_size": config.database_pool_size,
+                    "max_overflow": config.database_max_overflow,
+                    "pool_recycle": 3600,  # Recycle connections after 1 hour
+                    "pool_timeout": 30,  # Wait up to 30 seconds for a connection
+                }
+            )
             logger.info(
                 f"Connection pooling enabled: pool_size={config.database_pool_size}, "
                 f"max_overflow={config.database_max_overflow}"
@@ -280,7 +286,7 @@ class DatabaseStorage:
         finally:
             session.close()
 
-    def get_scan(self, scan_id: str) -> Optional[ScanRecord]:
+    def get_scan(self, scan_id: str) -> ScanRecord | None:
         """Get scan by ID."""
         session = self.get_session()
         try:
@@ -288,7 +294,7 @@ class DatabaseStorage:
         finally:
             session.close()
 
-    def get_latest_scan(self, environment_name: str) -> Optional[ScanRecord]:
+    def get_latest_scan(self, environment_name: str) -> ScanRecord | None:
         """Get latest scan for an environment."""
         session = self.get_session()
         try:
@@ -303,10 +309,10 @@ class DatabaseStorage:
 
     def get_scans(
         self,
-        environment_name: Optional[str] = None,
+        environment_name: str | None = None,
         days: int = 30,
         limit: int = 100,
-    ) -> List[ScanRecord]:
+    ) -> list[ScanRecord]:
         """
         Get recent scans.
 
@@ -332,9 +338,7 @@ class DatabaseStorage:
         finally:
             session.close()
 
-    def get_trend_data(
-        self, environment_name: str, days: int = 30
-    ) -> List[Dict[str, Any]]:
+    def get_trend_data(self, environment_name: str, days: int = 30) -> list[dict[str, Any]]:
         """
         Get trend data for an environment.
 
@@ -363,12 +367,12 @@ class DatabaseStorage:
 
     def get_findings(
         self,
-        scan_id: Optional[str] = None,
-        environment_name: Optional[str] = None,
-        severity: Optional[str] = None,
+        scan_id: str | None = None,
+        environment_name: str | None = None,
+        severity: str | None = None,
         unresolved_only: bool = False,
         limit: int = 100,
-    ) -> List[FindingRecord]:
+    ) -> list[FindingRecord]:
         """
         Query findings with filters.
 
@@ -407,9 +411,7 @@ class DatabaseStorage:
         """Mark a finding as resolved."""
         session = self.get_session()
         try:
-            finding = (
-                session.query(FindingRecord).filter(FindingRecord.id == finding_id).first()
-            )
+            finding = session.query(FindingRecord).filter(FindingRecord.id == finding_id).first()
 
             if finding:
                 finding.resolved = True
@@ -428,11 +430,11 @@ class DatabaseStorage:
 
     def get_compliance_results(
         self,
-        framework: Optional[str] = None,
-        environment_name: Optional[str] = None,
+        framework: str | None = None,
+        environment_name: str | None = None,
         days: int = 30,
         limit: int = 50,
-    ) -> List[ComplianceRecord]:
+    ) -> list[ComplianceRecord]:
         """
         Query compliance results from database.
 
@@ -464,7 +466,7 @@ class DatabaseStorage:
         finally:
             session.close()
 
-    def get_statistics(self, environment_name: str, days: int = 30) -> Dict[str, Any]:
+    def get_statistics(self, environment_name: str, days: int = 30) -> dict[str, Any]:
         """
         Get statistics for an environment.
 
@@ -498,9 +500,7 @@ class DatabaseStorage:
                 )
                 .all()
             )
-            avg_risk_score = (
-                sum(r[0] for r in avg_risk) / len(avg_risk) if avg_risk else 0
-            )
+            avg_risk_score = sum(r[0] for r in avg_risk) / len(avg_risk) if avg_risk else 0
 
             # Get unresolved findings count
             unresolved_count = (
@@ -533,23 +533,15 @@ class DatabaseStorage:
             cutoff = datetime.utcnow() - timedelta(days=days)
 
             # Delete old scans
-            deleted_scans = (
-                session.query(ScanRecord)
-                .filter(ScanRecord.timestamp < cutoff)
-                .delete()
-            )
+            deleted_scans = session.query(ScanRecord).filter(ScanRecord.timestamp < cutoff).delete()
 
             # Delete orphaned findings
             deleted_findings = (
-                session.query(FindingRecord)
-                .filter(FindingRecord.timestamp < cutoff)
-                .delete()
+                session.query(FindingRecord).filter(FindingRecord.timestamp < cutoff).delete()
             )
 
             session.commit()
-            logger.info(
-                f"Cleaned up {deleted_scans} scans and {deleted_findings} findings"
-            )
+            logger.info(f"Cleaned up {deleted_scans} scans and {deleted_findings} findings")
 
         except Exception as e:
             session.rollback()
@@ -566,12 +558,12 @@ class DatabaseStorage:
         description: str,
         severity: str,
         provider: str,
-        resource_types: List[str],
-        condition: Dict[str, Any],
+        resource_types: list[str],
+        condition: dict[str, Any],
         remediation: str,
-        references: Optional[List[str]] = None,
+        references: list[str] | None = None,
         enabled: bool = True,
-        created_by: Optional[str] = None
+        created_by: str | None = None,
     ) -> PolicyRecord:
         """
         Create a new security policy.
@@ -605,8 +597,8 @@ class DatabaseStorage:
                     "resource_types": resource_types,
                     "condition": condition,
                     "remediation": remediation,
-                    "references": references or []
-                }
+                    "references": references or [],
+                },
             )
 
             session.add(policy)
@@ -621,7 +613,7 @@ class DatabaseStorage:
         finally:
             session.close()
 
-    def get_policy(self, policy_id: str) -> Optional[PolicyRecord]:
+    def get_policy(self, policy_id: str) -> PolicyRecord | None:
         """
         Get policy by ID.
 
@@ -639,12 +631,12 @@ class DatabaseStorage:
 
     def list_policies(
         self,
-        provider: Optional[str] = None,
-        severity: Optional[str] = None,
+        provider: str | None = None,
+        severity: str | None = None,
         enabled_only: bool = False,
         limit: int = 100,
-        offset: int = 0
-    ) -> List[PolicyRecord]:
+        offset: int = 0,
+    ) -> list[PolicyRecord]:
         """
         List policies with filtering.
 
@@ -679,16 +671,16 @@ class DatabaseStorage:
     def update_policy(
         self,
         policy_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        severity: Optional[str] = None,
-        provider: Optional[str] = None,
-        resource_types: Optional[List[str]] = None,
-        condition: Optional[Dict[str, Any]] = None,
-        remediation: Optional[str] = None,
-        references: Optional[List[str]] = None,
-        enabled: Optional[bool] = None
-    ) -> Optional[PolicyRecord]:
+        name: str | None = None,
+        description: str | None = None,
+        severity: str | None = None,
+        provider: str | None = None,
+        resource_types: list[str] | None = None,
+        condition: dict[str, Any] | None = None,
+        remediation: str | None = None,
+        references: list[str] | None = None,
+        enabled: bool | None = None,
+    ) -> PolicyRecord | None:
         """
         Update an existing policy.
 
@@ -730,13 +722,13 @@ class DatabaseStorage:
             if any([resource_types, condition, remediation, references]):
                 data = policy.data or {}
                 if resource_types is not None:
-                    data['resource_types'] = resource_types
+                    data["resource_types"] = resource_types
                 if condition is not None:
-                    data['condition'] = condition
+                    data["condition"] = condition
                 if remediation is not None:
-                    data['remediation'] = remediation
+                    data["remediation"] = remediation
                 if references is not None:
-                    data['references'] = references
+                    data["references"] = references
                 policy.data = data
 
             policy.updated_at = datetime.utcnow()
@@ -787,13 +779,13 @@ class DatabaseStorage:
         self,
         action: str,
         resource_type: str,
-        user_id: Optional[str] = None,
-        username: Optional[str] = None,
-        resource_id: Optional[str] = None,
+        user_id: str | None = None,
+        username: str | None = None,
+        resource_id: str | None = None,
         status: str = "success",
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        details: dict[str, Any] | None = None,
     ) -> AuditLog:
         """
         Log an audit event.
@@ -825,7 +817,7 @@ class DatabaseStorage:
                 status=status,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                details=details or {}
+                details=details or {},
             )
 
             session.add(audit_log)
@@ -848,16 +840,16 @@ class DatabaseStorage:
 
     def get_audit_logs(
         self,
-        user_id: Optional[str] = None,
-        action: Optional[str] = None,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
-        status: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        user_id: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        status: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         limit: int = 100,
-        offset: int = 0
-    ) -> List[AuditLog]:
+        offset: int = 0,
+    ) -> list[AuditLog]:
         """
         Query audit logs with filtering.
 
@@ -899,7 +891,7 @@ class DatabaseStorage:
         finally:
             session.close()
 
-    def get_user_activity(self, user_id: str, days: int = 30) -> List[AuditLog]:
+    def get_user_activity(self, user_id: str, days: int = 30) -> list[AuditLog]:
         """
         Get recent activity for a specific user.
 
@@ -911,11 +903,7 @@ class DatabaseStorage:
             List of audit log records for the user
         """
         start_time = datetime.utcnow() - timedelta(days=days)
-        return self.get_audit_logs(
-            user_id=user_id,
-            start_time=start_time,
-            limit=1000
-        )
+        return self.get_audit_logs(user_id=user_id, start_time=start_time, limit=1000)
 
     def cleanup_old_audit_logs(self, days: int = 365):
         """
@@ -928,11 +916,7 @@ class DatabaseStorage:
         try:
             cutoff = datetime.utcnow() - timedelta(days=days)
 
-            deleted_count = (
-                session.query(AuditLog)
-                .filter(AuditLog.timestamp < cutoff)
-                .delete()
-            )
+            deleted_count = session.query(AuditLog).filter(AuditLog.timestamp < cutoff).delete()
 
             session.commit()
             logger.info(f"Cleaned up {deleted_count} old audit logs")

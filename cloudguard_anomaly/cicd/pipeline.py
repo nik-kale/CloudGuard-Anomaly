@@ -4,10 +4,8 @@ CI/CD pipeline integration for CloudGuard-Anomaly.
 Provides templates and helpers for integrating security scans into CI/CD pipelines.
 """
 
-import sys
-from enum import Enum
 from dataclasses import dataclass
-from typing import Dict, Any
+from enum import Enum
 
 from cloudguard_anomaly.core.models import ScanResult, Severity
 
@@ -50,9 +48,7 @@ class CICDIntegration:
         """
         critical = len(scan_result.get_critical_findings())
         high = len(scan_result.get_high_findings())
-        medium_findings = [
-            f for f in scan_result.findings if f.severity == Severity.MEDIUM
-        ]
+        medium_findings = [f for f in scan_result.findings if f.severity == Severity.MEDIUM]
         medium = len(medium_findings)
         risk_score = scan_result.summary.get("risk_score", 0)
 

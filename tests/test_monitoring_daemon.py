@@ -2,13 +2,12 @@
 Tests for continuous monitoring daemon.
 """
 
-import time
-import pytest
-from datetime import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
+import pytest
+
+from cloudguard_anomaly.core.models import CloudProvider, Environment
 from cloudguard_anomaly.monitoring.daemon import MonitoringDaemon
-from cloudguard_anomaly.core.models import Environment, CloudProvider
 
 
 class TestMonitoringDaemon:
@@ -157,10 +156,14 @@ class TestMonitoringDaemon:
         daemon = MonitoringDaemon(scan_interval=60, database_url=test_database_url)
 
         def mock_scan_1():
-            return Environment(name="env1", provider=CloudProvider.AWS, region="us-east-1", resources=[])
+            return Environment(
+                name="env1", provider=CloudProvider.AWS, region="us-east-1", resources=[]
+            )
 
         def mock_scan_2():
-            return Environment(name="env2", provider=CloudProvider.AWS, region="us-west-2", resources=[])
+            return Environment(
+                name="env2", provider=CloudProvider.AWS, region="us-west-2", resources=[]
+            )
 
         daemon.add_target("target-1", mock_scan_1)
         daemon.add_target("target-2", mock_scan_2)
@@ -201,7 +204,9 @@ class TestMonitoringDaemon:
         )
 
         def mock_scan_func():
-            return Environment(name="test", provider=CloudProvider.AWS, region="us-east-1", resources=[])
+            return Environment(
+                name="test", provider=CloudProvider.AWS, region="us-east-1", resources=[]
+            )
 
         daemon.add_target("policy-test", mock_scan_func, policies=[policy])
 
@@ -217,7 +222,9 @@ class TestDaemonIntegration:
         daemon = MonitoringDaemon(scan_interval=1, database_url=test_database_url)
 
         def mock_scan_func():
-            return Environment(name="test", provider=CloudProvider.AWS, region="us-east-1", resources=[])
+            return Environment(
+                name="test", provider=CloudProvider.AWS, region="us-east-1", resources=[]
+            )
 
         daemon.add_target("integration-test", mock_scan_func)
 

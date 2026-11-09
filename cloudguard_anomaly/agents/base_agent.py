@@ -7,7 +7,7 @@ This design allows easy replacement with real LLM-based agents.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class BaseAgent(ABC):
     with LLM-based implementations.
     """
 
-    def __init__(self, name: str, llm_provider: Optional[Any] = None):
+    def __init__(self, name: str, llm_provider: Any | None = None):
         """
         Initialize the agent.
 
@@ -35,7 +35,7 @@ class BaseAgent(ABC):
         self.use_llm = llm_provider is not None
 
     @abstractmethod
-    def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    def process(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """
         Process input and generate output.
 
@@ -47,7 +47,7 @@ class BaseAgent(ABC):
         """
         pass
 
-    def _format_prompt(self, input_data: Dict[str, Any]) -> str:
+    def _format_prompt(self, input_data: dict[str, Any]) -> str:
         """
         Format input data as a prompt for LLM (future use).
 
@@ -78,14 +78,14 @@ class BaseAgent(ABC):
             NotImplementedError: If no LLM provider is configured
         """
         if not self.llm_provider:
-            raise NotImplementedError("LLM provider not configured. Set llm_provider in constructor.")
+            raise NotImplementedError(
+                "LLM provider not configured. Set llm_provider in constructor."
+            )
 
         try:
             logger.debug(f"Calling LLM for agent '{self.name}'")
             response = self.llm_provider.generate(
-                prompt=prompt,
-                system=system,
-                max_tokens=max_tokens
+                prompt=prompt, system=system, max_tokens=max_tokens
             )
             logger.debug(f"LLM response received for agent '{self.name}'")
             return response

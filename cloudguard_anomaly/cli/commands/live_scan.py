@@ -7,10 +7,10 @@ from pathlib import Path
 import click
 
 from cloudguard_anomaly.core.engine import AnalysisEngine
-from cloudguard_anomaly.storage.database import DatabaseStorage
 from cloudguard_anomaly.notifications.webhooks import SlackNotifier
 from cloudguard_anomaly.reports.json_reporter import JSONReporter
 from cloudguard_anomaly.reports.markdown_reporter import MarkdownReporter
+from cloudguard_anomaly.storage.database import DatabaseStorage
 
 logger = logging.getLogger(__name__)
 

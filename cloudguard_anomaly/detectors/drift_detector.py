@@ -7,7 +7,7 @@ Detects configuration drift by comparing baseline and current resource states.
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from cloudguard_anomaly.core.models import Anomaly, Resource, Severity
 
@@ -22,8 +22,8 @@ class DriftDetector:
         pass
 
     def detect_drift(
-        self, baseline_resources: List[Resource], current_resources: List[Resource]
-    ) -> List[Anomaly]:
+        self, baseline_resources: list[Resource], current_resources: list[Resource]
+    ) -> list[Anomaly]:
         """
         Detect drift between baseline and current resource configurations.
 
@@ -65,9 +65,7 @@ class DriftDetector:
         logger.info(f"Drift detector found {len(anomalies)} anomalies")
         return anomalies
 
-    def _detect_resource_drift(
-        self, baseline: Resource, current: Resource
-    ) -> Optional[Anomaly]:
+    def _detect_resource_drift(self, baseline: Resource, current: Resource) -> Anomaly | None:
         """Detect drift for a single resource."""
         changes = self._compare_resources(baseline, current)
 
@@ -94,7 +92,7 @@ class DriftDetector:
             timestamp=datetime.utcnow(),
         )
 
-    def _compare_resources(self, baseline: Resource, current: Resource) -> List[Dict[str, Any]]:
+    def _compare_resources(self, baseline: Resource, current: Resource) -> list[dict[str, Any]]:
         """Compare two resource configurations and identify changes."""
         changes = []
 
@@ -140,7 +138,7 @@ class DriftDetector:
         else:
             return "modified"
 
-    def _assess_drift_severity(self, changes: List[Dict[str, Any]], resource: Resource) -> Severity:
+    def _assess_drift_severity(self, changes: list[dict[str, Any]], resource: Resource) -> Severity:
         """Assess the severity of drift based on changes."""
         # Security-critical properties
         critical_properties = [
@@ -176,7 +174,7 @@ class DriftDetector:
         # Default to medium if changes exist but aren't critical
         return Severity.MEDIUM
 
-    def _is_security_degradation(self, change: Dict[str, Any]) -> bool:
+    def _is_security_degradation(self, change: dict[str, Any]) -> bool:
         """Determine if a change represents security degradation."""
         prop = change["property"]
         baseline_value = change["baseline_value"]
@@ -208,7 +206,7 @@ class DriftDetector:
 
         return False
 
-    def _assess_drift_impact(self, changes: List[Dict[str, Any]], resource: Resource) -> str:
+    def _assess_drift_impact(self, changes: list[dict[str, Any]], resource: Resource) -> str:
         """Generate impact assessment for drift."""
         impact_statements = []
 
@@ -224,7 +222,9 @@ class DriftDetector:
             elif change_type == "added":
                 impact_statements.append(f"New property added: {prop} = {change['current_value']}")
             elif change_type == "removed":
-                impact_statements.append(f"Property removed: {prop} (was {change['baseline_value']})")
+                impact_statements.append(
+                    f"Property removed: {prop} (was {change['baseline_value']})"
+                )
             else:
                 impact_statements.append(
                     f"Property modified: {prop} changed from "

@@ -3,11 +3,9 @@ Tests for parallel scanning functionality.
 """
 
 import time
-from typing import List
-import pytest
 
+from cloudguard_anomaly.core.models import Finding, FindingType, Resource, Severity
 from cloudguard_anomaly.core.parallel import ParallelScanner
-from cloudguard_anomaly.core.models import Resource, Finding, Severity, FindingType
 
 
 class TestParallelScanner:
@@ -28,7 +26,7 @@ class TestParallelScanner:
     def test_scan_resources_parallel_performance(self, sample_resources):
         """Test parallel scanning is faster than sequential."""
 
-        def slow_scan_func(resource: Resource) -> List[Finding]:
+        def slow_scan_func(resource: Resource) -> list[Finding]:
             """Simulated slow scan function."""
             time.sleep(0.1)  # Simulate I/O delay
             return [
@@ -63,7 +61,7 @@ class TestParallelScanner:
     def test_scan_resources_parallel_results(self, sample_resources):
         """Test parallel scanning produces correct results."""
 
-        def test_scan_func(resource: Resource) -> List[Finding]:
+        def test_scan_func(resource: Resource) -> list[Finding]:
             return [
                 Finding(
                     resource=resource,
@@ -88,7 +86,7 @@ class TestParallelScanner:
     def test_scan_resources_parallel_error_handling(self, sample_resources):
         """Test parallel scanner handles errors gracefully."""
 
-        def error_scan_func(resource: Resource) -> List[Finding]:
+        def error_scan_func(resource: Resource) -> list[Finding]:
             if "s3" in resource.id:
                 raise ValueError("Simulated error")
             return []
@@ -138,7 +136,7 @@ class TestParallelScanner:
     def test_disabled_scanner_falls_back_to_sequential(self, sample_resources):
         """Test disabled scanner falls back to sequential processing."""
 
-        def test_scan_func(resource: Resource) -> List[Finding]:
+        def test_scan_func(resource: Resource) -> list[Finding]:
             return [
                 Finding(
                     resource=resource,

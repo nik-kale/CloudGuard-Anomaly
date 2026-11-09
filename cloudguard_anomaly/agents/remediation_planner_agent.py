@@ -5,7 +5,7 @@ Generates step-by-step remediation plans for security findings,
 including preconditions, steps, and potential side effects.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 from cloudguard_anomaly.agents.base_agent import BaseAgent
 from cloudguard_anomaly.core.models import Finding, ResourceType
@@ -17,7 +17,7 @@ class RemediationPlannerAgent(BaseAgent):
     def __init__(self):
         super().__init__("remediation_planner")
 
-    def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    def process(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """
         Generate remediation plan for a finding.
 
@@ -35,7 +35,7 @@ class RemediationPlannerAgent(BaseAgent):
                 - side_effects: Potential side effects
         """
         finding: Finding = input_data.get("finding")
-        context: Dict[str, Any] = input_data.get("context", {})
+        context: dict[str, Any] = input_data.get("context", {})
 
         if not finding:
             return {"error": "No finding provided"}
@@ -85,7 +85,7 @@ class RemediationPlannerAgent(BaseAgent):
 """
         return plan_doc.strip()
 
-    def _identify_preconditions(self, finding: Finding) -> List[str]:
+    def _identify_preconditions(self, finding: Finding) -> list[str]:
         """Identify preconditions before remediation."""
         preconditions = []
 
@@ -114,7 +114,7 @@ class RemediationPlannerAgent(BaseAgent):
 
         return preconditions
 
-    def _generate_steps(self, finding: Finding) -> List[str]:
+    def _generate_steps(self, finding: Finding) -> list[str]:
         """Generate remediation steps."""
         steps = []
         resource = finding.resource
@@ -143,7 +143,7 @@ class RemediationPlannerAgent(BaseAgent):
 
         return steps
 
-    def _steps_remove_public_access(self, resource) -> List[str]:
+    def _steps_remove_public_access(self, resource) -> list[str]:
         """Steps to remove public access."""
         if resource.type == ResourceType.STORAGE:
             return [
@@ -170,7 +170,7 @@ class RemediationPlannerAgent(BaseAgent):
                 "Implement private networking",
             ]
 
-    def _steps_enable_encryption(self, resource) -> List[str]:
+    def _steps_enable_encryption(self, resource) -> list[str]:
         """Steps to enable encryption."""
         if resource.type == ResourceType.STORAGE:
             return [
@@ -197,7 +197,7 @@ class RemediationPlannerAgent(BaseAgent):
                 "Verify encryption status",
             ]
 
-    def _steps_restrict_remote_access(self, resource) -> List[str]:
+    def _steps_restrict_remote_access(self, resource) -> list[str]:
         """Steps to restrict SSH/RDP access."""
         return [
             "Navigate to security group settings",
@@ -209,7 +209,7 @@ class RemediationPlannerAgent(BaseAgent):
             "Test connectivity from approved sources",
         ]
 
-    def _steps_fix_iam_issue(self, resource) -> List[str]:
+    def _steps_fix_iam_issue(self, resource) -> list[str]:
         """Steps to fix IAM issues."""
         return [
             "Review current IAM role/policy permissions",
@@ -221,7 +221,7 @@ class RemediationPlannerAgent(BaseAgent):
             "Adjust permissions as needed based on actual requirements",
         ]
 
-    def _steps_enable_backup(self, resource) -> List[str]:
+    def _steps_enable_backup(self, resource) -> list[str]:
         """Steps to enable backups."""
         return [
             "Navigate to resource backup settings",
@@ -233,7 +233,7 @@ class RemediationPlannerAgent(BaseAgent):
             "Test restore procedure",
         ]
 
-    def _steps_enable_logging(self, resource) -> List[str]:
+    def _steps_enable_logging(self, resource) -> list[str]:
         """Steps to enable logging."""
         return [
             "Navigate to resource logging/monitoring settings",
@@ -245,7 +245,7 @@ class RemediationPlannerAgent(BaseAgent):
             "Verify logs are being generated",
         ]
 
-    def _generate_validation_steps(self, finding: Finding) -> List[str]:
+    def _generate_validation_steps(self, finding: Finding) -> list[str]:
         """Generate validation steps."""
         return [
             "Verify the configuration change was applied successfully",
@@ -256,7 +256,7 @@ class RemediationPlannerAgent(BaseAgent):
             "Document the change in change management system",
         ]
 
-    def _generate_rollback_steps(self, finding: Finding) -> List[str]:
+    def _generate_rollback_steps(self, finding: Finding) -> list[str]:
         """Generate rollback steps."""
         return [
             "If issues occur, revert to backup/snapshot created in preconditions",
@@ -266,7 +266,7 @@ class RemediationPlannerAgent(BaseAgent):
             "Schedule follow-up to address remediation properly",
         ]
 
-    def _identify_side_effects(self, finding: Finding) -> List[str]:
+    def _identify_side_effects(self, finding: Finding) -> list[str]:
         """Identify potential side effects."""
         side_effects = []
         resource = finding.resource
@@ -297,10 +297,10 @@ class RemediationPlannerAgent(BaseAgent):
 
         return side_effects
 
-    def _format_list(self, items: List[str]) -> str:
+    def _format_list(self, items: list[str]) -> str:
         """Format list with bullets."""
         return "\n".join([f"• {item}" for item in items])
 
-    def _format_numbered_list(self, items: List[str]) -> str:
+    def _format_numbered_list(self, items: list[str]) -> str:
         """Format list with numbers."""
         return "\n".join([f"{i + 1}. {item}" for i, item in enumerate(items)])
