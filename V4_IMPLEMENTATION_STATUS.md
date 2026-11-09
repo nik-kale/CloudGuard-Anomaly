@@ -1,5 +1,9 @@
 # CloudGuard-Anomaly v4.0 - Implementation Status
 
+> **Status note (November 2026):** this is a historical planning snapshot. Its checklists
+> are out of date; several items marked as remaining have since shipped, and some marked
+> complete did not work until later fixes. See `CHANGELOG.md` for what has changed.
+
 ## 🎯 Executive Summary
 
 **Analysis Performed**: Comprehensive codebase audit identifying **57 critical issues** across 9 categories

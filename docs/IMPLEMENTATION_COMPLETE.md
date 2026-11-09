@@ -1,5 +1,9 @@
 # CloudGuard-Anomaly v3.0 - Implementation Complete Summary
 
+> **Status note (November 2026):** this is a historical planning snapshot. Its checklists
+> are out of date; several items marked as remaining have since shipped, and some marked
+> complete did not work until later fixes. See `CHANGELOG.md` for what has changed.
+
 ## Overview
 
 CloudGuard-Anomaly v3.0 has been successfully upgraded with comprehensive security improvements, production-ready infrastructure, and enterprise features.

@@ -95,8 +95,8 @@ CloudGuard-Anomaly is an agentic AI-powered framework for analyzing cloud securi
 ### Install from Source
 
 ```bash
-git clone https://github.com/cloudguard-anomaly/cloudguard-anomaly.git
-cd cloudguard-anomaly
+git clone https://github.com/nik-kale/CloudGuard-Anomaly.git
+cd CloudGuard-Anomaly
 pip install -e .
 ```
 
@@ -111,6 +111,9 @@ Or install with development dependencies:
 ```bash
 pip install -e ".[dev]"
 ```
+
+A plain `pip install .` gives you file-based scanning. Add extras for the rest:
+`.[dashboard]`, `.[aws]`, `.[pdf]`, `.[iac]` and `.[ml]`. `requirements.txt` installs everything.
 
 ## Quick Start
 
@@ -146,6 +149,7 @@ cloudguard-anomaly compliance --env ./infrastructure --framework soc2
 ### 4. Launch Web Dashboard
 
 ```bash
+export DASHBOARD_SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
 cloudguard-anomaly dashboard --database-url sqlite:///cloudguard.db
 ```
 
@@ -242,7 +246,7 @@ cloudguard-anomaly compliance --env ./infrastructure --framework hipaa
 cloudguard-anomaly remediate --scan-id abc123 --dry-run --database-url sqlite:///cloudguard.db
 
 # Remediate critical findings only
-cloudguard-anomaly remediate --scan-id abc123 --severity critical --database-url sqlite:///cloudguard.db
+cloudguard-anomaly remediate --scan-id abc123 --severity critical --no-dry-run --database-url sqlite:///cloudguard.db
 ```
 
 #### Machine Learning Model Training
@@ -604,8 +608,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Support
 
 For issues, questions, or contributions:
-- GitHub Issues: https://github.com/cloudguard-anomaly/cloudguard-anomaly/issues
-- Documentation: https://github.com/cloudguard-anomaly/cloudguard-anomaly/docs
+- GitHub Issues: https://github.com/nik-kale/CloudGuard-Anomaly/issues
+- Documentation: https://github.com/nik-kale/CloudGuard-Anomaly/docs
 
 ---
 
