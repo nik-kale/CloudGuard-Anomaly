@@ -101,7 +101,7 @@ class ConfigLoader:
         Expected structure:
         env_path/
           - environment.yaml  (environment metadata)
-          - runtime_snapshot/ (current resource configs)
+          - runtime_snapshot/ or current/ (current resource configs)
           - iac/             (infrastructure-as-code definitions)
           - baseline/        (optional baseline configs)
         """
@@ -113,6 +113,8 @@ class ConfigLoader:
         env_file = env_path / "environment.yaml"
         if not env_file.exists():
             env_file = env_path / "environment.json"
+        if not env_file.exists():
+            env_file = env_path / "scenario.yaml"
 
         if env_file.exists():
             env_config = ConfigLoader.load_config_file(env_file)
@@ -131,6 +133,10 @@ class ConfigLoader:
         runtime_path = env_path / "runtime_snapshot"
         if runtime_path.exists():
             resources.extend(ConfigLoader._load_resources_from_dir(runtime_path, provider))
+
+        # Drift scenarios keep their live state in current/
+        if not resources and (env_path / "current").exists():
+            resources.extend(ConfigLoader._load_resources_from_dir(env_path / "current", provider))
 
         # Load IaC resources if no runtime snapshot
         if not resources:

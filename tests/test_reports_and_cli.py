@@ -347,3 +347,11 @@ class TestCoreRegressions:
 
         assert result.name == "prod-eu-west-1"
         assert result.metadata["region"] == "eu-west-1"
+
+
+def test_drift_scenario_reads_its_current_state():
+    """The README's drift example has baseline/ and current/ but no runtime_snapshot/."""
+    scenario = REPO_ROOT / "examples" / "drift_scenarios" / "public_bucket_after_change"
+    environment = ConfigLoader.load_environment(scenario)
+    assert environment.resources
+    assert environment.baseline_resources
