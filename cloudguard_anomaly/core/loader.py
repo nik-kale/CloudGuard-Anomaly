@@ -8,7 +8,7 @@ configuration snapshots from various formats (JSON, YAML, etc.)
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -30,7 +30,7 @@ class ConfigLoader:
         """Load configuration from JSON file."""
         try:
             with open(file_path) as f:
-                return json.load(f)
+                return cast("dict[str, Any]", json.load(f))
         except Exception as e:
             logger.error(f"Failed to load JSON from {file_path}: {e}")
             raise
@@ -40,7 +40,7 @@ class ConfigLoader:
         """Load configuration from YAML file."""
         try:
             with open(file_path) as f:
-                return yaml.safe_load(f)
+                return cast("dict[str, Any]", yaml.safe_load(f))
         except Exception as e:
             logger.error(f"Failed to load YAML from {file_path}: {e}")
             raise
@@ -66,15 +66,15 @@ class ConfigLoader:
 
         from cloudguard_anomaly.providers import AWSProvider, AzureProvider, GCPProvider
 
-        native = {
+        by_provider: dict[Provider, list[Any]] = {
             Provider.AWS: [AWSProvider],
             Provider.AZURE: [AzureProvider],
             Provider.GCP: [GCPProvider],
-        }.get(provider, [AWSProvider, AzureProvider, GCPProvider])
-        for provider_class in native:
-            mapped = provider_class().get_resource_type_mapping().get(raw_type)
-            if mapped:
-                return mapped
+        }
+        for provider_class in by_provider.get(provider, [AWSProvider, AzureProvider, GCPProvider]):
+            mapping: dict[str, ResourceType] = provider_class().get_resource_type_mapping()
+            if raw_type in mapping:
+                return mapping[raw_type]
 
         logger.warning(f"Unrecognized resource type '{raw_type}', treating as unknown")
         return ResourceType.UNKNOWN

@@ -39,7 +39,7 @@ class MarkdownReporter:
         # Add findings summary
         findings = scan_result.get("findings", [])
         if findings:
-            severity_counts = {}
+            severity_counts: dict[str, int] = {}
             for finding in findings:
                 severity = finding.get("severity", "unknown")
                 severity_counts[severity] = severity_counts.get(severity, 0) + 1

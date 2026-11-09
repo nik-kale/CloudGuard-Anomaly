@@ -7,6 +7,7 @@ policy evaluation, anomaly detection, and agentic explanation.
 
 import logging
 from datetime import datetime
+from typing import cast
 
 from cloudguard_anomaly.core.evaluator import PolicyEvaluator
 from cloudguard_anomaly.core.models import (
@@ -185,7 +186,7 @@ class AnalysisEngine:
             "info": len([f for f in findings if f.severity == Severity.INFO]),
         }
 
-        finding_types = {}
+        finding_types: dict[str, int] = {}
         for finding in findings:
             finding_type = finding.type.value
             finding_types[finding_type] = finding_types.get(finding_type, 0) + 1
@@ -215,7 +216,7 @@ class AnalysisEngine:
         score = sum(severity_counts.get(sev, 0) * weight for sev, weight in weights.items())
 
         # Normalize to 0-100 range
-        return min(100, score)
+        return cast("int", min(100, score))
 
     def add_policies(self, policies: list[Policy]) -> None:
         """Add additional policies to the engine."""

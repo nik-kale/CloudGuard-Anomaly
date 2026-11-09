@@ -6,6 +6,7 @@ Supports multiple LLM providers with a unified interface.
 
 import logging
 from abc import ABC, abstractmethod
+from typing import cast
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ class ClaudeLLMProvider(LLMProvider):
                 messages=[{"role": "user", "content": prompt}],
             )
 
-            return message.content[0].text
+            return cast("str", message.content[0].text)
 
         except Exception as e:
             logger.error(f"Claude API error: {e}")
@@ -98,7 +99,7 @@ class OpenAIProvider(LLMProvider):
                 ],
             )
 
-            return response.choices[0].message.content
+            return cast("str", response.choices[0].message.content)
 
         except Exception as e:
             logger.error(f"OpenAI API error: {e}")
@@ -136,7 +137,7 @@ class LocalLLMProvider(LLMProvider):
                 },
             )
 
-            return response.json()["response"]
+            return cast("str", response.json()["response"])
 
         except Exception as e:
             logger.error(f"Local LLM error: {e}")
@@ -168,7 +169,7 @@ def get_llm_provider() -> LLMProvider | None:
     if provider_type in ["auto", "claude"] and config.anthropic_api_key:
         try:
             model = config.llm_model or "claude-3-5-sonnet-20241022"
-            provider = ClaudeLLMProvider(api_key=config.anthropic_api_key, model=model)
+            provider: LLMProvider = ClaudeLLMProvider(api_key=config.anthropic_api_key, model=model)
             logger.info(f"Using Claude LLM provider: {model}")
             return provider
         except Exception as e:

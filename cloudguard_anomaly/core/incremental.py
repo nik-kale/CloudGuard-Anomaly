@@ -320,8 +320,8 @@ class IncrementalScanTracker:
                 "regions": {},
             }
 
-        providers = {}
-        regions = {}
+        providers: dict[str, int] = {}
+        regions: dict[str, int] = {}
 
         for snapshot in self.snapshots.values():
             providers[snapshot.provider] = providers.get(snapshot.provider, 0) + 1

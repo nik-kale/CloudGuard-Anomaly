@@ -5,6 +5,8 @@ Converts findings and anomalies into human-readable narratives
 suitable for reports and dashboards.
 """
 
+from typing import cast
+
 from cloudguard_anomaly.agents.drift_explainer_agent import DriftExplainerAgent
 from cloudguard_anomaly.agents.misconfig_explainer_agent import MisconfigExplainerAgent
 from cloudguard_anomaly.agents.remediation_planner_agent import RemediationPlannerAgent
@@ -38,7 +40,7 @@ class NarrativeBuilder:
             narrative += "\n\n---\n\n"
             narrative += self.remediation_agent.create_remediation_plan(finding)
 
-        return narrative
+        return cast("str", narrative)
 
     def build_anomaly_narrative(self, anomaly: Anomaly) -> str:
         """
@@ -50,7 +52,7 @@ class NarrativeBuilder:
         Returns:
             Human-readable narrative
         """
-        return self.drift_agent.explain_anomaly(anomaly)
+        return cast("str", self.drift_agent.explain_anomaly(anomaly))
 
     def build_grouped_narrative(self, findings: list[Finding]) -> str:
         """

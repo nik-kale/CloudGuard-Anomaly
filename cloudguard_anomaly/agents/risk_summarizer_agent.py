@@ -164,7 +164,7 @@ class RiskSummarizerAgent(BaseAgent):
         [f for f in findings if f.severity == Severity.HIGH]
 
         # Group findings by type
-        finding_types = {}
+        finding_types: dict[str, list[Finding]] = {}
         for finding in findings:
             ftype = finding.type.value
             if ftype not in finding_types:

@@ -7,7 +7,7 @@ fallback to deterministic implementations.
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 from cloudguard_anomaly.agents.base_agent import BaseAgent
 from cloudguard_anomaly.agents.llm.providers import LLMProvider
@@ -181,7 +181,7 @@ investigation_steps, recommended_actions
 
         try:
             result = json.loads(response)
-            return result
+            return cast("dict[str, Any]", result)
         except json.JSONDecodeError:
             return {"explanation": response}
 
@@ -248,6 +248,6 @@ validation, rollback, side_effects, estimated_time, complexity
 
         try:
             result = json.loads(response)
-            return result
+            return cast("dict[str, Any]", result)
         except json.JSONDecodeError:
             return {"remediation_plan": response}

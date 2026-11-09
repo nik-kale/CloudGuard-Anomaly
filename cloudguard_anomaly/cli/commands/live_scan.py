@@ -3,6 +3,7 @@
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -42,6 +43,7 @@ def execute_live_scan(
     logger.info(f"Starting live {provider.upper()} scan...")
 
     # Initialize integration based on provider
+    integration: Any
     if provider == "aws":
         from cloudguard_anomaly.integrations.aws_live import AWSLiveIntegration
 

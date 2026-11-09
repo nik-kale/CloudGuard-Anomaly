@@ -6,7 +6,7 @@ Analyzes the cost impact of security findings and provides cost optimization rec
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 from cloudguard_anomaly.core.models import Environment, Finding, Provider, Resource
 
@@ -164,7 +164,7 @@ class CostAnalyzer:
         # AWS S3
         if resource.provider == Provider.AWS and "storage" in str(resource.type).lower():
             size_gb = props.get("size_gb", 100)
-            return size_gb * self.BASE_COSTS.get("s3.standard", 0.023)
+            return cast("float", size_gb * self.BASE_COSTS.get("s3.standard", 0.023))
 
         # Azure VM
         if resource.provider == Provider.AZURE and "compute" in str(resource.type).lower():

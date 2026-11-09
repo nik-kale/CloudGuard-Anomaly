@@ -336,8 +336,8 @@ class ThreatIntelligence:
 
     def get_threat_summary(self) -> dict[str, Any]:
         """Get summary of threat intelligence database."""
-        type_counts = {}
-        level_counts = {}
+        type_counts: dict[str, int] = {}
+        level_counts: dict[str, int] = {}
 
         for indicator in self.indicators.values():
             type_counts[indicator.type.value] = type_counts.get(indicator.type.value, 0) + 1

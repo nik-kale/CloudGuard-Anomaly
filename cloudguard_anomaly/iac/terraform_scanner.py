@@ -299,7 +299,7 @@ class TerraformScanner:
             return Provider.AWS  # Default
 
         # Count providers
-        provider_counts = {}
+        provider_counts: dict[Provider, int] = {}
         for resource in resources:
             provider = resource.provider
             provider_counts[provider] = provider_counts.get(provider, 0) + 1

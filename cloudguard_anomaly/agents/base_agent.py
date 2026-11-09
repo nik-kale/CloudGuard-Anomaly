@@ -7,7 +7,7 @@ This design allows easy replacement with real LLM-based agents.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +88,7 @@ class BaseAgent(ABC):
                 prompt=prompt, system=system, max_tokens=max_tokens
             )
             logger.debug(f"LLM response received for agent '{self.name}'")
-            return response
+            return cast("str", response)
         except Exception as e:
             logger.error(f"LLM call failed for agent '{self.name}': {e}")
             raise

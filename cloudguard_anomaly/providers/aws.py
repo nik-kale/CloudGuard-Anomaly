@@ -1,6 +1,6 @@
 """AWS provider implementation."""
 
-from typing import Any
+from typing import Any, cast
 
 from cloudguard_anomaly.core.models import Provider, Resource, ResourceType
 from cloudguard_anomaly.providers.base import BaseProvider
@@ -86,7 +86,7 @@ class AWSProvider(BaseProvider):
         # Try different region fields
         region = raw_resource.get("region")
         if region:
-            return region
+            return cast("str", region)
 
         # Extract from ARN if available
         arn = raw_resource.get("arn", "")

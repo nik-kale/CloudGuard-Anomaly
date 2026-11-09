@@ -6,6 +6,7 @@ Provides user management, session handling, and RBAC.
 
 import logging
 from datetime import datetime
+from typing import cast
 
 from cloudguard_anomaly.auth.models import (
     DEFAULT_ROLES,
@@ -168,7 +169,7 @@ class AuthenticationManager:
                 return None
 
             logger.info(f"User authenticated: {username}")
-            return user
+            return cast("User | None", user)
 
         finally:
             session.close()
@@ -200,7 +201,7 @@ class AuthenticationManager:
                         return None
 
                     logger.info(f"API key authenticated: {user.username}")
-                    return user
+                    return cast("User | None", user)
 
             logger.warning("Authentication failed: invalid API key")
             return None
@@ -270,7 +271,7 @@ class AuthenticationManager:
             session.extend()
             db_session.commit()
 
-            return user
+            return cast("User | None", user)
 
         finally:
             db_session.close()
@@ -344,7 +345,7 @@ class AuthenticationManager:
         """Get user by ID."""
         session = self.database.get_session()
         try:
-            return session.query(User).filter(User.id == user_id).first()
+            return cast("User | None", session.query(User).filter(User.id == user_id).first())
         finally:
             session.close()
 
@@ -352,7 +353,7 @@ class AuthenticationManager:
         """List all users."""
         session = self.database.get_session()
         try:
-            return session.query(User).all()
+            return cast("list[User]", session.query(User).all())
         finally:
             session.close()
 

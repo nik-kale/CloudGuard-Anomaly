@@ -7,7 +7,7 @@ This module evaluates resources against security policies and generates findings
 import logging
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from cloudguard_anomaly.core.models import (
     Finding,
@@ -135,9 +135,9 @@ class PolicyEvaluator:
 
         # Apply operator
         if operator == "equals":
-            return value == expected_value
+            return cast("bool", value == expected_value)
         elif operator == "not_equals":
-            return value != expected_value
+            return cast("bool", value != expected_value)
         elif operator == "contains":
             return expected_value in value if value else False
         elif operator == "not_contains":
@@ -167,7 +167,7 @@ class PolicyEvaluator:
                 return not should_exist
 
         exists = value is not None
-        return exists != should_exist  # Violation if doesn't match expectation
+        return cast("bool", exists != should_exist)  # Violation if doesn't match expectation
 
     def _check_pattern(self, resource: Resource, check: dict[str, Any]) -> bool:
         """Check if a property matches a pattern."""
@@ -185,10 +185,10 @@ class PolicyEvaluator:
                 return match_required
 
         if value is None:
-            return match_required
+            return cast("bool", match_required)
 
         matches = bool(re.search(pattern, str(value)))
-        return matches != match_required  # Violation if doesn't match expectation
+        return cast("bool", matches != match_required)  # Violation if doesn't match expectation
 
     def _check_custom(self, resource: Resource, check: dict[str, Any]) -> bool:
         """Execute custom check logic."""

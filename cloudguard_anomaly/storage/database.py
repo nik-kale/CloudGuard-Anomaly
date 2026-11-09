@@ -8,7 +8,7 @@ to enable trend analysis, compliance tracking, and reporting.
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import (
     JSON,
@@ -28,7 +28,7 @@ from cloudguard_anomaly.core.models import ScanResult
 
 logger = logging.getLogger(__name__)
 
-Base = declarative_base()
+Base: Any = declarative_base()
 
 
 class ScanRecord(Base):
@@ -177,7 +177,7 @@ class DatabaseStorage:
         self.database_url = database_url
 
         # Configure engine with connection pooling
-        engine_kwargs = {
+        engine_kwargs: dict[str, Any] = {
             "echo": False,
             "pool_pre_ping": True,  # Verify connections before using
         }
@@ -292,7 +292,10 @@ class DatabaseStorage:
         """Get scan by ID."""
         session = self.get_session()
         try:
-            return session.query(ScanRecord).filter(ScanRecord.id == scan_id).first()
+            return cast(
+                "ScanRecord | None",
+                session.query(ScanRecord).filter(ScanRecord.id == scan_id).first(),
+            )
         finally:
             session.close()
 
@@ -300,11 +303,12 @@ class DatabaseStorage:
         """Get latest scan for an environment."""
         session = self.get_session()
         try:
-            return (
+            return cast(
+                "ScanRecord | None",
                 session.query(ScanRecord)
                 .filter(ScanRecord.environment_name == environment_name)
                 .order_by(ScanRecord.timestamp.desc())
-                .first()
+                .first(),
             )
         finally:
             session.close()
@@ -335,7 +339,9 @@ class DatabaseStorage:
             if environment_name:
                 query = query.filter(ScanRecord.environment_name == environment_name)
 
-            return query.order_by(ScanRecord.timestamp.desc()).limit(limit).all()
+            return cast(
+                "list[ScanRecord]", query.order_by(ScanRecord.timestamp.desc()).limit(limit).all()
+            )
 
         finally:
             session.close()
@@ -404,7 +410,10 @@ class DatabaseStorage:
             if unresolved_only:
                 query = query.filter(FindingRecord.resolved.is_(False))
 
-            return query.order_by(FindingRecord.timestamp.desc()).limit(limit).all()
+            return cast(
+                "list[FindingRecord]",
+                query.order_by(FindingRecord.timestamp.desc()).limit(limit).all(),
+            )
 
         finally:
             session.close()
@@ -463,7 +472,10 @@ class DatabaseStorage:
                 since = datetime.utcnow() - timedelta(days=days)
                 query = query.filter(ComplianceRecord.timestamp >= since)
 
-            return query.order_by(ComplianceRecord.timestamp.desc()).limit(limit).all()
+            return cast(
+                "list[ComplianceRecord]",
+                query.order_by(ComplianceRecord.timestamp.desc()).limit(limit).all(),
+            )
 
         finally:
             session.close()
@@ -638,7 +650,10 @@ class DatabaseStorage:
         """
         session = self.get_session()
         try:
-            return session.query(PolicyRecord).filter(PolicyRecord.id == policy_id).first()
+            return cast(
+                "PolicyRecord | None",
+                session.query(PolicyRecord).filter(PolicyRecord.id == policy_id).first(),
+            )
         finally:
             session.close()
 
@@ -676,7 +691,10 @@ class DatabaseStorage:
             if enabled_only:
                 query = query.filter(PolicyRecord.enabled.is_(True))
 
-            return query.order_by(PolicyRecord.created_at.desc()).limit(limit).offset(offset).all()
+            return cast(
+                "list[PolicyRecord]",
+                query.order_by(PolicyRecord.created_at.desc()).limit(limit).offset(offset).all(),
+            )
 
         finally:
             session.close()
@@ -749,7 +767,7 @@ class DatabaseStorage:
 
             session.commit()
             logger.info(f"Updated policy: {policy_id}")
-            return policy
+            return cast("PolicyRecord | None", policy)
 
         except Exception as e:
             session.rollback()
@@ -900,7 +918,10 @@ class DatabaseStorage:
             if end_time:
                 query = query.filter(AuditLog.timestamp <= end_time)
 
-            return query.order_by(AuditLog.timestamp.desc()).limit(limit).offset(offset).all()
+            return cast(
+                "list[AuditLog]",
+                query.order_by(AuditLog.timestamp.desc()).limit(limit).offset(offset).all(),
+            )
 
         finally:
             session.close()

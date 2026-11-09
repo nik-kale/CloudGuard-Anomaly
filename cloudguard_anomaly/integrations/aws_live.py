@@ -5,7 +5,7 @@ Provides real-time resource discovery and analysis from live AWS accounts.
 """
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 try:
     import boto3
@@ -66,7 +66,7 @@ class AWSLiveIntegration:
         """Get AWS account ID."""
         try:
             sts = self.session.client("sts")
-            return sts.get_caller_identity()["Account"]
+            return cast("str", sts.get_caller_identity()["Account"])
         except Exception as e:
             logger.warning(f"Could not get account ID: {e}")
             return "unknown"

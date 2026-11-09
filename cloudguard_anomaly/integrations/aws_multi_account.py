@@ -374,7 +374,7 @@ class AWSMultiAccountScanner:
         }
 
         # Resource breakdown by type
-        resource_types = {}
+        resource_types: dict[str, int] = {}
         for env in result.environments:
             for resource in env.resources:
                 rtype = (

@@ -46,7 +46,7 @@ class MLAnomalyDetector:
         )
         self.scaler = StandardScaler()
         self.is_trained = False
-        self.feature_names = []
+        self.feature_names: list[str] = []
 
         logger.info("Initialized ML anomaly detector")
 

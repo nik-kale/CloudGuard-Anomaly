@@ -6,7 +6,7 @@ implementations must follow.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, cast
 
 from cloudguard_anomaly.core.models import Resource, ResourceType
 
@@ -85,7 +85,7 @@ class BaseProvider(ABC):
             Normalized tags dictionary
         """
         # Default implementation
-        return raw_resource.get("tags", {})
+        return cast("dict[str, str]", raw_resource.get("tags", {}))
 
     def extract_region(self, raw_resource: dict[str, Any]) -> str:
         """
@@ -97,4 +97,4 @@ class BaseProvider(ABC):
         Returns:
             Region identifier
         """
-        return raw_resource.get("region", "global")
+        return cast("str", raw_resource.get("region", "global"))

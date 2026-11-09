@@ -9,7 +9,7 @@ from pathlib import Path
 
 from alembic.config import Config as AlembicConfig
 
-from alembic import command
+from alembic import command  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
 

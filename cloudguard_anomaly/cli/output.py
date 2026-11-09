@@ -6,7 +6,7 @@ Provides severity-based coloring and rich formatting for terminal output.
 
 import sys
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 # Try to import rich for enhanced output
 try:
@@ -61,15 +61,15 @@ class CliOutput:
 
         severity_lower = severity.lower()
         if severity_lower == "critical":
-            return Fore.RED + Style.BRIGHT
+            return cast("str", Fore.RED + Style.BRIGHT)
         elif severity_lower == "high":
-            return Fore.RED
+            return cast("str", Fore.RED)
         elif severity_lower == "medium":
-            return Fore.YELLOW
+            return cast("str", Fore.YELLOW)
         elif severity_lower == "low":
-            return Fore.BLUE
+            return cast("str", Fore.BLUE)
         elif severity_lower == "info":
-            return Fore.CYAN
+            return cast("str", Fore.CYAN)
         else:
             return ""
 
@@ -77,7 +77,7 @@ class CliOutput:
         """Get color reset code."""
         if self.no_color or not COLORAMA_AVAILABLE:
             return ""
-        return Style.RESET_ALL
+        return cast("str", Style.RESET_ALL)
 
     def success(self, message: str):
         """Print success message in green."""

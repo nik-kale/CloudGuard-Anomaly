@@ -15,7 +15,7 @@ import re
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +178,7 @@ class DockerScanner:
 
             if result.returncode == 0:
                 metadata_list = json.loads(result.stdout)
-                return metadata_list[0] if metadata_list else None
+                return cast("dict[str, Any] | None", metadata_list[0] if metadata_list else None)
             else:
                 logger.error(f"Failed to inspect image: {result.stderr}")
                 return None
@@ -323,7 +323,7 @@ class DockerScanner:
         if isinstance(cvss, dict):
             for version in ["nvd", "redhat", "vendor"]:
                 if version in cvss and "V3Score" in cvss[version]:
-                    return cvss[version]["V3Score"]
+                    return cast("float | None", cvss[version]["V3Score"])
         return None
 
     def _scan_for_secrets(self, image: str) -> list[ContainerFinding]:

@@ -1,6 +1,6 @@
 """GCP provider implementation."""
 
-from typing import Any
+from typing import Any, cast
 
 from cloudguard_anomaly.core.models import Provider, Resource, ResourceType
 from cloudguard_anomaly.providers.base import BaseProvider
@@ -66,7 +66,7 @@ class GCPProvider(BaseProvider):
     def extract_tags(self, raw_resource: dict[str, Any]) -> dict[str, str]:
         """Extract labels from GCP resource format."""
         # GCP uses 'labels' instead of 'tags'
-        return raw_resource.get("labels", raw_resource.get("tags", {}))
+        return cast("dict[str, str]", raw_resource.get("labels", raw_resource.get("tags", {})))
 
     def extract_region(self, raw_resource: dict[str, Any]) -> str:
         """Extract zone/region from GCP resource."""
@@ -75,9 +75,9 @@ class GCPProvider(BaseProvider):
         if zone:
             # Extract region from zone (e.g., us-central1-a -> us-central1)
             parts = zone.rsplit("-", 1)
-            return parts[0] if len(parts) > 1 else zone
+            return cast("str", parts[0] if len(parts) > 1 else zone)
 
-        return raw_resource.get("region", "global")
+        return cast("str", raw_resource.get("region", "global"))
 
     def validate_resource(self, resource: Resource) -> list[str]:
         """Validate GCP resource configuration."""

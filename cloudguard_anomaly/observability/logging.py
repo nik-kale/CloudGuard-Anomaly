@@ -91,7 +91,9 @@ def setup_logging(log_level: str = None, log_format: str = None, log_file: str |
 
     # Configure formatter
     if log_format == "json":
-        formatter = CloudGuardJsonFormatter("%(timestamp)s %(level)s %(name)s %(message)s")
+        formatter: logging.Formatter = CloudGuardJsonFormatter(
+            "%(timestamp)s %(level)s %(name)s %(message)s"
+        )
     else:
         # Text format for development
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")

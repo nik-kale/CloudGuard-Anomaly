@@ -6,7 +6,7 @@ Automatically fixes common security issues with safety controls.
 
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from cloudguard_anomaly.core.models import Finding
 
@@ -55,7 +55,7 @@ class AutoRemediator:
             logger.info(
                 f"Remediation {'simulated' if self.dry_run else 'executed'}: {finding.title}"
             )
-            return result
+            return cast("dict[str, Any] | None", result)
         except Exception as e:
             logger.error(f"Remediation failed for {finding.title}: {e}")
             return {"status": "failed", "error": str(e)}
@@ -176,7 +176,7 @@ class AutoRemediator:
         Returns:
             Summary of remediation results
         """
-        results = {
+        results: dict[str, Any] = {
             "total": len(findings),
             "remediated": 0,
             "failed": 0,

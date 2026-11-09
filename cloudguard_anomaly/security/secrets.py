@@ -8,7 +8,7 @@ import json
 import logging
 import os
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -162,13 +162,13 @@ class SecretsManager:
         try:
             # Try KV v2 first
             secret_version = self.client.secrets.kv.v2.read_secret_version(path=path)
-            return secret_version["data"]["data"].get("value", default)
+            return cast("str | None", secret_version["data"]["data"].get("value", default))
         except Exception as e:
             logger.debug(f"Vault KV v2 failed for '{path}', trying KV v1: {e}")
             try:
                 # Fallback to KV v1
                 secret = self.client.secrets.kv.v1.read_secret(path=path)
-                return secret["data"].get("value", default)
+                return cast("str | None", secret["data"].get("value", default))
             except Exception as e2:
                 logger.debug(f"Vault KV v1 also failed for '{path}': {e2}")
                 return default
@@ -183,14 +183,14 @@ class SecretsManager:
                     secret = json.loads(response["SecretString"])
                 except json.JSONDecodeError:
                     # Secrets created outside CloudGuard are often bare strings
-                    return response["SecretString"]
+                    return cast("str | None", response["SecretString"])
                 # If it's a dict, get 'value' key, otherwise return the whole thing
                 if isinstance(secret, dict):
-                    return secret.get("value", default)
-                return secret
+                    return cast("str | None", secret.get("value", default))
+                return cast("str | None", secret)
             else:
                 # Binary secret
-                return response["SecretBinary"].decode("utf-8")
+                return cast("str | None", response["SecretBinary"].decode("utf-8"))
 
         except self.client.exceptions.ResourceNotFoundException:
             return default
@@ -202,7 +202,7 @@ class SecretsManager:
         """Get secret from Azure Key Vault."""
         try:
             secret = self.client.get_secret(path)
-            return secret.value
+            return cast("str | None", secret.value)
         except Exception as e:
             logger.error(f"Azure Key Vault error: {e}")
             return default
@@ -212,7 +212,7 @@ class SecretsManager:
         try:
             name = f"projects/{self.project_id}/secrets/{path}/versions/latest"
             response = self.client.access_secret_version(request={"name": name})
-            return response.payload.data.decode("UTF-8")
+            return cast("str | None", response.payload.data.decode("UTF-8"))
         except Exception as e:
             logger.error(f"GCP Secret Manager error: {e}")
             return default

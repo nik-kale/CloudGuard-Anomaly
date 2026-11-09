@@ -415,7 +415,7 @@ class PDFReporter:
         elements.append(Spacer(1, 20))
 
         # Finding categories
-        categories = self._categorize_findings(findings)
+        categories: dict[str, list[dict[str, Any]]] = self._categorize_findings(findings)
 
         if categories:
             elements.append(Paragraph("Findings by Category", self.styles["FindingTitle"]))
@@ -471,7 +471,12 @@ class PDFReporter:
         findings = scan_results.get("findings", [])
 
         # Group by severity
-        grouped = {"critical": [], "high": [], "medium": [], "low": []}
+        grouped: dict[str, list[dict[str, Any]]] = {
+            "critical": [],
+            "high": [],
+            "medium": [],
+            "low": [],
+        }
         for finding in findings:
             severity = finding.get("severity", "low").lower()
             if severity in grouped:
@@ -710,7 +715,7 @@ class PDFReporter:
 
     def _categorize_findings(self, findings: list[dict]) -> dict[str, list[dict]]:
         """Categorize findings by type."""
-        categories = {}
+        categories: dict[str, list[dict[str, Any]]] = {}
 
         for finding in findings:
             category = finding.get("finding_type", "Other")

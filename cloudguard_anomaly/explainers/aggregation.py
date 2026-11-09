@@ -5,6 +5,7 @@ Groups and aggregates findings by various dimensions for better analysis.
 """
 
 from collections import defaultdict
+from typing import Any
 
 from cloudguard_anomaly.core.models import Finding, Resource
 
@@ -113,7 +114,7 @@ class FindingAggregator:
         return list(resource_map.values())
 
     @staticmethod
-    def calculate_statistics(findings: list[Finding]) -> dict[str, any]:
+    def calculate_statistics(findings: list[Finding]) -> dict[str, Any]:
         """
         Calculate statistics about findings.
 
@@ -123,9 +124,9 @@ class FindingAggregator:
         Returns:
             Dictionary of statistics
         """
-        severity_counts = defaultdict(int)
-        type_counts = defaultdict(int)
-        resource_type_counts = defaultdict(int)
+        severity_counts: dict[str, int] = defaultdict(int)
+        type_counts: dict[str, int] = defaultdict(int)
+        resource_type_counts: dict[str, int] = defaultdict(int)
 
         for finding in findings:
             severity_counts[finding.severity.value] += 1

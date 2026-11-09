@@ -7,7 +7,7 @@ Automatically creates and manages Jira tickets for security findings.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 try:
     from jira import JIRA
@@ -137,7 +137,7 @@ class JiraIntegration:
         priority = self.priority_mapping.get(severity, "Medium")
 
         # Prepare issue fields
-        issue_fields = {
+        issue_fields: dict[str, Any] = {
             "project": {"key": self.project_key},
             "summary": summary[:255],  # Jira limit
             "description": jira_description,
@@ -260,7 +260,7 @@ class JiraIntegration:
             issues = self.jira.search_issues(jql, maxResults=1)
 
             if issues:
-                return issues[0].key
+                return cast("str | None", issues[0].key)
 
             return None
 

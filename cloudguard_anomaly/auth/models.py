@@ -9,6 +9,7 @@ import hmac
 import secrets
 import uuid
 from datetime import datetime, timedelta
+from typing import cast
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Table
 from sqlalchemy.orm import relationship
@@ -196,7 +197,7 @@ class Session(Base):
 
     def is_valid(self) -> bool:
         """Check if session is still valid."""
-        return datetime.utcnow() < self.expires_at
+        return cast("bool", datetime.utcnow() < self.expires_at)
 
     def extend(self, hours: int = 24):
         """Extend session expiration."""

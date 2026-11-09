@@ -1,6 +1,6 @@
 """Azure provider implementation."""
 
-from typing import Any
+from typing import Any, cast
 
 from cloudguard_anomaly.core.models import Provider, Resource, ResourceType
 from cloudguard_anomaly.providers.base import BaseProvider
@@ -65,11 +65,11 @@ class AzureProvider(BaseProvider):
 
     def extract_tags(self, raw_resource: dict[str, Any]) -> dict[str, str]:
         """Extract tags from Azure resource format."""
-        return raw_resource.get("tags", {})
+        return cast("dict[str, str]", raw_resource.get("tags", {}))
 
     def extract_region(self, raw_resource: dict[str, Any]) -> str:
         """Extract location/region from Azure resource."""
-        return raw_resource.get("location", raw_resource.get("region", "eastus"))
+        return cast("str", raw_resource.get("location", raw_resource.get("region", "eastus")))
 
     def validate_resource(self, resource: Resource) -> list[str]:
         """Validate Azure resource configuration."""

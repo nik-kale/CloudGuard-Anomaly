@@ -7,7 +7,7 @@ Automatically creates and manages ServiceNow incidents from security findings.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 try:
     import requests
@@ -289,7 +289,7 @@ class ServiceNowIntegration:
 
             results = response.json().get("result", [])
             if results:
-                return results[0].get("sys_id")
+                return cast("str | None", results[0].get("sys_id"))
 
             return None
 
