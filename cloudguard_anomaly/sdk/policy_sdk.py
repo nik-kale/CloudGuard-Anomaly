@@ -5,6 +5,7 @@ Allows developers to write custom security policies in Python code with
 a clean, decorator-based API.
 """
 
+import inspect
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -189,7 +190,7 @@ def policy(
             return func(resource)
 
         # Attach policy to function
-        wrapper.policy = custom_policy
+        setattr(wrapper, "policy", custom_policy)
 
         return wrapper
 
@@ -268,7 +269,7 @@ class PolicySDK:
                 continue
 
             # Check if policy applies to this provider
-            if resource.provider != policy.provider:
+            if policy.provider not in (Provider.MULTI, resource.provider):
                 continue
 
             try:
@@ -313,6 +314,18 @@ class PolicySDK:
 # Convenience functions for common checks
 
 
+def _check_or_decorator(check: Callable[[Resource], Finding | None]) -> Callable:
+    """Let a check be called on a resource or applied to a function as a decorator."""
+
+    @wraps(check)
+    def wrapper(target: Any) -> Any:
+        if inspect.isfunction(target):
+            return wraps(target)(check)
+        return check(target)
+
+    return wrapper
+
+
 def require_tag(tag_name: str, severity: Severity = Severity.MEDIUM) -> Callable:
     """
     Create a policy that requires a specific tag.
@@ -342,7 +355,7 @@ def require_tag(tag_name: str, severity: Severity = Severity.MEDIUM) -> Callable
             )
         return None
 
-    return check_func
+    return _check_or_decorator(check_func)
 
 
 def require_encryption(severity: Severity = Severity.HIGH) -> Callable:
@@ -378,7 +391,7 @@ def require_encryption(severity: Severity = Severity.HIGH) -> Callable:
             )
         return None
 
-    return check_func
+    return _check_or_decorator(check_func)
 
 
 def deny_public_access(severity: Severity = Severity.CRITICAL) -> Callable:
@@ -414,7 +427,7 @@ def deny_public_access(severity: Severity = Severity.CRITICAL) -> Callable:
             )
         return None
 
-    return check_func
+    return _check_or_decorator(check_func)
 
 
 # Example custom policies (for documentation/testing)

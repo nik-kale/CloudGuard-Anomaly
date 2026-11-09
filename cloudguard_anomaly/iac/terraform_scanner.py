@@ -27,6 +27,21 @@ from cloudguard_anomaly.core.models import (
 logger = logging.getLogger(__name__)
 
 
+def _normalize_hcl(value: Any) -> Any:
+    """Strip the quoting and block markers python-hcl2 leaves in parsed values."""
+    if isinstance(value, dict):
+        return {
+            _normalize_hcl(key): _normalize_hcl(item)
+            for key, item in value.items()
+            if key != "__is_block__"
+        }
+    if isinstance(value, list):
+        return [_normalize_hcl(item) for item in value]
+    if isinstance(value, str) and len(value) >= 2 and value[0] == value[-1] == '"':
+        return value[1:-1]
+    return value
+
+
 class TerraformScanner:
     """Scans Terraform IaC files for security issues."""
 
@@ -39,6 +54,28 @@ class TerraformScanner:
             )
 
         logger.info("Terraform scanner initialized")
+
+    def scan_file(self, path: str) -> Environment:
+        """
+        Scan a single Terraform file.
+
+        Args:
+            path: Path to a .tf file
+
+        Returns:
+            Environment object with resources from the file
+        """
+        file_path = Path(path)
+
+        if not file_path.exists():
+            raise FileNotFoundError(f"Terraform file not found: {path}")
+
+        resources = self.parse_terraform_file(file_path)
+        return Environment(
+            name=f"terraform-{file_path.stem}",
+            provider=self._detect_provider(resources),
+            resources=resources,
+        )
 
     def scan_directory(self, path: str) -> Environment:
         """
@@ -56,7 +93,7 @@ class TerraformScanner:
             raise FileNotFoundError(f"Directory not found: {path}")
 
         # Find all .tf files
-        tf_files = list(directory.glob("*.tf")) + list(directory.glob("**/*.tf"))
+        tf_files = sorted(directory.glob("**/*.tf"))
 
         if not tf_files:
             logger.warning(f"No Terraform files found in {path}")
@@ -103,9 +140,13 @@ class TerraformScanner:
 
         resources = []
 
-        # Parse resource blocks
-        if "resource" in tf_config:
-            for resource_type, resource_configs in tf_config["resource"].items():
+        # python-hcl2 returns one mapping per resource block
+        blocks = _normalize_hcl(tf_config.get("resource", []))
+        if isinstance(blocks, dict):
+            blocks = [blocks]
+
+        for block in blocks:
+            for resource_type, resource_configs in block.items():
                 for resource_name, config in resource_configs.items():
                     resource = self._convert_to_resource(
                         resource_type, resource_name, config, str(file_path)
@@ -139,7 +180,7 @@ class TerraformScanner:
             return None
 
         # Extract properties from config
-        properties = {}
+        properties: dict[str, Any] = {}
 
         # S3 bucket
         if tf_type == "aws_s3_bucket":
@@ -161,7 +202,7 @@ class TerraformScanner:
             ingress_rules = config.get("ingress", [])
             properties["ingress_rules"] = self._parse_security_group_rules(ingress_rules)
             properties["allows_all"] = any(
-                rule.get("cidr_blocks", [{}])[0] == "0.0.0.0/0" for rule in ingress_rules
+                "0.0.0.0/0" in (rule.get("cidr_blocks") or []) for rule in ingress_rules
             )
 
         # RDS instance
@@ -180,9 +221,7 @@ class TerraformScanner:
         elif tf_type == "google_storage_bucket":
             properties["encryption_enabled"] = bool(config.get("encryption"))
             properties["versioning_enabled"] = bool(config.get("versioning"))
-            properties["public_access"] = (
-                config.get("uniform_bucket_level_access", {}).get("enabled") == False
-            )
+            properties["public_access"] = config.get("uniform_bucket_level_access") is False
 
         # Generic properties
         properties.update(

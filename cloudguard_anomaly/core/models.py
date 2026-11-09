@@ -5,6 +5,7 @@ This module defines the fundamental data structures used throughout the framewor
 for representing cloud resources, policies, findings, and anomalies.
 """
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -163,34 +164,40 @@ class Policy:
         }
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Finding:
     """
     Represents a security finding discovered during analysis.
 
     Attributes:
-        id: Unique finding identifier
-        type: Type of finding
         severity: Severity level
         title: Short title/summary
         description: Detailed description
         resource: Affected resource
-        policy: Policy that triggered the finding
+        id: Unique finding identifier (generated if omitted)
+        type: Type of finding
+        policy: Policy that triggered the finding, when one is loaded
+        policy_id: Identifier of that policy; taken from ``policy`` if omitted
         evidence: Supporting evidence
         remediation: Remediation steps
         timestamp: When finding was detected
     """
 
-    id: str
-    type: FindingType
     severity: Severity
     title: str
     description: str
     resource: Resource
-    policy: Policy | None
+    id: str = field(default_factory=lambda: f"finding-{uuid.uuid4()}")
+    type: FindingType = FindingType.MISCONFIGURATION
+    policy: Policy | None = None
+    policy_id: str | None = None
     evidence: dict[str, Any] = field(default_factory=dict)
     remediation: str = ""
     timestamp: datetime = field(default_factory=datetime.utcnow)
+
+    def __post_init__(self) -> None:
+        if self.policy_id is None and self.policy is not None:
+            self.policy_id = self.policy.id
 
     def to_dict(self) -> dict[str, Any]:
         """Convert finding to dictionary representation."""
@@ -202,6 +209,7 @@ class Finding:
             "description": self.description,
             "resource": self.resource.to_dict(),
             "policy": self.policy.to_dict() if self.policy else None,
+            "policy_id": self.policy_id,
             "evidence": self.evidence,
             "remediation": self.remediation,
             "timestamp": self.timestamp.isoformat(),
@@ -217,7 +225,7 @@ class Finding:
             title=data["title"],
             description=data["description"],
             resource=Resource.from_dict(data["resource"]),
-            policy=None,
+            policy_id=data.get("policy_id"),
             evidence=data.get("evidence", {}),
             remediation=data.get("remediation", ""),
             timestamp=datetime.fromisoformat(data["timestamp"]),

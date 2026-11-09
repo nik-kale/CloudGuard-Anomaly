@@ -23,6 +23,37 @@ from cloudguard_anomaly.core.models import (
 logger = logging.getLogger(__name__)
 
 
+class _TemplateLoader(yaml.SafeLoader):
+    """SafeLoader that also accepts CloudFormation short-form intrinsics (!Ref, !Sub)."""
+
+
+def _construct_intrinsic(loader: yaml.SafeLoader, suffix: str, node: yaml.Node) -> dict[str, Any]:
+    """Expand ``!Name value`` into the long form ``{"Fn::Name": value}``."""
+    if isinstance(node, yaml.ScalarNode):
+        value: Any = loader.construct_scalar(node)
+    elif isinstance(node, yaml.SequenceNode):
+        value = loader.construct_sequence(node, deep=True)
+    else:
+        value = loader.construct_mapping(node, deep=True)
+    return {suffix if suffix == "Ref" else f"Fn::{suffix}": value}
+
+
+_TemplateLoader.add_multi_constructor("!", _construct_intrinsic)
+
+
+def _tags_to_mapping(tags: Any) -> dict[str, str]:
+    """Convert CloudFormation's ``[{Key, Value}]`` tag list into a mapping."""
+    if isinstance(tags, dict):
+        return tags
+    if isinstance(tags, list):
+        return {
+            str(tag["Key"]): str(tag.get("Value", ""))
+            for tag in tags
+            if isinstance(tag, dict) and "Key" in tag
+        }
+    return {}
+
+
 class CloudFormationScanner:
     """Scans CloudFormation templates for security issues."""
 
@@ -46,13 +77,16 @@ class CloudFormationScanner:
             raise FileNotFoundError(f"Template not found: {template_path}")
 
         # Load template
-        with open(path) as f:
-            if path.suffix in [".yaml", ".yml"]:
-                template = yaml.safe_load(f)
-            elif path.suffix == ".json":
-                template = json.load(f)
-            else:
-                raise ValueError(f"Unsupported template format: {path.suffix}")
+        try:
+            with open(path) as f:
+                if path.suffix in [".yaml", ".yml"]:
+                    template = yaml.load(f, Loader=_TemplateLoader)  # noqa: S506
+                elif path.suffix == ".json":
+                    template = json.load(f)
+                else:
+                    raise ValueError(f"Unsupported template format: {path.suffix}")
+        except (yaml.YAMLError, json.JSONDecodeError) as e:
+            raise ValueError(f"Invalid CloudFormation template {template_path}: {e}") from e
 
         # Parse resources
         resources = self._parse_resources(template, str(path))
@@ -97,7 +131,7 @@ class CloudFormationScanner:
             return None
 
         # Extract security-relevant properties
-        extracted_props = {}
+        extracted_props: dict[str, Any] = {}
 
         # S3 Bucket
         if cfn_type == "AWS::S3::Bucket":
@@ -122,12 +156,14 @@ class CloudFormationScanner:
             extracted_props["instance_type"] = properties.get("InstanceType", "unknown")
             extracted_props["monitoring_enabled"] = properties.get("Monitoring", False)
             extracted_props["public_ip"] = bool(
-                properties.get("NetworkInterfaces", [{}])[0].get("AssociatePublicIpAddress")
+                (properties.get("NetworkInterfaces") or [{}])[0].get("AssociatePublicIpAddress")
             )
 
         # Security Group
         elif cfn_type == "AWS::EC2::SecurityGroup":
-            ingress_rules = properties.get("SecurityGroupIngress", [])
+            ingress_rules = properties.get("SecurityGroupIngress")
+            if not isinstance(ingress_rules, list):
+                ingress_rules = []  # an intrinsic such as !If cannot be resolved statically
             extracted_props["ingress_rules"] = ingress_rules
             extracted_props["allows_all"] = any(
                 rule.get("CidrIp") == "0.0.0.0/0" or rule.get("CidrIpv6") == "::/0"
@@ -158,7 +194,7 @@ class CloudFormationScanner:
             provider=Provider.AWS,
             region="us-east-1",  # Default, may be overridden
             properties=extracted_props,
-            tags=properties.get("Tags", {}),
+            tags=_tags_to_mapping(properties.get("Tags")),
             metadata={"iac_type": "cloudformation", "source": source_file},
         )
 
