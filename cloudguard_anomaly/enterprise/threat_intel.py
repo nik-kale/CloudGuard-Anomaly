@@ -141,7 +141,7 @@ class ThreatIntelligence:
 
     def _generate_id(self, value: str) -> str:
         """Generate unique ID for indicator."""
-        return hashlib.md5(value.encode()).hexdigest()[:16]
+        return hashlib.sha256(value.encode()).hexdigest()[:16]
 
     def add_indicator(self, indicator: ThreatIndicator):
         """Add threat indicator to database."""

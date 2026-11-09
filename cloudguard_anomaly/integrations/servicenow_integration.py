@@ -18,6 +18,9 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Seconds to wait on the ServiceNow API before giving up
+REQUEST_TIMEOUT = 30
+
 
 @dataclass
 class ServiceNowIncident:
@@ -128,6 +131,7 @@ class ServiceNowIntegration:
                 headers={"Content-Type": "application/json"},
                 json=payload,
                 verify=self.verify_ssl,
+                timeout=REQUEST_TIMEOUT,
             )
             response.raise_for_status()
 
@@ -221,6 +225,7 @@ class ServiceNowIntegration:
                 headers={"Content-Type": "application/json"},
                 json=payload,
                 verify=self.verify_ssl,
+                timeout=REQUEST_TIMEOUT,
             )
             response.raise_for_status()
 
@@ -258,6 +263,7 @@ class ServiceNowIntegration:
                 headers={"Content-Type": "application/json"},
                 json=payload,
                 verify=self.verify_ssl,
+                timeout=REQUEST_TIMEOUT,
             )
             response.raise_for_status()
 
@@ -284,6 +290,7 @@ class ServiceNowIntegration:
                 auth=self.auth,
                 params={"sysparm_query": f"work_notesLIKE{finding_id}", "sysparm_limit": 1},
                 verify=self.verify_ssl,
+                timeout=REQUEST_TIMEOUT,
             )
             response.raise_for_status()
 
@@ -326,6 +333,7 @@ class ServiceNowIntegration:
                 auth=self.auth,
                 params={"sysparm_limit": 1},
                 verify=self.verify_ssl,
+                timeout=REQUEST_TIMEOUT,
             )
             response.raise_for_status()
 

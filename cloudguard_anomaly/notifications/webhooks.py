@@ -136,7 +136,7 @@ class SlackNotifier:
             else:
                 payload = self._build_legacy_payload(scan_result)
 
-            response = requests.post(self.webhook_url, json=payload)
+            response = requests.post(self.webhook_url, json=payload, timeout=DEFAULT_TIMEOUT)
             response.raise_for_status()
 
             logger.info("Slack notification sent successfully")
@@ -380,7 +380,7 @@ class SlackNotifier:
             )
 
             payload = {"blocks": blocks}
-            response = requests.post(self.webhook_url, json=payload)
+            response = requests.post(self.webhook_url, json=payload, timeout=DEFAULT_TIMEOUT)
             response.raise_for_status()
 
             logger.info(f"Slack critical alert sent for {finding.id}")

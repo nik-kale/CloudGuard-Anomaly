@@ -10,6 +10,9 @@ from typing import cast
 
 logger = logging.getLogger(__name__)
 
+# Seconds to wait for a local model, which can take a while to answer
+LOCAL_LLM_TIMEOUT = 120
+
 
 class LLMProvider(ABC):
     """Abstract base class for LLM providers."""
@@ -135,6 +138,7 @@ class LocalLLMProvider(LLMProvider):
                     "prompt": full_prompt,
                     "stream": False,
                 },
+                timeout=LOCAL_LLM_TIMEOUT,
             )
 
             return cast("str", response.json()["response"])

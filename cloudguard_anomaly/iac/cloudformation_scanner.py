@@ -80,7 +80,8 @@ class CloudFormationScanner:
         try:
             with open(path) as f:
                 if path.suffix in [".yaml", ".yml"]:
-                    template = yaml.load(f, Loader=_TemplateLoader)  # noqa: S506
+                    # _TemplateLoader derives from SafeLoader
+                    template = yaml.load(f, Loader=_TemplateLoader)  # nosec B506
                 elif path.suffix == ".json":
                     template = json.load(f)
                 else:
