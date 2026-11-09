@@ -278,6 +278,13 @@ def test_image_does_not_install_packages_under_root_home():
     assert "/root/.local" not in (REPO_ROOT / "Dockerfile").read_text()
 
 
+def test_image_installs_entrypoint_before_dropping_root():
+    """chmod on the root-owned /usr/local/bin fails the build once USER has switched."""
+    lines = [line.strip() for line in (REPO_ROOT / "Dockerfile").read_text().splitlines()]
+    chmod_line = next(i for i, line in enumerate(lines) if "chmod +x /usr/local/bin" in line)
+    assert chmod_line < lines.index("USER cloudguard")
+
+
 class TestCoreRegressions:
     def _policy_finding(self, resource_type, check, **properties):
         resource = Resource(

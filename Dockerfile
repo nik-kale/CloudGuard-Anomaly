@@ -44,6 +44,10 @@ COPY alembic/ ./alembic/
 COPY alembic.ini ./alembic.ini
 COPY .env.example ./.env
 
+# Entry point script (installed while still root: /usr/local/bin is root-owned)
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Create non-root user for security
 RUN useradd -m -u 1000 cloudguard && \
     chown -R cloudguard:cloudguard /app
@@ -62,10 +66,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 ENV PYTHONUNBUFFERED=1 \
     DASHBOARD_HOST=0.0.0.0 \
     DASHBOARD_PORT=5000
-
-# Entry point script
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 
