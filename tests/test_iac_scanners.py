@@ -420,6 +420,12 @@ class TestIaCRegressions:
         env = TerraformScanner().scan_directory(str(tmp_path))
         assert len(env.resources) == 1
 
+    def test_rds_instances_are_databases(self):
+        """aws_db_instance contains 'instance' and was classified as compute."""
+        scanner = TerraformScanner()
+        assert scanner._map_terraform_type("aws_db_instance") is ResourceType.DATABASE
+        assert scanner._map_terraform_type("aws_instance") is ResourceType.COMPUTE
+
     def test_values_are_plain_strings(self, tmp_path):
         """python-hcl2 keeps the quotes around string values."""
         path = self._write(

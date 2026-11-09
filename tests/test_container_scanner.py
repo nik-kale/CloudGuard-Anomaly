@@ -61,6 +61,11 @@ class TestDockerScanner:
         assert name == "gcr.io/my-project/myapp"
         assert tag == "v1.0"
 
+    def test_parse_image_name_with_registry_port(self, scanner):
+        """A registry port is not a tag."""
+        assert scanner._parse_image_name("registry:5000/app") == ("registry:5000/app", "latest")
+        assert scanner._parse_image_name("registry:5000/app:1.2") == ("registry:5000/app", "1.2")
+
     def test_scan_image_config_root_user(self, scanner, mock_docker_metadata):
         """Test detection of root user."""
         findings = scanner._scan_image_config(mock_docker_metadata)

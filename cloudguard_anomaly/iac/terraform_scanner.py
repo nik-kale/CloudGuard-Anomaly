@@ -262,10 +262,10 @@ class TerraformScanner:
         # AWS
         if "bucket" in tf_type or "storage" in tf_type:
             return ResourceType.STORAGE
-        elif "instance" in tf_type or "vm" in tf_type:
-            return ResourceType.COMPUTE
         elif "db" in tf_type or "database" in tf_type or "sql" in tf_type:
             return ResourceType.DATABASE
+        elif "instance" in tf_type or "vm" in tf_type:
+            return ResourceType.COMPUTE
         elif "security_group" in tf_type or "firewall" in tf_type:
             return ResourceType.SECURITY_GROUP
         elif "vpc" in tf_type or "network" in tf_type or "vnet" in tf_type:

@@ -163,7 +163,8 @@ class DockerScanner:
 
     def _parse_image_name(self, image: str) -> tuple[str, str]:
         """Parse image into name and tag."""
-        if ":" in image:
+        # A colon before the last slash belongs to a registry port, not a tag
+        if ":" in image.rsplit("/", 1)[-1]:
             name, tag = image.rsplit(":", 1)
         else:
             name, tag = image, "latest"
