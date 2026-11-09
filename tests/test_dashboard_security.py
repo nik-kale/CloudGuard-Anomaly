@@ -2,6 +2,7 @@
 
 import inspect
 import logging
+import re
 import runpy
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -128,6 +129,17 @@ class TestLoginProtection:
             "/login", data={"username": "dash_user", "password": PASSWORD}
         )
         assert response.status_code == 400
+
+    def test_form_login_with_csrf_token_succeeds(self, flask_app, user):
+        client = flask_app.test_client()
+        page = client.get("/login").get_data(as_text=True)
+        token = re.search(r'name="csrf_token" value="([^"]+)"', page).group(1)
+
+        response = client.post(
+            "/login", data={"username": "dash_user", "password": PASSWORD, "csrf_token": token}
+        )
+
+        assert response.status_code == 302
 
     def test_login_attempts_are_rate_limited(self, flask_app):
         assert dashboard.limiter is not None

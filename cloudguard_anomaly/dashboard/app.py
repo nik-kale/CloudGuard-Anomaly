@@ -294,7 +294,7 @@ def login():
         return render_template("login.html")
 
     # POST - authenticate
-    data = request.get_json() or request.form
+    data = request.get_json(silent=True) or request.form
     username = data.get("username")
     password = data.get("password")
 
