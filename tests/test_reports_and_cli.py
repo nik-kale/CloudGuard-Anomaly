@@ -285,6 +285,20 @@ def test_image_installs_entrypoint_before_dropping_root():
     assert chmod_line < lines.index("USER cloudguard")
 
 
+def test_jobs_exporting_a_build_cache_set_up_buildx():
+    """The default docker driver cannot export a gha cache, so those jobs need Buildx."""
+    workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/ci-cd.yml").read_text())
+    exporting = {
+        name: job["steps"]
+        for name, job in workflow["jobs"].items()
+        if any("cache-to" in step.get("with", {}) for step in job["steps"])
+    }
+    assert exporting
+    for name, steps in exporting.items():
+        uses = [step.get("uses", "") for step in steps]
+        assert any(u.startswith("docker/setup-buildx-action") for u in uses), name
+
+
 class TestCoreRegressions:
     def _policy_finding(self, resource_type, check, **properties):
         resource = Resource(
