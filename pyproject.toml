@@ -47,12 +47,30 @@ dev = [
     "ruff>=0.0.285",
     "mypy>=1.5.0",
 ]
+# Web dashboard, REST API and database storage
+dashboard = [
+    "sqlalchemy>=2.1.0",
+    "alembic>=1.12.0",
+    "psycopg[binary]>=3.2.0",
+    "flask>=3.0.0",
+    "flask-socketio>=5.3.0",
+    "flask-limiter>=3.5.0",
+    "flask-caching>=2.1.0",
+    "flask-cors>=4.0.0",
+    "flask-wtf>=1.2.0",
+    "python-json-logger>=2.0.7",
+    "prometheus-client>=0.19.0",
+]
+aws = ["boto3>=1.28.0"]
+pdf = ["reportlab>=4.0.0"]
+iac = ["python-hcl2>=4.3.0"]
+ml = ["scikit-learn>=1.3.0", "numpy>=1.24.0", "joblib>=1.3.0", "python-dateutil>=2.8.0"]
 
 [project.urls]
-Homepage = "https://github.com/cloudguard-anomaly/cloudguard-anomaly"
-Documentation = "https://github.com/cloudguard-anomaly/cloudguard-anomaly#readme"
-Repository = "https://github.com/cloudguard-anomaly/cloudguard-anomaly"
-Issues = "https://github.com/cloudguard-anomaly/cloudguard-anomaly/issues"
+Homepage = "https://github.com/nik-kale/CloudGuard-Anomaly"
+Documentation = "https://github.com/nik-kale/CloudGuard-Anomaly#readme"
+Repository = "https://github.com/nik-kale/CloudGuard-Anomaly"
+Issues = "https://github.com/nik-kale/CloudGuard-Anomaly/issues"
 
 [project.scripts]
 cloudguard-anomaly = "cloudguard_anomaly.cli.main:main"
@@ -61,6 +79,9 @@ cloudguard-anomaly = "cloudguard_anomaly.cli.main:main"
 where = ["."]
 include = ["cloudguard_anomaly*"]
 exclude = ["tests*", "docs*"]
+
+[tool.setuptools.package-data]
+cloudguard_anomaly = ["policies/*.yaml", "dashboard/templates/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
