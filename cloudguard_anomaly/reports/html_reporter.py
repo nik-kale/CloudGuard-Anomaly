@@ -3,8 +3,12 @@ HTML reporter for CloudGuard-Anomaly.
 """
 
 import logging
+from html import escape
 from typing import Dict, Any
 from pathlib import Path
+
+from cloudguard_anomaly.core.models import ScanResult
+from cloudguard_anomaly.reports.common import report_data
 
 logger = logging.getLogger(__name__)
 
@@ -12,12 +16,17 @@ logger = logging.getLogger(__name__)
 class HTMLReporter:
     """HTML report generator."""
 
-    def save_report(self, scan_result: Dict[str, Any], output_path: str) -> None:
+    def save_report(
+        self, scan_result: ScanResult | Dict[str, Any], output_path: str | Path
+    ) -> None:
         """Save scan results as HTML."""
         logger.info(f"Generating HTML report: {output_path}")
 
-        env_name = scan_result.get("environment", {}).get("name", "Unknown")
-        provider = scan_result.get("environment", {}).get("provider", "N/A")
+        scan_result = report_data(scan_result)
+
+        # Everything below comes from scanned configuration, so escape before it reaches HTML
+        env_name = escape(str(scan_result.get("environment", {}).get("name", "Unknown")))
+        provider = escape(str(scan_result.get("environment", {}).get("provider", "N/A")))
         resources_count = len(scan_result.get("environment", {}).get("resources", []))
         findings = scan_result.get("findings", [])
 
@@ -50,9 +59,9 @@ class HTMLReporter:
 """
 
         for finding in findings:
-            severity = finding.get("severity", "low")
-            title = finding.get("title", "N/A")
-            description = finding.get("description", "")
+            severity = escape(str(finding.get("severity", "low")))
+            title = escape(str(finding.get("title", "N/A")))
+            description = escape(str(finding.get("description", "")))
 
             html += f"""
     <div class="finding {severity}">

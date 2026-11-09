@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from io import BytesIO
+from xml.sax.saxutils import escape
 
 try:
     from reportlab.lib import colors
@@ -34,6 +35,9 @@ try:
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
+
+from cloudguard_anomaly.core.models import ScanResult
+from cloudguard_anomaly.reports.common import report_data
 
 logger = logging.getLogger(__name__)
 
@@ -122,20 +126,16 @@ class PDFReporter:
         )
 
         # Body text
-        self.styles.add(
-            ParagraphStyle(
-                name="BodyText",
-                parent=self.styles["Normal"],
-                fontSize=10,
-                textColor=colors.HexColor("#333333"),
-                alignment=TA_JUSTIFY,
-                spaceAfter=12,
-            )
-        )
+        # BodyText ships with the sample stylesheet, so restyle it rather than re-adding it
+        body_text = self.styles["BodyText"]
+        body_text.fontSize = 10
+        body_text.textColor = colors.HexColor("#333333")
+        body_text.alignment = TA_JUSTIFY
+        body_text.spaceAfter = 12
 
     def generate_report(
         self,
-        scan_results: Dict[str, Any],
+        scan_results: ScanResult | Dict[str, Any],
         output_path: str,
         include_executive_summary: bool = True,
         include_detailed_findings: bool = True,
@@ -159,6 +159,7 @@ class PDFReporter:
             Path to generated PDF file
         """
         logger.info(f"Generating PDF report: {output_path}")
+        scan_results = self._prepare(scan_results)
 
         # Create PDF document
         doc = SimpleDocTemplate(
@@ -207,6 +208,15 @@ class PDFReporter:
         logger.info(f"PDF report generated: {output_path}")
         return output_path
 
+    def _prepare(self, scan_results: ScanResult | Dict[str, Any]) -> Dict[str, Any]:
+        """Flatten a scan result into the per-finding fields the layout reads."""
+        data = report_data(scan_results)
+        for finding in data.get("findings", []):
+            finding.setdefault("resource_id", (finding.get("resource") or {}).get("id", "N/A"))
+            finding.setdefault("finding_type", finding.get("type", "Other"))
+            finding.setdefault("policy_id", (finding.get("policy") or {}).get("id", "N/A"))
+        return data
+
     def _create_cover_page(
         self,
         scan_results: Dict[str, Any],
@@ -232,12 +242,12 @@ class PDFReporter:
 
         # Company name
         if company_name:
-            company = Paragraph(company_name, self.styles["ReportSubtitle"])
+            company = Paragraph(escape(company_name), self.styles["ReportSubtitle"])
             elements.append(company)
             elements.append(Spacer(1, 0.2 * inch))
 
         # Environment name
-        env_name = scan_results.get("environment", {}).get("name", "Unknown")
+        env_name = escape(str(scan_results.get("environment", {}).get("name", "Unknown")))
         env_text = Paragraph(f"Environment: <b>{env_name}</b>", self.styles["ReportSubtitle"])
         elements.append(env_text)
         elements.append(Spacer(1, 0.5 * inch))
@@ -360,7 +370,7 @@ class PDFReporter:
             elements.append(Spacer(1, 8))
 
             for idx, finding in enumerate(top_issues, 1):
-                issue_text = f"<b>{idx}. [{finding.get('severity', 'N/A').upper()}]</b> {finding.get('title', 'N/A')}"
+                issue_text = f"<b>{idx}. [{finding.get('severity', 'N/A').upper()}]</b> {escape(str(finding.get('title', 'N/A')))}"
                 elements.append(Paragraph(issue_text, self.styles["BodyText"]))
 
         return elements
@@ -506,7 +516,7 @@ class PDFReporter:
 
         # Finding title with severity badge
         severity = finding.get("severity", "low").upper()
-        title_text = f"<b>{index}. [{severity}]</b> {finding.get('title', 'N/A')}"
+        title_text = f"<b>{index}. [{severity}]</b> {escape(str(finding.get('title', 'N/A')))}"
         title_para = Paragraph(title_text, self.styles["FindingTitle"])
 
         # Finding details
@@ -530,12 +540,14 @@ class PDFReporter:
 
         # Description
         description = Paragraph(
-            f"<b>Description:</b> {finding.get('description', 'N/A')}", self.styles["BodyText"]
+            f"<b>Description:</b> {escape(str(finding.get('description', 'N/A')))}",
+            self.styles["BodyText"],
         )
 
         # Remediation
         remediation = Paragraph(
-            f"<b>Remediation:</b> {finding.get('remediation', 'N/A')}", self.styles["BodyText"]
+            f"<b>Remediation:</b> {escape(str(finding.get('remediation', 'N/A')))}",
+            self.styles["BodyText"],
         )
 
         # Combine in KeepTogether to prevent splitting

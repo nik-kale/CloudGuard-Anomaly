@@ -9,6 +9,7 @@ from cloudguard_anomaly.core.engine import AnalysisEngine
 from cloudguard_anomaly.core.loader import ConfigLoader
 from cloudguard_anomaly.policies.policy_engine import PolicyEngine
 from cloudguard_anomaly.reports.html_report_stub import HTMLReporter
+from cloudguard_anomaly.reports.common import safe_report_name
 from cloudguard_anomaly.reports.json_reporter import JSONReporter
 from cloudguard_anomaly.reports.markdown_reporter import MarkdownReporter
 from cloudguard_anomaly.reports.pdf_reporter import PDFReporter
@@ -110,7 +111,7 @@ def execute_scan(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    env_name_safe = environment.name.replace(" ", "_").lower()
+    env_name_safe = safe_report_name(environment.name)
 
     if output_format in ["json", "all"]:
         logger.info("Generating JSON report...")

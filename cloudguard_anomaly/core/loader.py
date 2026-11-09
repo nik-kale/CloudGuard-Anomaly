@@ -57,12 +57,35 @@ class ConfigLoader:
             raise ValueError(f"Unsupported file format: {suffix}")
 
     @staticmethod
+    def _resource_type(raw_type: str, provider: Provider) -> ResourceType:
+        """Map a generic or provider-native type name (e.g. aws_s3_bucket) to a ResourceType."""
+        try:
+            return ResourceType(raw_type)
+        except ValueError:
+            pass
+
+        from cloudguard_anomaly.providers import AWSProvider, AzureProvider, GCPProvider
+
+        native = {
+            Provider.AWS: [AWSProvider],
+            Provider.AZURE: [AzureProvider],
+            Provider.GCP: [GCPProvider],
+        }.get(provider, [AWSProvider, AzureProvider, GCPProvider])
+        for provider_class in native:
+            mapped = provider_class().get_resource_type_mapping().get(raw_type)
+            if mapped:
+                return mapped
+
+        logger.warning(f"Unrecognized resource type '{raw_type}', treating as unknown")
+        return ResourceType.UNKNOWN
+
+    @staticmethod
     def parse_resource(resource_data: dict[str, Any], provider: Provider) -> Resource:
         """Parse a resource from configuration data."""
         return Resource(
             id=resource_data.get("id", resource_data.get("name", "unknown")),
             name=resource_data.get("name", "unnamed"),
-            type=ResourceType(resource_data.get("type", "unknown")),
+            type=ConfigLoader._resource_type(resource_data.get("type", "unknown"), provider),
             provider=provider,
             region=resource_data.get("region", "global"),
             properties=resource_data.get("properties", {}),

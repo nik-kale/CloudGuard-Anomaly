@@ -8,6 +8,7 @@ import click
 
 from cloudguard_anomaly.core.engine import AnalysisEngine
 from cloudguard_anomaly.notifications.webhooks import SlackNotifier
+from cloudguard_anomaly.reports.common import safe_report_name
 from cloudguard_anomaly.reports.json_reporter import JSONReporter
 from cloudguard_anomaly.reports.markdown_reporter import MarkdownReporter
 from cloudguard_anomaly.storage.database import DatabaseStorage
@@ -113,7 +114,7 @@ def execute_live_scan(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    env_name = environment.name.replace(" ", "_").lower()
+    env_name = safe_report_name(environment.name)
 
     json_reporter = JSONReporter()
     json_path = output_dir / f"{env_name}_report.json"

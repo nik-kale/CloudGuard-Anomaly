@@ -20,6 +20,11 @@ class Severity(str, Enum):
     LOW = "low"
     INFO = "info"
 
+    @property
+    def rank(self) -> int:
+        """Numeric order of the level; higher is more severe."""
+        return ["info", "low", "medium", "high", "critical"].index(self.value)
+
 
 class ResourceType(str, Enum):
     """Common cloud resource types across providers."""
@@ -98,6 +103,20 @@ class Resource:
             "tags": self.tags,
             "metadata": self.metadata,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Resource":
+        """Rebuild a resource from its :meth:`to_dict` form."""
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            type=ResourceType(data["type"]),
+            provider=Provider(data["provider"]),
+            region=data.get("region", "global"),
+            properties=data.get("properties", {}),
+            tags=data.get("tags", {}),
+            metadata=data.get("metadata", {}),
+        )
 
 
 @dataclass
@@ -187,6 +206,22 @@ class Finding:
             "remediation": self.remediation,
             "timestamp": self.timestamp.isoformat(),
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Finding":
+        """Rebuild a finding from its :meth:`to_dict` form, without its policy object."""
+        return cls(
+            id=data["id"],
+            type=FindingType(data["type"]),
+            severity=Severity(data["severity"]),
+            title=data["title"],
+            description=data["description"],
+            resource=Resource.from_dict(data["resource"]),
+            policy=None,
+            evidence=data.get("evidence", {}),
+            remediation=data.get("remediation", ""),
+            timestamp=datetime.fromisoformat(data["timestamp"]),
+        )
 
 
 @dataclass

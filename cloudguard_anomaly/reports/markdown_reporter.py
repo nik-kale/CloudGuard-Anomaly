@@ -6,15 +6,22 @@ import logging
 from typing import Dict, Any
 from pathlib import Path
 
+from cloudguard_anomaly.core.models import ScanResult
+from cloudguard_anomaly.reports.common import report_data
+
 logger = logging.getLogger(__name__)
 
 
 class MarkdownReporter:
     """Markdown report generator."""
 
-    def save_report(self, scan_result: Dict[str, Any], output_path: str) -> None:
+    def save_report(
+        self, scan_result: ScanResult | Dict[str, Any], output_path: str | Path
+    ) -> None:
         """Save scan results as Markdown."""
         logger.info(f"Generating Markdown report: {output_path}")
+
+        scan_result = report_data(scan_result)
 
         lines = [
             "# CloudGuard-Anomaly Security Scan Report",
@@ -43,6 +50,20 @@ class MarkdownReporter:
                 count = severity_counts.get(severity, 0)
                 lines.append(f"| {severity.upper()} | {count} |")
             lines.append("")
+
+            lines.extend(["## Findings", ""])
+            for finding in findings:
+                lines.extend(
+                    [
+                        f"### [{finding.get('severity', 'unknown').upper()}] "
+                        f"{finding.get('title', 'N/A')}",
+                        "",
+                        finding.get("description", ""),
+                        "",
+                        f"**Remediation:** {finding.get('remediation') or 'N/A'}",
+                        "",
+                    ]
+                )
 
         # Write report
         with open(output_path, "w") as f:

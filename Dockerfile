@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # Production stage
 FROM python:3.11-slim
@@ -34,11 +34,9 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python packages from builder
-COPY --from=builder /root/.local /root/.local
-
-# Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
+# Copy Python packages from builder into the system prefix, readable by the
+# non-root runtime user
+COPY --from=builder /install /usr/local
 
 # Copy application code
 COPY cloudguard_anomaly/ ./cloudguard_anomaly/

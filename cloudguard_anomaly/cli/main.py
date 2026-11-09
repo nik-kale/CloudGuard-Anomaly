@@ -270,15 +270,6 @@ def container_scan(
     )
 
 
-def main():
-    """Main entry point."""
-    cli()
-
-
-if __name__ == "__main__":
-    main()
-
-
 @cli.command()
 @click.option("--provider", type=click.Choice(["aws", "azure", "gcp"]), required=True)
 @click.option("--profile", help="AWS profile name")
@@ -346,14 +337,16 @@ def compliance(env_path, framework, output_dir, format):
 
 
 @cli.command()
-@click.option("--scan-id", help="Scan ID to remediate")
+@click.option("--scan-id", required=True, help="Scan ID to remediate")
 @click.option(
     "--severity",
     type=click.Choice(["critical", "high", "medium"]),
     help="Minimum severity to remediate",
 )
 @click.option(
-    "--dry-run", is_flag=True, default=True, help="Simulate remediation without making changes"
+    "--dry-run/--no-dry-run",
+    default=True,
+    help="Simulate remediation without making changes (default: dry run)",
 )
 @click.option("--database-url", required=True, help="Database URL")
 def remediate(scan_id, severity, dry_run, database_url):
@@ -362,7 +355,7 @@ def remediate(scan_id, severity, dry_run, database_url):
 
     Examples:
         cloudguard-anomaly remediate --scan-id abc123 --dry-run
-        cloudguard-anomaly remediate --scan-id abc123 --severity critical
+        cloudguard-anomaly remediate --scan-id abc123 --severity critical --no-dry-run
     """
     from cloudguard_anomaly.remediation.auto_fix import AutoRemediator
     from cloudguard_anomaly.storage.database import DatabaseStorage
@@ -382,23 +375,12 @@ def remediate(scan_id, severity, dry_run, database_url):
     # Filter by severity if specified
     from cloudguard_anomaly.core.models import Finding, Severity
 
+    minimum = Severity(severity) if severity else None
     findings = []
     for f_data in findings_data:
-        if severity and Severity(f_data["severity"]) < Severity(severity):
-            continue
-        # Reconstruct Finding object
-        # This is simplified - in production, you'd fully deserialize
-        finding = Finding(
-            id=f_data["id"],
-            type=f_data["type"],
-            severity=Severity(f_data["severity"]),
-            title=f_data["title"],
-            description=f_data["description"],
-            resource=None,  # Simplified
-            policy=None,
-            remediation=f_data.get("remediation", ""),
-        )
-        findings.append(finding)
+        finding = Finding.from_dict(f_data)
+        if minimum is None or finding.severity.rank >= minimum.rank:
+            findings.append(finding)
 
     # Remediate
     results = remediator.remediate_all(findings)
@@ -433,19 +415,19 @@ def train_ml(database_url, days, save_model):
     click.echo(f"Loading {len(scans)} historical scans for training...")
 
     # Convert to environments
+    from cloudguard_anomaly.core.models import Provider, Resource
+
     environments = []
     for scan in scans:
-        # This is simplified - in production, fully deserialize
         env_data = scan.data.get("environment", {})
-        if "resources" in env_data:
-            from cloudguard_anomaly.core.models import Provider
-
-            env = Environment(
-                name=env_data["name"],
-                provider=Provider(env_data["provider"]),
-                resources=[],  # Simplified
+        if env_data.get("resources"):
+            environments.append(
+                Environment(
+                    name=env_data["name"],
+                    provider=Provider(env_data["provider"]),
+                    resources=[Resource.from_dict(r) for r in env_data["resources"]],
+                )
             )
-            environments.append(env)
 
     if not environments:
         click.echo("❌ No training data available", err=True)
@@ -487,3 +469,12 @@ def dashboard(database_url, host, port, debug):
     except Exception as e:
         logger.error(f"Dashboard failed: {e}", exc_info=True)
         sys.exit(1)
+
+
+def main():
+    """Main entry point."""
+    cli()
+
+
+if __name__ == "__main__":
+    main()

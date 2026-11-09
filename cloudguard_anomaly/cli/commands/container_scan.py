@@ -103,6 +103,8 @@ def container_scan(
         else:
             raise click.exceptions.Exit(0)
 
+    except click.exceptions.Exit:
+        raise
     except Exception as e:
         print_error(f"Container scan failed: {e}")
         logger.error(f"Container scan error: {e}", exc_info=True)
