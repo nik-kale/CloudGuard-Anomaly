@@ -29,8 +29,9 @@ jobs:
         cache: 'pip'
 
     - name: Install linting tools
+      # Pinned so a new formatter style or lint rule cannot turn main red on its own
       run: |
-        pip install black ruff mypy
+        pip install black==26.10.1 ruff==0.17.4 mypy==2.4.1
 
     - name: Run Black format check
       run: black --check cloudguard_anomaly/ tests/
@@ -66,11 +67,12 @@ jobs:
 
     - name: Run Safety dependency check
       run: |
-        safety check --json || true
-        safety check
+        safety check -r requirements.txt --json || true
+        safety check -r requirements.txt
 
     - name: Run pip-audit
-      run: pip-audit --desc
+      # Audit the application's dependencies, not this job's scanner tooling
+      run: pip-audit -r requirements.txt --desc
 
     - name: Upload Bandit results
       uses: actions/upload-artifact@v4
@@ -147,7 +149,7 @@ jobs:
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
-        file: ./coverage.xml
+        files: ./coverage.xml
         flags: unittests
         name: cloudguard-coverage
 
@@ -166,9 +168,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint, test]
 
+    permissions:
+      contents: read
+      security-events: write
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Lowercase image name
+      # Docker rejects repository names with capitals; nik-kale/CloudGuard-Anomaly has them
+      run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> "$GITHUB_ENV"
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
