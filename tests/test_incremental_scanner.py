@@ -2,8 +2,11 @@
 Tests for incremental scanning with hash-based change detection.
 """
 
+from datetime import datetime
+
 from cloudguard_anomaly.core.incremental import IncrementalScanTracker, ResourceSnapshot
-from cloudguard_anomaly.core.models import CloudProvider, Resource, ResourceType
+from cloudguard_anomaly.core.models import Provider, Resource, ResourceType
+from cloudguard_anomaly.storage.database import ScanRecord
 
 
 class TestIncrementalScanner:
@@ -185,7 +188,7 @@ class TestIncrementalScanner:
             id="new-resource-123",
             name="new-resource",
             type=ResourceType.STORAGE,
-            provider=CloudProvider.AWS,
+            provider=Provider.AWS,
             region="us-west-2",
             properties={},
         )
@@ -283,13 +286,27 @@ class TestIncrementalScanner:
         assert len(modified) == 0
         assert len(unchanged) == 0
 
-    def test_load_snapshots_from_database(self, database, sample_scan_result):
-        """Test loading snapshots from database."""
-        # Save a scan to database
+    def test_load_snapshots_reads_the_requested_environment(self, database, sample_scan_result):
+        """Snapshots from another environment would hide its changes."""
+        tracker = IncrementalScanTracker(database=database)
+        tracker.save_snapshots(sample_scan_result.environment.resources)
+        snapshots = tracker.get_snapshot_metadata()
+
+        session = database.get_session()
+        try:
+            sample_scan_result.environment.name = "wanted"
+            scan_id = database.save_scan(sample_scan_result)
+            record = session.get(ScanRecord, scan_id)
+            record.data = {**record.data, "resource_snapshots": snapshots}
+            session.commit()
+        finally:
+            session.close()
+        sample_scan_result.environment.name = "unrelated"
         database.save_scan(sample_scan_result)
 
-        tracker = IncrementalScanTracker(database=database)
-        # In production, would load from database
-        # For now, this tests the structure
-        count = tracker.load_snapshots("test-environment")
-        assert count >= 0  # May or may not find snapshots
+        loaded = IncrementalScanTracker(database=database)
+        assert loaded.load_snapshots("wanted") == len(snapshots)
+
+    def test_hash_handles_non_json_properties(self, sample_s3_bucket):
+        sample_s3_bucket.properties["created"] = datetime(2024, 1, 1)
+        assert len(IncrementalScanTracker().compute_resource_hash(sample_s3_bucket)) == 64

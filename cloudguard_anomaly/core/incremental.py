@@ -75,7 +75,7 @@ class IncrementalScanTracker:
         }
 
         # Sort dict keys for consistent hashing
-        canonical_json = json.dumps(config_dict, sort_keys=True)
+        canonical_json = json.dumps(config_dict, sort_keys=True, default=str)
         config_hash = hashlib.sha256(canonical_json.encode()).hexdigest()
 
         return config_hash
@@ -97,7 +97,7 @@ class IncrementalScanTracker:
         try:
             # In production, add ResourceSnapshot table to database schema
             # For now, store in scan metadata
-            recent_scans = self.database.get_scans(limit=1)
+            recent_scans = self.database.get_scans(environment_name=environment_name, limit=1)
 
             if recent_scans:
                 last_scan = recent_scans[0]

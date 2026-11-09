@@ -211,7 +211,7 @@ class PolicyEvaluator:
 
         # Check various public access patterns
         public_indicators = [
-            props.get("public_access_block_configuration", {}).get("block_public_acls") == False,
+            props.get("public_access_block_configuration", {}).get("block_public_acls") is False,
             props.get("acl") == "public-read",
             props.get("acl") == "public-read-write",
             "0.0.0.0/0" in str(props.get("cidr_blocks", [])),
@@ -220,30 +220,33 @@ class PolicyEvaluator:
 
         return any(public_indicators)
 
+    @staticmethod
+    def _is_enabled(value: Any) -> bool:
+        """Read a boolean setting or a settings block with an ``enabled`` key."""
+        if isinstance(value, dict):
+            return bool(value) and value.get("enabled", True) is not False
+        return bool(value)
+
     def _check_encryption(self, resource: Resource) -> bool:
-        """Check if resource lacks encryption."""
+        """Return True (a violation) unless some property shows encryption is on."""
         props = resource.properties
-
-        encryption_indicators = [
-            props.get("encryption_enabled") == False,
-            props.get("encrypted") == False,
-            props.get("encryption") is None,
-            props.get("server_side_encryption_configuration") is None,
-        ]
-
-        return any(encryption_indicators)
+        return not any(
+            self._is_enabled(props.get(key))
+            for key in (
+                "encryption_enabled",
+                "encrypted",
+                "encryption",
+                "server_side_encryption_configuration",
+            )
+        )
 
     def _check_logging(self, resource: Resource) -> bool:
-        """Check if resource lacks logging/monitoring."""
+        """Return True (a violation) unless some property shows logging is on."""
         props = resource.properties
-
-        logging_indicators = [
-            props.get("logging_enabled") == False,
-            props.get("logging") is None,
-            props.get("access_logging") is None,
-        ]
-
-        return any(logging_indicators)
+        return not any(
+            self._is_enabled(props.get(key))
+            for key in ("logging_enabled", "logging", "access_logging")
+        )
 
     def _create_finding(self, resource: Resource, policy: Policy) -> Finding:
         """Create a finding from a policy violation."""

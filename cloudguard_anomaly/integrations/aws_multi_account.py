@@ -288,31 +288,21 @@ class AWSMultiAccountScanner:
         from cloudguard_anomaly.integrations.aws_live import AWSLiveIntegration
 
         try:
-            # Create scanner for this region
-            scanner = AWSLiveIntegration(
-                profile_name=None, region=region, session=session  # Using session instead
-            )
+            # The assumed-role session carries this account's credentials
+            scanner = AWSLiveIntegration(region=region, session=session)
 
-            # Discover resources
-            resources = scanner.discover_resources()
-
-            # Create environment
-            env = Environment(
-                name=f"{account.account_name}-{region}",
-                provider=Provider.AWS,
-                resources=resources,
-                metadata={
+            env = scanner.discover_all_resources()
+            env.name = f"{account.account_name}-{region}"
+            env.metadata.update(
+                {
                     "account_id": account.account_id,
                     "account_name": account.account_name,
                     "region": region,
                     "scan_type": "multi_account",
-                },
+                }
             )
 
-            # Add region attribute
-            env.region = region
-
-            logger.debug(f"Found {len(resources)} resources in {region}/{account.account_id}")
+            logger.debug(f"Found {len(env.resources)} resources in {region}/{account.account_id}")
 
             return env
 

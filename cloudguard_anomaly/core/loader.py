@@ -164,7 +164,7 @@ class ConfigLoader:
             except Exception as e:
                 logger.warning(f"Failed to load {file_path}: {e}")
 
-        for file_path in dir_path.glob("*.yaml"):
+        for file_path in sorted([*dir_path.glob("*.yaml"), *dir_path.glob("*.yml")]):
             try:
                 config = ConfigLoader.load_yaml(file_path)
                 resources.extend(ConfigLoader._parse_resources(config, provider))

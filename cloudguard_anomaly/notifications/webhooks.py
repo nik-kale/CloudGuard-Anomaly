@@ -18,6 +18,9 @@ from cloudguard_anomaly.core.models import Finding, ScanResult, Severity
 
 logger = logging.getLogger(__name__)
 
+# Seconds to wait on a webhook before giving up
+DEFAULT_TIMEOUT = 10
+
 
 class WebhookNotifier:
     """Generic webhook notifier."""
@@ -114,6 +117,16 @@ class SlackNotifier:
 
         self.webhook_url = webhook_url
         self.use_blocks = use_blocks
+
+    def send_message(self, text: str) -> bool:
+        """Post a plain text message to the channel."""
+        try:
+            response = requests.post(self.webhook_url, json={"text": text}, timeout=DEFAULT_TIMEOUT)
+            response.raise_for_status()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send Slack message: {e}")
+            return False
 
     def send_scan_summary(self, scan_result: ScanResult) -> bool:
         """Send formatted scan summary to Slack using Block Kit."""

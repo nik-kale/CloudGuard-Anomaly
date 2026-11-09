@@ -8,6 +8,7 @@ import json
 import logging
 import os
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class SecretsManager:
             backend: Backend to use (env, vault, aws, azure, gcp)
         """
         self.backend = SecretsBackend(backend)
-        self.client = None
+        self.client: Any = None
 
         if self.backend == SecretsBackend.VAULT:
             self._init_vault()
@@ -178,7 +179,11 @@ class SecretsManager:
             response = self.client.get_secret_value(SecretId=path)
 
             if "SecretString" in response:
-                secret = json.loads(response["SecretString"])
+                try:
+                    secret = json.loads(response["SecretString"])
+                except json.JSONDecodeError:
+                    # Secrets created outside CloudGuard are often bare strings
+                    return response["SecretString"]
                 # If it's a dict, get 'value' key, otherwise return the whole thing
                 if isinstance(secret, dict):
                     return secret.get("value", default)

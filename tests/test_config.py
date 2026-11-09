@@ -162,8 +162,7 @@ class TestConfiguration:
         ):
             config = Config()
 
-            # Config should have these available if defined
-            assert hasattr(config, "aws_default_region") or True
+            assert config.aws_profile == "production"
 
     def test_config_local_llm_settings(self):
         """Test local LLM configuration."""

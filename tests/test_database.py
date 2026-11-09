@@ -2,7 +2,15 @@
 Tests for database storage layer.
 """
 
-from cloudguard_anomaly.storage.database import DatabaseStorage
+from unittest.mock import MagicMock
+
+import cloudguard_anomaly.storage.database as storage
+from cloudguard_anomaly.storage.database import (
+    AnomalyRecord,
+    ComplianceRecord,
+    DatabaseStorage,
+    ScanRecord,
+)
 
 
 class TestDatabaseStorage:
@@ -140,19 +148,56 @@ class TestDatabaseStorage:
         # May have been deleted or not depending on exact timing
         assert isinstance(scans, list)
 
-    def test_connection_pooling_config(self):
-        """Test connection pooling configuration for non-SQLite."""
-        # PostgreSQL URL would enable pooling
-        postgres_url = "postgresql://user:pass@localhost/testdb"
+    def test_connection_pooling_config(self, monkeypatch):
+        """Non-SQLite URLs get a bounded, recycled pool."""
+        engine = MagicMock()
+        monkeypatch.setattr(storage, "create_engine", engine)
+        monkeypatch.setattr(storage.Base.metadata, "create_all", MagicMock())
 
-        # Should not crash on initialization
-        # (won't actually connect in test)
+        DatabaseStorage("postgresql://user:pass@localhost/testdb")
+
+        kwargs = engine.call_args.kwargs
+        assert kwargs["pool_size"] > 0
+        assert kwargs["pool_recycle"] == 3600
+
+    def test_cleanup_removes_every_scan_table(self, database, sample_scan_result):
+        """Anomalies and compliance rows used to outlive their scans."""
+        scan_id = database.save_scan(sample_scan_result)
+        session = database.get_session()
         try:
-            db = DatabaseStorage(postgres_url)
-            assert db.database_url == postgres_url
-        except Exception as e:
-            # Connection might fail, but pooling config should work
-            assert "postgresql" in str(e).lower() or True
+            session.add(
+                ComplianceRecord(
+                    id="c1",
+                    scan_id=scan_id,
+                    framework="soc2",
+                    timestamp=sample_scan_result.timestamp,
+                )
+            )
+            session.commit()
+        finally:
+            session.close()
+
+        database.cleanup_old_data(days=0)
+
+        session = database.get_session()
+        try:
+            assert session.query(AnomalyRecord).count() == 0
+            assert session.query(ComplianceRecord).count() == 0
+            assert session.query(ScanRecord).count() == 0
+        finally:
+            session.close()
+
+    def test_statistics_tolerate_scans_without_a_score(self, database, sample_scan_result):
+        scan_id = database.save_scan(sample_scan_result)
+        session = database.get_session()
+        try:
+            session.get(ScanRecord, scan_id).risk_score = None
+            session.commit()
+        finally:
+            session.close()
+
+        stats = database.get_statistics(sample_scan_result.environment.name)
+        assert stats["scan_count"] >= 1
 
     def test_get_compliance_results(self, database):
         """Test querying compliance results."""

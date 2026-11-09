@@ -78,7 +78,7 @@ class ParallelScanner:
         elapsed = time.time() - start_time
         logger.info(
             f"Parallel scan completed: {total} resources in {elapsed:.2f}s "
-            f"({total/elapsed:.1f} resources/sec), {len(all_findings)} findings"
+            f"({total / max(elapsed, 1e-9):.1f} resources/sec), {len(all_findings)} findings"
         )
 
         return all_findings
@@ -102,48 +102,38 @@ class ParallelScanner:
         Returns:
             List of findings
         """
-        all_findings = []
+        all_findings: list[Finding] = []
 
-        # Create task list: (resource, policy) pairs
-        tasks = [(resource, policy) for resource in resources for policy in policies]
-        total = len(tasks)
+        # Check each resource against the policies that apply to it
+        total = len(resources)
         completed = 0
 
         start_time = time.time()
         logger.info(
-            f"Starting parallel policy evaluation: {len(resources)} resources × {len(policies)} policies = {total} checks"
+            f"Starting parallel policy evaluation: {total} resources, {len(policies)} policies"
         )
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Submit all policy evaluation tasks
-            future_to_task = {
-                executor.submit(evaluator.evaluate_policy, resource, policy): (resource, policy)
-                for resource, policy in tasks
+            future_to_resource = {
+                executor.submit(evaluator.evaluate_resource, resource): resource
+                for resource in resources
             }
 
-            # Process completed evaluations
-            for future in as_completed(future_to_task):
-                resource, policy = future_to_task[future]
+            for future in as_completed(future_to_resource):
+                resource = future_to_resource[future]
                 try:
-                    finding = future.result()
-                    if finding:
-                        all_findings.append(finding)
-                    completed += 1
-
-                    if progress_callback:
-                        progress_callback(completed, total)
-
+                    all_findings.extend(future.result())
                 except Exception as e:
-                    logger.error(
-                        f"Error evaluating policy {policy.id} on resource {resource.id}: {e}",
-                        exc_info=True,
-                    )
-                    completed += 1
+                    logger.error(f"Error evaluating resource {resource.id}: {e}", exc_info=True)
+                completed += 1
+
+                if progress_callback:
+                    progress_callback(completed, total)
 
         elapsed = time.time() - start_time
         logger.info(
             f"Parallel evaluation completed: {total} checks in {elapsed:.2f}s "
-            f"({total/elapsed:.1f} checks/sec), {len(all_findings)} findings"
+            f"({total / max(elapsed, 1e-9):.1f} checks/sec), {len(all_findings)} findings"
         )
 
         return all_findings
@@ -167,9 +157,12 @@ class ParallelScanner:
         Returns:
             Dictionary mapping detector names to their results
         """
-        results = {}
+        results: dict[str, list[Any]] = {}
         total = len(detectors)
         completed = 0
+
+        if not detectors:
+            return results
 
         start_time = time.time()
         logger.info(f"Running {total} detectors in parallel")
@@ -178,10 +171,15 @@ class ParallelScanner:
             # Submit detector tasks
             future_to_detector = {}
             for detector in detectors:
-                if hasattr(detector, "detect_drift") and baseline:
-                    future = executor.submit(detector.detect_drift, environment, baseline)
+                if hasattr(detector, "detect_drift"):
+                    if not baseline:
+                        logger.debug(f"Skipping {type(detector).__name__}: no baseline")
+                        continue
+                    future = executor.submit(
+                        detector.detect_drift, baseline.resources, environment.resources
+                    )
                 elif hasattr(detector, "detect"):
-                    future = executor.submit(detector.detect, environment)
+                    future = executor.submit(detector.detect, environment.resources)
                 else:
                     logger.warning(f"Detector {type(detector).__name__} has no detect method")
                     continue

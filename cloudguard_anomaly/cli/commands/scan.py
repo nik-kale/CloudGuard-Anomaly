@@ -8,8 +8,8 @@ from pathlib import Path
 from cloudguard_anomaly.core.engine import AnalysisEngine
 from cloudguard_anomaly.core.loader import ConfigLoader
 from cloudguard_anomaly.policies.policy_engine import PolicyEngine
-from cloudguard_anomaly.reports.html_report_stub import HTMLReporter
 from cloudguard_anomaly.reports.common import safe_report_name
+from cloudguard_anomaly.reports.html_report_stub import HTMLReporter
 from cloudguard_anomaly.reports.json_reporter import JSONReporter
 from cloudguard_anomaly.reports.markdown_reporter import MarkdownReporter
 from cloudguard_anomaly.reports.pdf_reporter import PDFReporter

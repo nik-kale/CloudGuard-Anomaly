@@ -90,8 +90,8 @@ class AttackPathAnalyzer:
         for resource in environment.resources:
             node_data = {
                 "type": "resource",
-                "resource_type": str(resource.type),
-                "provider": str(resource.provider),
+                "resource_type": resource.type.value,
+                "provider": resource.provider.value,
                 "region": resource.region,
                 "properties": resource.properties,
             }
@@ -179,8 +179,9 @@ class AttackPathAnalyzer:
             # Public access findings create entry points
             if "public" in finding.title.lower() or "exposed" in finding.title.lower():
                 finding_node = f"finding-{finding.id}"
-                # This finding represents a potential entry point
+                # This finding represents a potential entry point into its resource
                 self.graph.nodes[finding_node]["entry_point"] = True
+                self.graph.add_edge(finding_node, finding.resource.id, relationship="exposes")
 
             # IAM findings may lead to privilege escalation
             if "iam" in finding.title.lower() or "permission" in finding.title.lower():
@@ -312,7 +313,7 @@ class AttackPathAnalyzer:
             severity = node.severity.lower() if node.severity else "info"
             risk_score += severity_weights.get(severity, 0)
 
-        # Penalty for path length (longer = easier)
+        # Each extra hop makes the chain harder to exploit
         path_length_penalty = len(nodes) * 2
 
         # Bonus for entry point + escalation + critical target
@@ -327,9 +328,7 @@ class AttackPathAnalyzer:
         if has_critical_target:
             risk_score += 20
 
-        total_risk = risk_score + path_length_penalty
-
-        return min(100.0, total_risk)
+        return max(0.0, min(100.0, risk_score - path_length_penalty))
 
     def generate_path_report(self, paths: list[AttackPath]) -> str:
         """

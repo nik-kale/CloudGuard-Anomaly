@@ -5,6 +5,7 @@ Provides real-time resource discovery and analysis from live AWS accounts.
 """
 
 import logging
+from typing import Any
 
 try:
     import boto3
@@ -28,6 +29,7 @@ class AWSLiveIntegration:
         region: str = "us-east-1",
         access_key: str | None = None,
         secret_key: str | None = None,
+        session: Any = None,
     ):
         """
         Initialize AWS live integration.
@@ -37,13 +39,16 @@ class AWSLiveIntegration:
             region: AWS region
             access_key: AWS access key ID
             secret_key: AWS secret access key
+            session: Existing boto3 session, e.g. from an assumed role
         """
         if not BOTO3_AVAILABLE:
             raise ImportError(
                 "boto3 is required for AWS live integration. Install with: pip install boto3"
             )
 
-        if access_key and secret_key:
+        if session is not None:
+            self.session = session
+        elif access_key and secret_key:
             self.session = boto3.Session(
                 aws_access_key_id=access_key,
                 aws_secret_access_key=secret_key,

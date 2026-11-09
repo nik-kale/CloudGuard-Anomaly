@@ -14,17 +14,24 @@ from click.testing import CliRunner
 
 from cloudguard_anomaly.cli.commands.scan import execute_scan
 from cloudguard_anomaly.cli.main import cli
+from cloudguard_anomaly.core.engine import AnalysisEngine
+from cloudguard_anomaly.core.evaluator import PolicyEvaluator
 from cloudguard_anomaly.core.loader import ConfigLoader
 from cloudguard_anomaly.core.models import (
+    Environment,
     Finding,
     FindingType,
+    Policy,
     Provider,
     Resource,
     ResourceType,
     Severity,
 )
+from cloudguard_anomaly.integrations.aws_live import AWSLiveIntegration
+from cloudguard_anomaly.integrations.aws_multi_account import AWSAccount, AWSMultiAccountScanner
 from cloudguard_anomaly.reports import HTMLReporter, JSONReporter, MarkdownReporter, PDFReporter
 from cloudguard_anomaly.reports.common import safe_report_name
+from cloudguard_anomaly.security.secrets import SecretsManager
 from cloudguard_anomaly.storage.database import DatabaseStorage
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -269,3 +276,74 @@ class TestContainerEntrypoint:
 def test_image_does_not_install_packages_under_root_home():
     """The container runs as a non-root user that cannot read /root/.local."""
     assert "/root/.local" not in (REPO_ROOT / "Dockerfile").read_text()
+
+
+class TestCoreRegressions:
+    def _policy_finding(self, resource_type, check, **properties):
+        resource = Resource(
+            id="r",
+            name="r",
+            type=resource_type,
+            provider=Provider.AWS,
+            region="x",
+            properties=properties,
+        )
+        policy = Policy(
+            id="P",
+            name="n",
+            description="d",
+            severity=Severity.HIGH,
+            provider=Provider.MULTI,
+            resource_types=[resource_type],
+            condition={"custom": {"type": check}},
+            remediation="r",
+        )
+        return PolicyEvaluator([policy]).evaluate_resource(resource)
+
+    def test_encrypted_resource_is_not_flagged(self):
+        """Every encryption key had to be present, so nothing could ever pass."""
+        assert self._policy_finding(ResourceType.STORAGE, "encryption", encrypted=True) == []
+
+    def test_unencrypted_resource_is_flagged(self):
+        assert len(self._policy_finding(ResourceType.STORAGE, "encryption", encrypted=False)) == 1
+
+    def test_logging_enabled_resource_is_not_flagged(self):
+        assert self._policy_finding(ResourceType.STORAGE, "logging", logging_enabled=True) == []
+
+    def test_disabled_settings_block_counts_as_off(self):
+        findings = self._policy_finding(
+            ResourceType.STORAGE, "encryption", encryption={"enabled": False}
+        )
+        assert len(findings) == 1
+
+    def test_yml_files_are_loaded(self, tmp_path):
+        (tmp_path / "res.yml").write_text(
+            yaml.safe_dump({"resources": [{"id": "a", "name": "a", "type": "storage"}]})
+        )
+        assert len(ConfigLoader._load_resources_from_dir(tmp_path, Provider.AWS)) == 1
+
+    def test_scan_does_not_warn_about_missing_agents(self, caplog, sample_environment):
+        engine = AnalysisEngine(enable_agents=True)
+        engine.scan_environment(sample_environment)
+        assert "Could not initialize LLM agents" not in caplog.text
+
+    def test_aws_secret_stored_as_a_bare_string(self):
+        manager = SecretsManager("env")
+        manager.client = MagicMock()
+        manager.client.exceptions.ResourceNotFoundException = KeyError
+        manager.client.get_secret_value.return_value = {"SecretString": "not-json"}
+        assert manager._get_aws_secret("path", None) == "not-json"
+
+    def test_multi_account_scan_uses_the_assumed_session(self):
+        """Region scans passed arguments the integration never accepted."""
+        session = MagicMock()
+        session.client.return_value.get_caller_identity.return_value = {"Account": "1"}
+        environment = Environment("live", Provider.AWS, resources=[])
+        scanner = AWSMultiAccountScanner.__new__(AWSMultiAccountScanner)
+        account = AWSAccount(account_id="1", account_name="prod")
+
+        with patch.object(AWSLiveIntegration, "discover_all_resources", return_value=environment):
+            result = scanner._scan_single_region(session, "eu-west-1", account, None)
+
+        assert result.name == "prod-eu-west-1"
+        assert result.metadata["region"] == "eu-west-1"

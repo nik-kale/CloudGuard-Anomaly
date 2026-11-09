@@ -22,6 +22,7 @@ except ImportError:
 from cloudguard_anomaly.config import get_config
 from cloudguard_anomaly.core.engine import AnalysisEngine
 from cloudguard_anomaly.core.models import Environment, ScanResult
+from cloudguard_anomaly.notifications.webhooks import SlackNotifier
 from cloudguard_anomaly.storage.database import DatabaseStorage
 
 logger = logging.getLogger(__name__)
@@ -65,8 +66,6 @@ class MonitoringDaemon:
         self.slack_notifier = None
         if slack_webhook or config.slack_webhook_url:
             try:
-                from cloudguard_anomaly.notifications.webhooks import SlackNotifier
-
                 self.slack_notifier = SlackNotifier(slack_webhook or config.slack_webhook_url)
             except (ImportError, Exception) as e:
                 logger.warning(f"Could not initialize Slack notifier: {e}")
@@ -206,7 +205,9 @@ class MonitoringDaemon:
     def _check_for_changes(self, target_name: str, current_result: ScanResult):
         """Check for significant changes from previous scan."""
         # Get previous scans from database
-        previous_scans = self.database.get_scans(days=1, limit=5)
+        previous_scans = self.database.get_scans(
+            environment_name=current_result.environment.name, days=1, limit=5
+        )
 
         if len(previous_scans) < 2:
             return  # Need at least 2 scans to compare

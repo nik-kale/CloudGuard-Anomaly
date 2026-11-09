@@ -10,10 +10,10 @@ import pytest
 
 from cloudguard_anomaly.core.models import (
     Anomaly,
-    Provider,
     Environment,
     Finding,
     FindingType,
+    Provider,
     Resource,
     ResourceType,
     ScanResult,

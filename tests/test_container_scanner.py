@@ -111,7 +111,7 @@ class TestDockerScanner:
 
         # GitHub Token
         matches = scanner.secret_patterns["GitHub Token"].findall(
-            "ghp_1234567890abcdefghijklmnopqrstuvwx"
+            "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
         )
         assert len(matches) == 1
 
@@ -174,7 +174,7 @@ ADD app.py /app/
 
         findings = scanner._scan_dockerfile(str(dockerfile))
         add_findings = [f for f in findings if f.finding_id == "DOCKERFILE-002"]
-        assert len(add_findings) >= 0  # May or may not detect depending on context
+        assert len(add_findings) == 1
 
     def test_generate_summary(self, scanner):
         """Test summary generation."""
@@ -255,15 +255,3 @@ ADD app.py /app/
         layer_findings = [f for f in findings if f.finding_id == "CONTAINER-LAYER-001"]
         assert len(layer_findings) == 1
         assert layer_findings[0].metadata["layer_count"] == 60
-
-
-@pytest.mark.integration
-class TestDockerScannerIntegration:
-    """Integration tests requiring Docker."""
-
-    @pytest.mark.skipif(not pytest.docker_available, reason="Docker not available")
-    def test_scan_real_image(self, scanner):
-        """Test scanning a real Docker image."""
-        # This would require Docker to be installed and running
-        # Skip in CI unless Docker is available
-        pass

@@ -402,7 +402,7 @@ class DatabaseStorage:
                 query = query.filter(FindingRecord.severity == severity)
 
             if unresolved_only:
-                query = query.filter(FindingRecord.resolved == False)
+                query = query.filter(FindingRecord.resolved.is_(False))
 
             return query.order_by(FindingRecord.timestamp.desc()).limit(limit).all()
 
@@ -502,14 +502,15 @@ class DatabaseStorage:
                 )
                 .all()
             )
-            avg_risk_score = sum(r[0] for r in avg_risk) / len(avg_risk) if avg_risk else 0
+            scores = [row[0] for row in avg_risk if row[0] is not None]
+            avg_risk_score = sum(scores) / len(scores) if scores else 0
 
             # Get unresolved findings count
             unresolved_count = (
                 session.query(FindingRecord)
                 .filter(
                     FindingRecord.environment_name == environment_name,
-                    FindingRecord.resolved == False,
+                    FindingRecord.resolved.is_(False),
                 )
                 .count()
             )
@@ -542,8 +543,18 @@ class DatabaseStorage:
                 session.query(FindingRecord).filter(FindingRecord.timestamp < cutoff).delete()
             )
 
+            deleted_anomalies = (
+                session.query(AnomalyRecord).filter(AnomalyRecord.timestamp < cutoff).delete()
+            )
+            deleted_compliance = (
+                session.query(ComplianceRecord).filter(ComplianceRecord.timestamp < cutoff).delete()
+            )
+
             session.commit()
-            logger.info(f"Cleaned up {deleted_scans} scans and {deleted_findings} findings")
+            logger.info(
+                f"Cleaned up {deleted_scans} scans, {deleted_findings} findings, "
+                f"{deleted_anomalies} anomalies and {deleted_compliance} compliance records"
+            )
 
         except Exception as e:
             session.rollback()
@@ -663,7 +674,7 @@ class DatabaseStorage:
                 query = query.filter(PolicyRecord.severity == severity)
 
             if enabled_only:
-                query = query.filter(PolicyRecord.enabled == True)
+                query = query.filter(PolicyRecord.enabled.is_(True))
 
             return query.order_by(PolicyRecord.created_at.desc()).limit(limit).offset(offset).all()
 

@@ -4,15 +4,11 @@ Tests for PDF reporter.
 
 import pytest
 
-try:
-    from cloudguard_anomaly.reports.pdf_reporter import PDFReporter
+pytest.importorskip("reportlab")
 
-    REPORTLAB_AVAILABLE = True
-except ImportError:
-    REPORTLAB_AVAILABLE = False
+from cloudguard_anomaly.reports.pdf_reporter import PDFReporter  # noqa: E402
 
 
-@pytest.mark.skipif(not REPORTLAB_AVAILABLE, reason="ReportLab not installed")
 class TestPDFReporter:
     """Test PDF report generation."""
 
@@ -214,11 +210,3 @@ class TestPDFReporter:
         assert reporter._format_risk_score(75.5) == "75.5/100"
         assert reporter._format_risk_score(100.0) == "100.0/100"
         assert reporter._format_risk_score(0.0) == "0.0/100"
-
-
-@pytest.mark.skipif(REPORTLAB_AVAILABLE, reason="Test import error handling")
-def test_pdf_reporter_import_error():
-    """Test handling when ReportLab is not installed."""
-    with pytest.raises(ImportError, match="ReportLab required"):
-        # This would fail if reportlab is actually available
-        pass
