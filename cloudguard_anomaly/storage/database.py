@@ -170,7 +170,7 @@ class DatabaseStorage:
         Args:
             database_url: SQLAlchemy database URL
         """
-        from cloudguard_anomaly.config import get_config
+        from cloudguard_anomaly.config import get_config, redact_database_url
 
         config = get_config()
 
@@ -206,7 +206,7 @@ class DatabaseStorage:
         # objects have to keep their loaded attributes.
         self.SessionLocal = sessionmaker(bind=self.engine, expire_on_commit=False)
 
-        logger.info(f"Initialized database storage: {database_url}")
+        logger.info(f"Initialized database storage: {redact_database_url(database_url)}")
 
     def get_session(self) -> Session:
         """Get a new database session."""
@@ -248,7 +248,7 @@ class DatabaseStorage:
             # Save individual findings
             for finding in scan_result.findings:
                 finding_record = FindingRecord(
-                    id=finding.id,
+                    id=str(uuid.uuid4()),
                     scan_id=scan_id,
                     environment_name=scan_result.environment.name,
                     severity=finding.severity.value,
@@ -265,7 +265,7 @@ class DatabaseStorage:
             # Save anomalies
             for anomaly in scan_result.anomalies:
                 anomaly_record = AnomalyRecord(
-                    id=anomaly.id,
+                    id=str(uuid.uuid4()),
                     scan_id=scan_id,
                     environment_name=scan_result.environment.name,
                     type=anomaly.type,

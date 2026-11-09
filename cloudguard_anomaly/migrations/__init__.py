@@ -30,7 +30,7 @@ class MigrationManager:
         Args:
             database_url: Database URL (uses config default if not provided)
         """
-        from cloudguard_anomaly.config import get_config
+        from cloudguard_anomaly.config import get_config, redact_database_url
 
         config = get_config()
         self.database_url = database_url or config.database_url
@@ -48,7 +48,7 @@ class MigrationManager:
         self.alembic_cfg = AlembicConfig(str(alembic_ini_path))
         self.alembic_cfg.set_main_option("sqlalchemy.url", self.database_url)
 
-        logger.info(f"Migration manager initialized for: {self.database_url}")
+        logger.info(f"Migration manager initialized for: {redact_database_url(self.database_url)}")
 
     def upgrade(self, revision: str = "head"):
         """

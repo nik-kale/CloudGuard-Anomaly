@@ -465,7 +465,7 @@ def train_ml(database_url, days, save_model):
 
 @cli.command()
 @click.option("--database-url", required=True, help="Database URL")
-@click.option("--host", default="0.0.0.0", help="Host to bind to")
+@click.option("--host", default="127.0.0.1", help="Host to bind to")
 @click.option("--port", default=5000, type=int, help="Port to listen on")
 @click.option("--debug", is_flag=True, help="Enable debug mode")
 def dashboard(database_url, host, port, debug):
@@ -475,10 +475,11 @@ def dashboard(database_url, host, port, debug):
     Example:
         cloudguard-anomaly dashboard --database-url sqlite:///cloudguard.db
     """
+    from cloudguard_anomaly.config import redact_database_url
     from cloudguard_anomaly.dashboard import run_dashboard
 
     click.echo(f"🚀 Starting CloudGuard-Anomaly Dashboard on {host}:{port}")
-    click.echo(f"📊 Database: {database_url}")
+    click.echo(f"📊 Database: {redact_database_url(database_url)}")
     click.echo(f"🌐 Open your browser to: http://localhost:{port}")
 
     try:

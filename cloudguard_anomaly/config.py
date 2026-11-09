@@ -5,6 +5,7 @@ Centralized configuration with environment variable support.
 """
 
 import os
+import re
 import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -50,7 +51,7 @@ class Config:
 
     # Dashboard
     dashboard_secret_key: str = field(default_factory=lambda: os.getenv("DASHBOARD_SECRET_KEY", ""))
-    dashboard_host: str = field(default_factory=lambda: os.getenv("DASHBOARD_HOST", "0.0.0.0"))
+    dashboard_host: str = field(default_factory=lambda: os.getenv("DASHBOARD_HOST", "127.0.0.1"))
     dashboard_port: int = field(default_factory=lambda: int(os.getenv("DASHBOARD_PORT", "5000")))
     dashboard_debug: bool = field(
         default_factory=lambda: os.getenv("DASHBOARD_DEBUG", "false").lower() == "true"
@@ -160,6 +161,11 @@ class Config:
         elif self.llm_provider == "openai" or (self.llm_provider == "auto" and self.openai_api_key):
             return self.openai_api_key
         return None
+
+
+def redact_database_url(url: str) -> str:
+    """Hide the password in a database URL so it is safe to log or print."""
+    return re.sub(r"(://[^:/@]+:)[^@]+(@)", r"\1***\2", url)
 
 
 # Global configuration instance

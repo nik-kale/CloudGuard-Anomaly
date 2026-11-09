@@ -65,11 +65,11 @@ from cloudguard_anomaly.auth.decorators import (
     permission_required,
 )
 from cloudguard_anomaly.auth.models import Permission
-from cloudguard_anomaly.config import get_config
+from cloudguard_anomaly.config import get_config, redact_database_url
 from cloudguard_anomaly.middleware import setup_middleware
 from cloudguard_anomaly.observability.logging import setup_logging
 from cloudguard_anomaly.observability.metrics import get_metrics, get_metrics_content_type
-from cloudguard_anomaly.storage.database import DatabaseStorage, set_database
+from cloudguard_anomaly.storage.database import DatabaseStorage, get_database, set_database
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +81,9 @@ config = get_config()
 
 # Every route takes small JSON bodies; refuse anything larger before parsing it
 app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
+
+# Keep the session cookie off cross-site requests
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 # Initialize observability
 setup_logging(log_level=config.log_level, log_format=getattr(config, "log_format", "json"))
@@ -160,7 +163,7 @@ def init_dashboard(database_url: str):
     global db
     db = DatabaseStorage(database_url)
     set_database(db)
-    logger.info(f"Dashboard initialized with database: {database_url}")
+    logger.info(f"Dashboard initialized with database: {redact_database_url(database_url)}")
 
 
 def create_app(database_url: str | None = None) -> Flask:
@@ -203,8 +206,9 @@ def health():
 
                 session_obj.execute(text("SELECT 1"))
                 db_status = "healthy"
-            except Exception as e:
-                db_status = f"unhealthy: {str(e)}"
+            except Exception:
+                logger.exception("Database health check failed")
+                db_status = "unhealthy"
             finally:
                 session_obj.close()
         else:
@@ -225,9 +229,7 @@ def health():
     except Exception as e:
         logger.error(f"Health check failed: {e}", exc_info=True)
         return (
-            jsonify(
-                {"status": "unhealthy", "error": str(e), "timestamp": datetime.utcnow().isoformat()}
-            ),
+            jsonify({"status": "unhealthy", "timestamp": datetime.utcnow().isoformat()}),
             503,
         )
 
@@ -262,47 +264,8 @@ def ready():
     except Exception as e:
         logger.error(f"Database health check failed: {e}")
         return (
-            jsonify(
-                {"status": "not ready", "reason": "Database connection failed", "error": str(e)}
-            ),
+            jsonify({"status": "not ready", "reason": "Database connection failed"}),
             503,
-        )
-
-
-@app.route("/metrics")
-def metrics():
-    """
-    Metrics endpoint for monitoring.
-
-    Returns basic performance and usage metrics.
-    """
-    if not db:
-        return jsonify({"error": "Database not initialized"}), 500
-
-    try:
-        # Get basic metrics
-        recent_scans = db.get_scans(days=7, limit=1000)
-
-        return jsonify(
-            {
-                "scans_last_7_days": len(recent_scans),
-                "database_healthy": True,
-                "cache_backend": config.cache_backend,
-                "rate_limiting_enabled": config.rate_limit_enabled,
-                "timestamp": datetime.utcnow().isoformat(),
-            }
-        )
-    except Exception as e:
-        logger.error(f"Metrics collection failed: {e}")
-        return (
-            jsonify(
-                {
-                    "error": str(e),
-                    "database_healthy": False,
-                    "timestamp": datetime.utcnow().isoformat(),
-                }
-            ),
-            500,
         )
 
 
@@ -311,7 +274,15 @@ def metrics():
 # =============================================================================
 
 
+def rate_limit(rule: str):
+    """Apply a per-route POST limit when rate limiting is enabled."""
+    if limiter:
+        return limiter.limit(rule, methods=["POST"])
+    return lambda view: view
+
+
 @app.route("/login", methods=["GET", "POST"])
+@rate_limit("5 per minute")
 def login():
     """
     User login endpoint.
@@ -319,14 +290,6 @@ def login():
     GET: Show login page
     POST: Authenticate user
     """
-    # Apply rate limiting for POST requests (login attempts)
-    if request.method == "POST" and limiter:
-        # Check rate limit: 5 attempts per minute
-        try:
-            limiter.check()
-        except Exception:
-            return jsonify({"error": "Too many login attempts. Please try again later."}), 429
-
     if request.method == "GET":
         return render_template("login.html")
 
@@ -417,6 +380,7 @@ def get_current_user():
 
 
 @app.route("/api/auth/generate-api-key", methods=["POST"])
+@rate_limit("3 per hour")
 @login_required
 def generate_api_key():
     """Generate new API key for current user."""
@@ -428,7 +392,7 @@ def generate_api_key():
     api_key = user.generate_api_key()
 
     # Save to database
-    session_obj = db.get_session()
+    session_obj = get_database().get_session()
     try:
         session_obj.merge(user)
         session_obj.commit()
@@ -464,8 +428,10 @@ def get_overview():
         logger.error("Database not initialized")
         return jsonify({"error": safe_error_message(None, "Service unavailable")}), 500
 
+    days = validate_days(request.args.get("days", type=int), max_days=365)
+
     # Apply caching if available
-    cache_key = "overview_stats"
+    cache_key = f"overview_stats:{days}"
     if cache:
         cached = cache.get(cache_key)
         if cached:
@@ -473,7 +439,6 @@ def get_overview():
 
     try:
         # Get recent scans with validated parameters
-        days = validate_days(request.args.get("days", type=int), max_days=365)
         recent_scans = db.get_scans(days=days, limit=100)
 
         # Calculate statistics
@@ -529,7 +494,7 @@ def get_scans():
         limit = validate_limit(request.args.get("limit", type=int))
         environment = validate_environment_name(request.args.get("environment"))
 
-        scans = db.get_scans(days=days, limit=limit)
+        scans = db.get_scans(environment_name=environment, days=days, limit=limit)
 
         scan_list = []
         for scan in scans:
@@ -747,7 +712,9 @@ def broadcast_scan_update(scan_result):
     )
 
 
-def run_dashboard(database_url: str, host: str = "0.0.0.0", port: int = 5000, debug: bool = False):
+def run_dashboard(
+    database_url: str, host: str = "127.0.0.1", port: int = 5000, debug: bool = False
+):
     """Run the dashboard application.
 
     Args:
@@ -758,9 +725,15 @@ def run_dashboard(database_url: str, host: str = "0.0.0.0", port: int = 5000, de
     """
     create_app(database_url)
     logger.info(f"Starting dashboard on {host}:{port}")
-    socketio.run(app, host=host, port=port, debug=debug)
+    # Flask-SocketIO refuses to start on Werkzeug outside debug mode unless told to;
+    # requirements.txt ships no eventlet/gevent server for it to choose instead.
+    socketio.run(app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
 
 
 if __name__ == "__main__":
-    # Example: Run with SQLite database
-    run_dashboard("sqlite:///cloudguard.db", debug=True)
+    run_dashboard(
+        config.database_url,
+        host=config.dashboard_host,
+        port=config.dashboard_port,
+        debug=config.dashboard_debug,
+    )
